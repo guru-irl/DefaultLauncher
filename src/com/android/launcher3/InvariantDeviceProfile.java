@@ -142,6 +142,18 @@ public class InvariantDeviceProfile {
     private final LauncherPrefs mPrefs;
     private final ThemeManager mThemeManager;
 
+    /** User-configured square grid spacing in DP. 0 means use default AOSP layout. */
+    public float squareGridSpacingDp;
+
+    /** Whether the custom square grid mode is active. */
+    public boolean isSquareGrid;
+
+    /** Whether workspace icon labels are hidden. */
+    public boolean hideWorkspaceLabels;
+
+    /** User-configured app drawer row spacing in DP. */
+    public float allAppsRowSpacingDp;
+
     /**
      * Number of icons per row and column in the workspace.
      */
@@ -452,6 +464,27 @@ public class InvariantDeviceProfile {
         // If the partner customization apk contains any grid overrides, apply them
         // Supported overrides: numRows, numColumns, iconSize
         applyPartnerDeviceProfileOverrides(context, metrics);
+
+        // --- Square grid override ---
+        int userColumns = mPrefs.get(LauncherPrefs.GRID_COLUMNS);
+        int userSpacingDp;
+        try {
+            userSpacingDp = Integer.parseInt(mPrefs.get(LauncherPrefs.GRID_SPACING));
+        } catch (ClassCastException e) {
+            // Migration: old SeekBarPreference stored int, new ListPreference stores String
+            userSpacingDp = 16;
+        }
+        isSquareGrid = true;  // Always active; could be gated by a toggle later
+        hideWorkspaceLabels = mPrefs.get(LauncherPrefs.HIDE_WORKSPACE_LABELS);
+        allAppsRowSpacingDp = mPrefs.get(LauncherPrefs.ALLAPPS_ROW_SPACING);
+        if (isSquareGrid) {
+            numColumns = userColumns;
+            numAllAppsColumns = userColumns;
+            numShownHotseatIcons = Math.min(userColumns, closestProfile.numHotseatIcons);
+            squareGridSpacingDp = userSpacingDp;
+            // Set numRows high for database capacity. Actual visible rows derived in DeviceProfile.
+            numRows = 20;
+        }
 
         final List<DeviceProfile> localSupportedProfiles = new ArrayList<>();
         defaultWallpaperSize = new Point(displayInfo.currentSize);

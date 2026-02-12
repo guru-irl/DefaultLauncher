@@ -311,6 +311,15 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         val FIXED_LANDSCAPE_MODE = backedUpItem(SettingsActivity.FIXED_LANDSCAPE_MODE, false)
 
         @JvmField
+        val GRID_COLUMNS = backedUpItem("pref_grid_columns", 5)
+        @JvmField
+        val GRID_SPACING = backedUpItem("pref_grid_spacing", "16")
+        @JvmField
+        val HIDE_WORKSPACE_LABELS = backedUpItem("pref_hide_workspace_labels", false)
+        @JvmField
+        val ALLAPPS_ROW_SPACING = backedUpItem("pref_allapps_row_spacing", 24)
+
+        @JvmField
         val NON_FIXED_LANDSCAPE_GRID_NAME =
             ConstantItem(
                 NON_FIXED_LANDSCAPE_GRID_NAME_PREFS_KEY,

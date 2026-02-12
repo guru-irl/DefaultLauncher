@@ -50,4 +50,41 @@
         launcher:logIdOn="615"
         launcher:logIdOff="616" />
 
+    <PreferenceCategory android:title="@string/grid_settings_category">
+
+        <SeekBarPreference
+            android:key="pref_grid_columns"
+            android:title="@string/grid_columns_title"
+            android:defaultValue="5"
+            android:max="10"
+            launcher:min="4"
+            launcher:showSeekBarValue="true" />
+
+        <ListPreference
+            android:key="pref_grid_spacing"
+            android:title="@string/grid_spacing_title"
+            android:summary="%s"
+            android:entries="@array/grid_spacing_entries"
+            android:entryValues="@array/grid_spacing_values"
+            android:defaultValue="16"
+            android:persistent="true" />
+
+        <SwitchPreference
+            android:key="pref_hide_workspace_labels"
+            android:title="@string/hide_workspace_labels_title"
+            android:summary="@string/hide_workspace_labels_summary"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <SeekBarPreference
+            android:key="pref_allapps_row_spacing"
+            android:title="@string/allapps_row_spacing_title"
+            android:defaultValue="24"
+            android:max="48"
+            launcher:min="8"
+            launcher:seekBarIncrement="4"
+            launcher:showSeekBarValue="true" />
+
+    </PreferenceCategory>
+
 </androidx.preference.PreferenceScreen>

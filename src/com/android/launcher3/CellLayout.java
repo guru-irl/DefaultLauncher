@@ -257,7 +257,7 @@ public class CellLayout extends ViewGroup {
         resetCellSizeInternal(deviceProfile);
 
         mCountX = deviceProfile.inv.numColumns;
-        mCountY = deviceProfile.inv.numRows;
+        mCountY = deviceProfile.numRows;
         mOccupied =  new GridOccupancy(mCountX, mCountY);
         mTmpOccupied = new GridOccupancy(mCountX, mCountY);
 
@@ -995,8 +995,15 @@ public class CellLayout extends ViewGroup {
         if (mFixedCellWidth < 0 || mFixedCellHeight < 0) {
             int cw = DeviceProfile.calculateCellWidth(childWidthSize, mBorderSpace.x,
                     mCountX);
-            int ch = DeviceProfile.calculateCellHeight(childHeightSize, mBorderSpace.y,
-                    mCountY);
+            int ch;
+            // Square grid: force workspace cells to be square (same as width)
+            DeviceProfile dp = mActivity.getDeviceProfile();
+            if (dp.inv.isSquareGrid && mContainerType == WORKSPACE) {
+                ch = cw;
+            } else {
+                ch = DeviceProfile.calculateCellHeight(childHeightSize, mBorderSpace.y,
+                        mCountY);
+            }
             if (cw != mCellWidth || ch != mCellHeight) {
                 mCellWidth = cw;
                 mCellHeight = ch;

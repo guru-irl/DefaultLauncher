@@ -76,7 +76,7 @@ public class MultipageCellLayout extends CellLayout {
         DeviceProfile deviceProfile = mActivity.getDeviceProfile();
 
         mCountX = deviceProfile.inv.numColumns * 2;
-        mCountY = deviceProfile.inv.numRows;
+        mCountY = deviceProfile.numRows;
         setGridSize(mCountX, mCountY);
     }
 

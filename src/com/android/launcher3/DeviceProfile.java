@@ -159,6 +159,9 @@ public class DeviceProfile {
     public Point cellLayoutBorderSpacePx;
     public Rect cellLayoutPaddingPx = new Rect();
 
+    /** Visible row count for this orientation (derived for square grid, else inv.numRows). */
+    public int numRows;
+
     public final int edgeMarginPx;
     public final float workspaceContentScale;
     public final int workspaceSpringLoadedMinNextPageVisiblePx;
@@ -186,6 +189,10 @@ public class DeviceProfile {
     public int workspaceCellPaddingXPx;
 
     public int cellYPaddingPx = -1;
+
+    // Square grid: icon size after cell-width fitting but before workspace label adjustments.
+    // Used for hotseat and all-apps so they don't change when workspace labels are toggled.
+    private int mSquareGridBaseIconSizePx;
 
     // Folder
     public final int numFolderRows;
@@ -810,12 +817,19 @@ public class DeviceProfile {
 
         calculateAndSetWorkspaceVerticalPadding(context, inv, extraSpace);
 
-        int cellLayoutPadding =
-                isTwoPanels ? cellLayoutBorderSpacePx.x / 2 : res.getDimensionPixelSize(
-                        R.dimen.cell_layout_padding);
+        int cellLayoutPadding;
+        if (inv.isSquareGrid) {
+            cellLayoutPadding = cellLayoutBorderSpacePx.x;  // uniform edge gap
+        } else {
+            cellLayoutPadding = isTwoPanels ? cellLayoutBorderSpacePx.x / 2
+                    : res.getDimensionPixelSize(R.dimen.cell_layout_padding);
+        }
         cellLayoutPaddingPx = new Rect(cellLayoutPadding, cellLayoutPadding, cellLayoutPadding,
                 cellLayoutPadding);
         updateWorkspacePadding();
+
+        // Square grid: derive visible rows now that workspace padding is known
+        deriveSquareGridRows();
 
         // Folder scaling requires correct workspace paddings
         updateAvailableFolderCellDimensions(res);
@@ -920,6 +934,10 @@ public class DeviceProfile {
     }
 
     private int getHorizontalMarginPx(InvariantDeviceProfile idp, Resources res) {
+        if (idp.isSquareGrid) {
+            return 0;
+        }
+
         if (mIsResponsiveGrid) {
             return mResponsiveWorkspaceWidthSpec.getStartPaddingPx();
         }
@@ -1057,6 +1075,11 @@ public class DeviceProfile {
     }
 
     private Point getCellLayoutBorderSpace(InvariantDeviceProfile idp, float scale) {
+        if (idp.isSquareGrid) {
+            int spacePx = pxFromDp(idp.squareGridSpacingDp, mMetrics, scale);
+            return new Point(spacePx, spacePx);
+        }
+
         int horizontalSpacePx = 0;
         int verticalSpacePx = 0;
 
@@ -1152,6 +1175,43 @@ public class DeviceProfile {
     }
 
     /**
+     * Derives the number of visible rows for the square grid based on the available height
+     * after workspace padding has been computed. Also centers the grid vertically.
+     * Must be called AFTER updateWorkspacePadding().
+     */
+    private void deriveSquareGridRows() {
+        if (!inv.isSquareGrid) {
+            numRows = inv.numRows;
+            return;
+        }
+
+        int baseGap = cellLayoutBorderSpacePx.x;
+        int cellLayoutH = getCellLayoutHeight();
+
+        // Derive row count: how many rows fit with baseGap between and around them
+        // numRows * cellH + (numRows + 1) * baseGap <= cellLayoutH
+        int derivedRows = (cellLayoutH - baseGap) / (cellHeightPx + baseGap);
+        if (derivedRows < 1) derivedRows = 1;
+        numRows = Math.min(derivedRows, 20);
+
+        // Distribute all vertical gap space uniformly across (numRows + 1) gaps
+        int totalGapSpace = cellLayoutH - numRows * cellHeightPx;
+        int numGaps = numRows + 1;
+        int adjustedGap = totalGapSpace / numGaps;
+        int remainder = totalGapSpace % numGaps;
+
+        cellLayoutBorderSpacePx.y = adjustedGap;
+        cellLayoutPaddingPx.top = adjustedGap;
+        cellLayoutPaddingPx.bottom = adjustedGap + remainder;
+
+        android.util.Log.d("SquareGrid",
+                "deriveRows: cellLayoutH=" + cellLayoutH
+                + " cellH=" + cellHeightPx + " cellW=" + cellWidthPx
+                + " baseGap=" + baseGap + " adjustedGap=" + adjustedGap
+                + " rows=" + numRows);
+    }
+
+    /**
      * Returns the amount of extra (or unused) vertical space.
      */
     private int updateAvailableDimensions(Context context) {
@@ -1170,6 +1230,15 @@ public class DeviceProfile {
         float invIconTextSizeSp = inv.iconTextSize[mTypeIndex];
         iconSizePx = Math.max(1, pxFromDp(invIconSizeDp, mMetrics));
         iconTextSizePx = pxFromSp(invIconTextSizeSp, mMetrics);
+
+        if (inv.isSquareGrid) {
+            // Square grid computes its own cell sizes from available width.
+            // Row count is derived later in deriveSquareGridRows() after workspace padding
+            // is set. No scaling pass needed since cells are computed to fit exactly.
+            updateIconSize(1f, context);
+            updateWorkspacePadding();
+            return 0;
+        }
 
         updateIconSize(1f, context);
         updateWorkspacePadding();
@@ -1342,18 +1411,63 @@ public class DeviceProfile {
                     (int) (desiredWorkspaceHorizontalMarginOriginalPx * scale);
         } else {
             iconDrawablePaddingPx = (int) (getNormalizedIconDrawablePadding() * iconScale);
-            cellWidthPx = iconSizePx + iconDrawablePaddingPx;
-            cellHeightPx = getIconSizeWithOverlap(iconSizePx)
-                    + iconDrawablePaddingPx
-                    + Utilities.calculateTextHeight(iconTextSizePx);
-            int cellPaddingY = (getCellSize().y - cellHeightPx) / 2;
-            if (iconDrawablePaddingPx > cellPaddingY && !isVerticalLayout
-                    && !isMultiWindowMode) {
-                // Ensures that the label is closer to its corresponding icon. This is not an issue
-                // with vertical bar layout or multi-window mode since the issue is handled
-                // separately with their calls to {@link #adjustToHideWorkspaceLabels}.
-                cellHeightPx -= (iconDrawablePaddingPx - cellPaddingY);
-                iconDrawablePaddingPx = cellPaddingY;
+
+            if (inv.isSquareGrid) {
+                // Square grid: cell size from available width, with uniform edge gaps
+                int gapPx = cellLayoutBorderSpacePx.x;
+                int availW = availableWidthPx - 2 * gapPx;  // edge gaps same as inter-cell
+                cellWidthPx = (availW - (inv.numColumns - 1) * gapPx) / inv.numColumns;
+                cellHeightPx = cellWidthPx;  // square
+
+                // Shrink icon if it doesn't fit in the cell width
+                if (iconSizePx > cellWidthPx) {
+                    iconSizePx = mIconSizeSteps.getIconSmallerThan(cellWidthPx);
+                }
+
+                // Save base icon size BEFORE workspace label adjustments.
+                // Hotseat and all-apps use this so they don't change when labels
+                // are toggled on/off.
+                mSquareGridBaseIconSizePx = iconSizePx;
+
+                // --- Workspace-specific: fit icon content into square cell ---
+                if (inv.hideWorkspaceLabels) {
+                    iconTextSizePx = 0;
+                    iconDrawablePaddingPx = 0;
+                } else {
+                    // Use CellContentDimensions to fit icon+label in cell
+                    CellContentDimensions cellContent = new CellContentDimensions(
+                            iconSizePx, iconDrawablePaddingPx, iconTextSizePx);
+                    cellContent.resizeToFitCellHeight(cellHeightPx, mIconSizeSteps);
+                    iconSizePx = cellContent.getIconSizePx();
+                    iconDrawablePaddingPx = cellContent.getIconDrawablePaddingPx();
+                    iconTextSizePx = cellContent.getIconTextSizePx();
+                }
+
+                // Cell Y padding (icon content within the square cell)
+                int cellContentHeight;
+                if (inv.hideWorkspaceLabels) {
+                    cellContentHeight = getIconSizeWithOverlap(iconSizePx);
+                } else {
+                    cellContentHeight = getIconSizeWithOverlap(iconSizePx)
+                            + iconDrawablePaddingPx
+                            + Utilities.calculateTextHeight(iconTextSizePx);
+                }
+                cellYPaddingPx = Math.max(0, cellHeightPx - cellContentHeight) / 2;
+
+                // Row derivation is done later in deriveSquareGridRows() after
+                // workspace padding has been computed.
+            } else {
+                // Original default mode code
+                cellWidthPx = iconSizePx + iconDrawablePaddingPx;
+                cellHeightPx = getIconSizeWithOverlap(iconSizePx)
+                        + iconDrawablePaddingPx
+                        + Utilities.calculateTextHeight(iconTextSizePx);
+                int cellPaddingY = (getCellSize().y - cellHeightPx) / 2;
+                if (iconDrawablePaddingPx > cellPaddingY && !isVerticalLayout
+                        && !isMultiWindowMode) {
+                    cellHeightPx -= (iconDrawablePaddingPx - cellPaddingY);
+                    iconDrawablePaddingPx = cellPaddingY;
+                }
             }
         }
 
@@ -1363,6 +1477,27 @@ public class DeviceProfile {
         } else {
             updateAllAppsIconSize(scale, context.getResources());
         }
+
+        // Square grid: override all-apps to match workspace column count and cell width,
+        // but keep all-apps independent of workspace label settings.
+        if (inv.isSquareGrid) {
+            // Use base icon size (label-independent) for all-apps
+            allAppsIconSizePx = mSquareGridBaseIconSizePx;
+            allAppsIconTextSizePx = pxFromSp(inv.iconTextSize[mTypeIndex], mMetrics);
+            allAppsIconDrawablePaddingPx =
+                    (int) (getNormalizedIconDrawablePadding() * iconScale);
+            allAppsCellWidthPx = cellWidthPx;
+            // Cell height = content height (icon + padding + label); NOT capped to square
+            // cell since the drawer scrolls and needs room for labels.
+            int allAppsContentHeight = allAppsIconSizePx
+                    + allAppsIconDrawablePaddingPx
+                    + Utilities.calculateTextHeight(allAppsIconTextSizePx);
+            allAppsCellHeightPx = allAppsContentHeight;
+            // Horizontal gap matches workspace; vertical gap from user pref
+            int allAppsRowSpacingPx = pxFromDp(inv.allAppsRowSpacingDp, mMetrics);
+            allAppsBorderSpacePx = new Point(cellLayoutBorderSpacePx.x, allAppsRowSpacingPx);
+        }
+
         updateAllAppsContainerWidth();
         if (isVerticalLayout && !mIsResponsiveGrid) {
             hideWorkspaceLabelsIfNotEnoughSpace();
@@ -1372,7 +1507,8 @@ public class DeviceProfile {
             allAppsCellHeightPx += Utilities.calculateTextHeight(allAppsIconTextSizePx);
         }
 
-        updateHotseatSizes(iconSizePx);
+        // Use base icon size for hotseat so its height doesn't change with workspace labels
+        updateHotseatSizes(inv.isSquareGrid ? mSquareGridBaseIconSizePx : iconSizePx);
 
         // Folder icon
         folderIconSizePx = Math.round(iconSizePx * ICON_VISIBLE_AREA_FACTOR);
@@ -1694,6 +1830,13 @@ public class DeviceProfile {
             result = new Point();
         }
 
+        if (inv.isSquareGrid) {
+            // Square grid: cell size is computed in updateIconSize and guaranteed to be square
+            result.x = cellWidthPx;
+            result.y = cellHeightPx;
+            return result;
+        }
+
         int shortcutAndWidgetContainerWidth =
                 getCellLayoutWidth() - (cellLayoutPaddingPx.left + cellLayoutPaddingPx.right);
         result.x = calculateCellWidth(shortcutAndWidgetContainerWidth, cellLayoutBorderSpacePx.x,
@@ -1827,11 +1970,12 @@ public class DeviceProfile {
             // Pad the bottom of the workspace with hotseat bar
             // and leave a bit of space in case a widget go all the way down
             int paddingBottom = hotseatBarSizePx + workspaceBottomPadding - mInsets.bottom;
-            if (!mIsResponsiveGrid) {
+            if (!mIsResponsiveGrid && !inv.isSquareGrid) {
                 paddingBottom +=
                         workspacePageIndicatorHeight - mWorkspacePageIndicatorOverlapWorkspace;
             }
-            int paddingTop = workspaceTopPadding + (mIsScalableGrid ? 0 : edgeMarginPx);
+            int paddingTop = workspaceTopPadding
+                    + (mIsScalableGrid || inv.isSquareGrid ? 0 : edgeMarginPx);
             int paddingLeft = desiredWorkspaceHorizontalMarginPx;
             int paddingRight = desiredWorkspaceHorizontalMarginPx;
 
@@ -1844,7 +1988,11 @@ public class DeviceProfile {
             }
             padding.set(paddingLeft, paddingTop, paddingRight, paddingBottom);
         }
-        insetPadding(workspacePadding, cellLayoutPaddingPx);
+        // Square grid manages cellLayoutPaddingPx directly (uniform edge gaps);
+        // insetPadding would clobber it since workspace top padding is 0.
+        if (!inv.isSquareGrid) {
+            insetPadding(workspacePadding, cellLayoutPaddingPx);
+        }
     }
 
     private void insetPadding(Rect paddings, Rect insets) {

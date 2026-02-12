@@ -207,6 +207,25 @@ public class SettingsActivity extends FragmentActivity
                 }
             }
 
+            // Wire up grid setting change listeners to trigger grid reconfiguration
+            Preference.OnPreferenceChangeListener gridChangeListener = (pref, newValue) -> {
+                // Post so the value is persisted before reconfiguring
+                getListView().post(() ->
+                        InvariantDeviceProfile.INSTANCE.get(getContext())
+                                .onConfigChanged(getContext()));
+                return true;
+            };
+            String[] gridPrefKeys = {
+                    "pref_grid_columns", "pref_grid_spacing", "pref_hide_workspace_labels",
+                    "pref_allapps_row_spacing"
+            };
+            for (String key : gridPrefKeys) {
+                Preference pref = findPreference(key);
+                if (pref != null) {
+                    pref.setOnPreferenceChangeListener(gridChangeListener);
+                }
+            }
+
             // If the target preference is not in the current preference screen, find the parent
             // preference screen that contains the target preference and set it as the preference
             // screen.
@@ -292,6 +311,9 @@ public class SettingsActivity extends FragmentActivity
          * will remove that preference from the list.
          */
         protected boolean initPreference(Preference preference) {
+            if (preference.getKey() == null) {
+                return true;
+            }
             DisplayController.Info info = DisplayController.INSTANCE.get(getContext()).getInfo();
             switch (preference.getKey()) {
                 case NOTIFICATION_DOTS_PREFERENCE_KEY:
@@ -334,6 +356,7 @@ public class SettingsActivity extends FragmentActivity
                             }
                     );
                     return !info.isTablet(info.realBounds);
+
             }
             return true;
         }
