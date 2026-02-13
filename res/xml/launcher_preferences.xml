@@ -60,14 +60,15 @@
             launcher:min="4"
             launcher:showSeekBarValue="true" />
 
-        <ListPreference
+        <SeekBarPreference
             android:key="pref_grid_spacing"
             android:title="@string/grid_spacing_title"
-            android:summary="%s"
-            android:entries="@array/grid_spacing_entries"
-            android:entryValues="@array/grid_spacing_values"
-            android:defaultValue="16"
-            android:persistent="true" />
+            android:summary="@string/grid_spacing_comfortable"
+            android:defaultValue="1"
+            android:max="2"
+            launcher:min="0"
+            launcher:seekBarIncrement="1"
+            launcher:showSeekBarValue="false" />
 
         <SwitchPreference
             android:key="pref_hide_workspace_labels"

@@ -2624,7 +2624,8 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     private boolean shouldUseHotseatAsDropLayout(DragObject dragObject) {
         if (mLauncher.getHotseat() == null
                 || mLauncher.getHotseat().getShortcutsAndWidgets() == null
-                || isDragWidget(dragObject)) {
+                || (isDragWidget(dragObject)
+                        && !mLauncher.getDeviceProfile().inv.isSquareGrid)) {
             return false;
         }
         View hotseatShortcuts = mLauncher.getHotseat().getShortcutsAndWidgets();

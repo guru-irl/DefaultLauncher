@@ -977,6 +977,16 @@ public class DeviceProfile {
         // Ensure there is enough space for folder icons, which have a slightly larger radius.
         hotseatCellHeightPx = getIconSizeWithOverlap(hotseatIconSizePx);
 
+        if (inv.isSquareGrid && !isVerticalBarLayout()) {
+            // Hotseat is one workspace row: match the square cell height.
+            // The gap between workspace bottom and hotseat top comes from the workspace's
+            // bottom cellLayoutPadding (adjustedGap). The hotseat itself just needs height
+            // for one cell row plus the bottom system margin.
+            hotseatCellHeightPx = cellHeightPx;
+            hotseatBarSizePx = cellHeightPx + hotseatBarBottomSpacePx;
+            return;
+        }
+
         if (isVerticalBarLayout()) {
             hotseatBarSizePx = hotseatIconSizePx + mHotseatBarEdgePaddingPx
                     + mHotseatBarWorkspaceSpacePx;
@@ -1201,8 +1211,8 @@ public class DeviceProfile {
         int remainder = totalGapSpace % numGaps;
 
         cellLayoutBorderSpacePx.y = adjustedGap;
-        cellLayoutPaddingPx.top = adjustedGap;
-        cellLayoutPaddingPx.bottom = adjustedGap + remainder;
+        cellLayoutPaddingPx.top = adjustedGap + remainder;  // absorb rounding at top
+        cellLayoutPaddingPx.bottom = adjustedGap;            // exact gap for hotseat continuity
 
         android.util.Log.d("SquareGrid",
                 "deriveRows: cellLayoutH=" + cellLayoutH
@@ -1505,6 +1515,11 @@ public class DeviceProfile {
         if (inv.enableTwoLinesInAllApps) {
             // Add extra textHeight to the existing allAppsCellHeight.
             allAppsCellHeightPx += Utilities.calculateTextHeight(allAppsIconTextSizePx);
+        }
+
+        // Square grid: hotseat uses the same inter-cell gap as the workspace
+        if (inv.isSquareGrid) {
+            hotseatBorderSpace = cellLayoutBorderSpacePx.x;
         }
 
         // Use base icon size for hotseat so its height doesn't change with workspace labels
@@ -2146,6 +2161,13 @@ public class DeviceProfile {
             hotseatBarPadding.set(sideSpacing,
                     0,
                     sideSpacing,
+                    getHotseatBarBottomPadding());
+        } else if (inv.isSquareGrid) {
+            // Hotseat is a workspace row — use same edge padding so columns align
+            hotseatBarPadding.set(
+                    cellLayoutPaddingPx.left + mInsets.left,
+                    0,
+                    cellLayoutPaddingPx.right + mInsets.right,
                     getHotseatBarBottomPadding());
         } else {
             // We want the edges of the hotseat to line up with the edges of the workspace, but the

@@ -746,7 +746,9 @@ public class CellLayout extends ViewGroup {
     }
 
     public boolean acceptsWidget() {
-        return mContainerType == WORKSPACE;
+        return mContainerType == WORKSPACE
+                || (mContainerType == HOTSEAT
+                        && mActivity.getDeviceProfile().inv.isSquareGrid);
     }
 
     /**
@@ -998,7 +1000,7 @@ public class CellLayout extends ViewGroup {
             int ch;
             // Square grid: force workspace cells to be square (same as width)
             DeviceProfile dp = mActivity.getDeviceProfile();
-            if (dp.inv.isSquareGrid && mContainerType == WORKSPACE) {
+            if (dp.inv.isSquareGrid && (mContainerType == WORKSPACE || mContainerType == HOTSEAT)) {
                 ch = cw;
             } else {
                 ch = DeviceProfile.calculateCellHeight(childHeightSize, mBorderSpace.y,

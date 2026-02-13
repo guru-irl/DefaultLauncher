@@ -532,16 +532,9 @@
     <string name="grid_settings_category">Grid</string>
     <string name="grid_columns_title">Grid columns</string>
     <string name="grid_spacing_title">Grid density</string>
-    <string-array name="grid_spacing_entries">
-        <item>Dense</item>
-        <item>Comfortable</item>
-        <item>Cozy</item>
-    </string-array>
-    <string-array name="grid_spacing_values">
-        <item>8</item>
-        <item>16</item>
-        <item>24</item>
-    </string-array>
+    <string name="grid_spacing_dense">Dense</string>
+    <string name="grid_spacing_comfortable">Comfortable</string>
+    <string name="grid_spacing_cozy">Cozy</string>
     <string name="hide_workspace_labels_title">Hide home screen labels</string>
     <string name="hide_workspace_labels_summary">Hide app names on the home screen so icons fill the cell</string>
     <string name="allapps_row_spacing_title">App drawer row spacing (dp)</string>

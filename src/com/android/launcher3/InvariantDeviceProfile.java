@@ -467,20 +467,24 @@ public class InvariantDeviceProfile {
 
         // --- Square grid override ---
         int userColumns = mPrefs.get(LauncherPrefs.GRID_COLUMNS);
-        int userSpacingDp;
+        // Density index: 0=Dense(8dp), 1=Comfortable(16dp), 2=Cozy(24dp)
+        int densityIndex;
         try {
-            userSpacingDp = Integer.parseInt(mPrefs.get(LauncherPrefs.GRID_SPACING));
+            densityIndex = mPrefs.get(LauncherPrefs.GRID_SPACING);
         } catch (ClassCastException e) {
-            // Migration: old SeekBarPreference stored int, new ListPreference stores String
-            userSpacingDp = 16;
+            // Old versions stored a raw dp String ("8","16","24"). Reset to default index.
+            densityIndex = 1;
+            mPrefs.put(LauncherPrefs.GRID_SPACING, densityIndex);
         }
+        int userSpacingDp = densityIndexToSpacingDp(densityIndex);
         isSquareGrid = true;  // Always active; could be gated by a toggle later
         hideWorkspaceLabels = mPrefs.get(LauncherPrefs.HIDE_WORKSPACE_LABELS);
         allAppsRowSpacingDp = mPrefs.get(LauncherPrefs.ALLAPPS_ROW_SPACING);
         if (isSquareGrid) {
             numColumns = userColumns;
             numAllAppsColumns = userColumns;
-            numShownHotseatIcons = Math.min(userColumns, closestProfile.numHotseatIcons);
+            numShownHotseatIcons = userColumns;
+            numDatabaseHotseatIcons = Math.max(numDatabaseHotseatIcons, userColumns);
             squareGridSpacingDp = userSpacingDp;
             // Set numRows high for database capacity. Actual visible rows derived in DeviceProfile.
             numRows = 20;
@@ -822,6 +826,15 @@ public class InvariantDeviceProfile {
             }
         } catch (Resources.NotFoundException ex) {
             Log.e(TAG, "Invalid Partner grid resource!", ex);
+        }
+    }
+
+    /** Maps density preset index (0=Dense, 1=Comfortable, 2=Cozy) to spacing in dp. */
+    public static int densityIndexToSpacingDp(int index) {
+        switch (index) {
+            case 0: return 8;
+            case 2: return 24;
+            default: return 16;  // 1 = Comfortable (default)
         }
     }
 

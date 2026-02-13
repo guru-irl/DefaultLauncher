@@ -313,7 +313,7 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField
         val GRID_COLUMNS = backedUpItem("pref_grid_columns", 5)
         @JvmField
-        val GRID_SPACING = backedUpItem("pref_grid_spacing", "16")
+        val GRID_SPACING = backedUpItem("pref_grid_spacing", 1)
         @JvmField
         val HIDE_WORKSPACE_LABELS = backedUpItem("pref_hide_workspace_labels", false)
         @JvmField

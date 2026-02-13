@@ -592,27 +592,36 @@ public class LoaderCursor extends CursorWrapper {
             final GridOccupancy hotseatOccupancy =
                     mOccupied.get(Favorites.CONTAINER_HOTSEAT);
 
-            if (item.screenId >= mIDP.numDatabaseHotseatIcons) {
+            int startPos = (int) item.screenId;
+            int spanX = item.spanX > 0 ? item.spanX : 1;
+
+            if (startPos + spanX - 1 >= mIDP.numDatabaseHotseatIcons) {
                 Log.e(TAG, "Error loading shortcut " + item
-                        + " into hotseat position " + item.screenId
-                        + ", position out of bounds: (0 to " + (mIDP.numDatabaseHotseatIcons - 1)
-                        + ")");
+                        + " into hotseat position " + startPos
+                        + " (span " + spanX + ")"
+                        + ", position out of bounds: (0 to "
+                        + (mIDP.numDatabaseHotseatIcons - 1) + ")");
                 return false;
             }
 
             if (hotseatOccupancy != null) {
-                if (hotseatOccupancy.cells[(int) item.screenId][0]) {
-                    Log.e(TAG, "Error loading shortcut into hotseat " + item
-                            + " into position (" + item.screenId + ":" + item.cellX + ","
-                            + item.cellY + ") already occupied");
-                    return false;
-                } else {
-                    hotseatOccupancy.cells[item.screenId][0] = true;
-                    return true;
+                for (int i = startPos; i < startPos + spanX; i++) {
+                    if (hotseatOccupancy.cells[i][0]) {
+                        Log.e(TAG, "Error loading shortcut into hotseat " + item
+                                + " into position (" + i + ":" + item.cellX + ","
+                                + item.cellY + ") already occupied");
+                        return false;
+                    }
                 }
+                for (int i = startPos; i < startPos + spanX; i++) {
+                    hotseatOccupancy.cells[i][0] = true;
+                }
+                return true;
             } else {
                 final GridOccupancy occupancy = new GridOccupancy(mIDP.numDatabaseHotseatIcons, 1);
-                occupancy.cells[item.screenId][0] = true;
+                for (int i = startPos; i < startPos + spanX; i++) {
+                    occupancy.cells[i][0] = true;
+                }
                 mOccupied.put(Favorites.CONTAINER_HOTSEAT, occupancy);
                 return true;
             }
