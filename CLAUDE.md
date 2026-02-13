@@ -90,6 +90,7 @@ For settings that trigger grid reconfiguration from `SettingsActivity`, use `get
 
 - `docs/settings.md` -- Settings system architecture
 - `docs/grid-system.md` -- Grid calculation pipeline (detailed)
+- `docs/grid-reflow.md` -- Grid reflow system (item preservation on column decrease)
 - `docs/guides/adding-settings.md` -- Practical guide for adding new preferences
 - `docs/changes/` -- Implementation tracking for features (numbered: `001-*.md`, `002-*.md`, etc.)
 

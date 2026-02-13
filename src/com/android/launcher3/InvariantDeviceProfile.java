@@ -485,6 +485,16 @@ public class InvariantDeviceProfile {
             numAllAppsColumns = userColumns;
             numShownHotseatIcons = userColumns;
             numDatabaseHotseatIcons = Math.max(numDatabaseHotseatIcons, userColumns);
+
+            // Ensure numDatabaseHotseatIcons never shrinks so checkItemPlacement()
+            // won't reject hotseat items that were at old (higher) positions.
+            int persistedMaxHotseat = mPrefs.get(LauncherPrefs.HOTSEAT_MAX_DB_COUNT);
+            if (numDatabaseHotseatIcons > persistedMaxHotseat) {
+                mPrefs.put(LauncherPrefs.HOTSEAT_MAX_DB_COUNT, numDatabaseHotseatIcons);
+            } else if (persistedMaxHotseat > numDatabaseHotseatIcons) {
+                numDatabaseHotseatIcons = persistedMaxHotseat;
+            }
+
             squareGridSpacingDp = userSpacingDp;
             // Set numRows high for database capacity. Actual visible rows derived in DeviceProfile.
             numRows = 20;

@@ -464,6 +464,9 @@ public class LoaderTask implements Runnable {
         } else {
             dbController.tryMigrateDB(restoreEventLogger, mModelDelegate);
         }
+        if (mIDP.isSquareGrid) {
+            SquareGridReflow.reflowIfNeeded(mContext, dbController.getDb(), mIDP);
+        }
         Log.d(TAG, "loadWorkspace: loading default favorites if necessary");
         dbController.loadDefaultFavoritesIfNecessary();
 
