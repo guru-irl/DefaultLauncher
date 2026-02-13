@@ -311,10 +311,9 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         val FIXED_LANDSCAPE_MODE = backedUpItem(SettingsActivity.FIXED_LANDSCAPE_MODE, false)
 
         @JvmField
-        val GRID_COLUMNS = backedUpItem("pref_grid_columns", 5)
+        val GRID_COLUMNS = backedUpItem("pref_grid_columns", 6)
         @JvmField
-        val ALLAPPS_ROW_SPACING = backedUpItem("pref_allapps_row_spacing", 24)
-
+        val ALLAPPS_ROW_GAP = backedUpItem("pref_allapps_row_gap", 16)
         @JvmField
         val HOTSEAT_MAX_DB_COUNT = backedUpItem("pref_hotseat_max_db_count", -1)
 

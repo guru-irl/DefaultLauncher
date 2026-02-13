@@ -1575,15 +1575,14 @@ public class DeviceProfile {
             allAppsIconDrawablePaddingPx =
                     (int) (getNormalizedIconDrawablePadding() * iconScale);
             allAppsCellWidthPx = cellWidthPx;
-            // Cell height = content height (icon + padding + label); NOT capped to square
-            // cell since the drawer scrolls and needs room for labels.
+            // Horizontal gap matches workspace; vertical gap is a fixed constant
+            int allAppsRowSpacingPx = pxFromDp(inv.allAppsRowSpacingDp, mMetrics);
+            allAppsBorderSpacePx = new Point(cellLayoutBorderSpacePx.x, allAppsRowSpacingPx);
+            // Cell height = content + row gap (baked in, matching AOSP pattern)
             int allAppsContentHeight = allAppsIconSizePx
                     + allAppsIconDrawablePaddingPx
                     + Utilities.calculateTextHeight(allAppsIconTextSizePx);
-            allAppsCellHeightPx = allAppsContentHeight;
-            // Horizontal gap matches workspace; vertical gap from user pref
-            int allAppsRowSpacingPx = pxFromDp(inv.allAppsRowSpacingDp, mMetrics);
-            allAppsBorderSpacePx = new Point(cellLayoutBorderSpacePx.x, allAppsRowSpacingPx);
+            allAppsCellHeightPx = allAppsContentHeight + allAppsBorderSpacePx.y;
         }
 
         updateAllAppsContainerWidth();
@@ -1755,6 +1754,10 @@ public class DeviceProfile {
                     + (allAppsBorderSpacePx.x * (numShownAllAppsColumns - 1))
                     + allAppsPadding.left + allAppsPadding.right;
             allAppsLeftRightMargin = Math.max(1, (availableWidthPx - usedWidth) / 2);
+        } else if (inv.isSquareGrid) {
+            // Use the same edge gap as the home screen
+            allAppsPadding.left = allAppsPadding.right =
+                    pxFromDp(InvariantDeviceProfile.SQUARE_GRID_EDGE_GAP_DP, mMetrics);
         } else if (!mIsResponsiveGrid) {
             allAppsPadding.left = allAppsPadding.right =
                     Math.max(0, desiredWorkspaceHorizontalMarginPx + cellLayoutHorizontalPadding

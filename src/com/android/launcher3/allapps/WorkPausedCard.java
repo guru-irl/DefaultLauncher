@@ -69,14 +69,23 @@ public class WorkPausedCard extends LinearLayout implements View.OnClickListener
     }
 
     private void setWorkProfilePausedResources(StringCache cache) {
+        // Enterprise StringCache can return empty strings on consumer devices.
+        // Only override XML defaults if the cache has non-empty values.
         TextView title = findViewById(R.id.work_apps_paused_title);
-        title.setText(cache.workProfilePausedTitle);
+        if (cache.workProfilePausedTitle != null && !cache.workProfilePausedTitle.isEmpty()) {
+            title.setText(cache.workProfilePausedTitle);
+        }
 
         TextView body = findViewById(R.id.work_apps_paused_content);
-        body.setText(cache.workProfilePausedDescription);
+        if (cache.workProfilePausedDescription != null
+                && !cache.workProfilePausedDescription.isEmpty()) {
+            body.setText(cache.workProfilePausedDescription);
+        }
 
         TextView button = findViewById(R.id.enable_work_apps);
-        button.setText(cache.workProfileEnableButton);
+        if (cache.workProfileEnableButton != null && !cache.workProfileEnableButton.isEmpty()) {
+            button.setText(cache.workProfileEnableButton);
+        }
     }
 
     @Override

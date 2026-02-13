@@ -50,6 +50,7 @@ import androidx.preference.PreferenceFragmentCompat.OnPreferenceStartScreenCallb
 import androidx.preference.PreferenceGroup;
 import androidx.preference.PreferenceGroup.PreferencePositionCallback;
 import androidx.preference.PreferenceScreen;
+import androidx.preference.SeekBarPreference;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.launcher3.BuildConfig;
@@ -215,14 +216,25 @@ public class SettingsActivity extends FragmentActivity
                                 .onConfigChanged(getContext()));
                 return true;
             };
-            String[] gridPrefKeys = {
-                    "pref_grid_columns", "pref_allapps_row_spacing"
-            };
-            for (String key : gridPrefKeys) {
-                Preference pref = findPreference(key);
-                if (pref != null) {
-                    pref.setOnPreferenceChangeListener(gridChangeListener);
-                }
+            Preference columnsPref = findPreference("pref_grid_columns");
+            if (columnsPref != null) {
+                columnsPref.setOnPreferenceChangeListener(gridChangeListener);
+            }
+
+            // Row gap slider: snap to nearest valid value (16/24/32) on release
+            SeekBarPreference rowGapPref = findPreference("pref_allapps_row_gap");
+            if (rowGapPref != null) {
+                rowGapPref.setOnPreferenceChangeListener((pref, newValue) -> {
+                    int raw = (int) newValue;
+                    int snapped = (int) InvariantDeviceProfile.snapToNearestGap(raw);
+                    if (snapped != raw) {
+                        ((SeekBarPreference) pref).setValue(snapped);
+                    }
+                    getListView().post(() ->
+                            InvariantDeviceProfile.INSTANCE.get(getContext())
+                                    .onConfigChanged(getContext()));
+                    return snapped == raw;
+                });
             }
 
             // If the target preference is not in the current preference screen, find the parent

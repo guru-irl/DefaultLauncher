@@ -290,10 +290,7 @@ public class FloatingHeaderView extends LinearLayout implements
             return;
         }
         mMaxTranslation += mFloatingRowsHeight;
-        if (!mTabsHidden) {
-            mMaxTranslation += mTabsAdditionalPaddingBottom
-                    + getResources().getDimensionPixelSize(R.dimen.all_apps_tabs_margin_top);
-        }
+        // Tabs stay pinned and don't scroll with the header
     }
 
     int getMaxTranslation() {
@@ -301,6 +298,11 @@ public class FloatingHeaderView extends LinearLayout implements
             return getResources().getDimensionPixelSize(R.dimen.all_apps_search_bar_bottom_padding);
         } else if (mMaxTranslation > 0 && mTabsHidden) {
             return mMaxTranslation + getPaddingTop();
+        } else if (!mTabsHidden) {
+            // Tabs are pinned — pad RecyclerView so content starts below tabs with gap
+            int tabPadding = getResources().getDimensionPixelSize(R.dimen.all_apps_tabs_margin_top)
+                    + 2 * mTabsAdditionalPaddingBottom;
+            return mMaxTranslation + tabPadding;
         } else {
             return mMaxTranslation;
         }
@@ -349,14 +351,19 @@ public class FloatingHeaderView extends LinearLayout implements
             }
         }
 
-        mTabLayout.setTranslationY(mTranslationY);
+        mTabLayout.setTranslationY(0);
 
         int clipTop = getPaddingTop() - mTabsAdditionalPaddingTop;
         if (mTabsHidden) {
             // Add back spacing that is otherwise covered by the tabs.
             clipTop += mTabsAdditionalPaddingTop;
         }
-        mRVClip.top = mTabsHidden || mFloatingRowsCollapsed ? clipTop : 0;
+        if (mTabsHidden || mFloatingRowsCollapsed) {
+            mRVClip.top = clipTop;
+        } else {
+            // Tabs are pinned — clip at the header bottom (below tabs + gap)
+            mRVClip.top = getMaxTranslation();
+        }
         mHeaderClip.top = clipTop;
         // clipping on a draw might cause additional redraw
         setClipBounds(mHeaderClip);

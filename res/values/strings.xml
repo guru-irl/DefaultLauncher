@@ -323,7 +323,7 @@
     <!-- Text for edit home screen button [CHAR LIMIT=30]-->
     <string name="edit_home_screen">Edit Home Screen</string>
     <!-- Text for settings button [CHAR LIMIT=20]-->
-    <string name="settings_button_text">Home settings</string>
+    <string name="settings_button_text">Default Launcher</string>
     <!-- Message shown when a feature is disabled by the administrator -->
     <string name="msg_disabled_by_admin">Disabled by your admin</string>
 
@@ -531,7 +531,8 @@
     <!-- Grid settings -->
     <string name="grid_settings_category">Grid</string>
     <string name="grid_columns_title">Grid columns</string>
-    <string name="allapps_row_spacing_title">App drawer row spacing (dp)</string>
+    <string name="allapps_row_gap_title">App drawer row gap</string>
+
 
     <!-- Strings for Private Space -->
     <!-- Private space tile label -->

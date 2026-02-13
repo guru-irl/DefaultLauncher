@@ -100,6 +100,13 @@ public class AppsSearchContainerLayout extends ExtendedEditText
         // Update the width to match the grid padding
         DeviceProfile dp = mLauncher.getDeviceProfile();
         int myRequestedWidth = getSize(widthMeasureSpec);
+
+        if (dp.inv.isSquareGrid) {
+            // Margins set in setInsets() handle edge gaps; use parent-given width as-is
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            return;
+        }
+
         int rowWidth = myRequestedWidth - mAppsView.getActiveRecyclerView().getPaddingLeft()
                 - mAppsView.getActiveRecyclerView().getPaddingRight();
 
@@ -182,8 +189,14 @@ public class AppsSearchContainerLayout extends ExtendedEditText
 
     @Override
     public void setInsets(Rect insets) {
+        DeviceProfile dp = mLauncher.getDeviceProfile();
         MarginLayoutParams mlp = (MarginLayoutParams) getLayoutParams();
         mlp.topMargin = insets.top;
+        if (dp.inv.isSquareGrid) {
+            int margin = (int) (16 * getResources().getDisplayMetrics().density);
+            mlp.leftMargin = margin;
+            mlp.rightMargin = margin;
+        }
         requestLayout();
     }
 

@@ -34,6 +34,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
+
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Outline;
@@ -1234,12 +1235,15 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     private void setDeviceManagementResources() {
-        if (mActivityContext.getStringCache() != null) {
-            Button personalTab = findViewById(R.id.tab_personal);
-            personalTab.setText(mActivityContext.getStringCache().allAppsPersonalTab);
-
-            Button workTab = findViewById(R.id.tab_work);
-            workTab.setText(mActivityContext.getStringCache().allAppsWorkTab);
+        // Enterprise StringCache can return empty strings on consumer devices.
+        // Always use the default string resources for tab labels.
+        Button personalTab = findViewById(R.id.tab_personal);
+        if (personalTab != null) {
+            personalTab.setText(R.string.all_apps_personal_tab);
+        }
+        Button workTab = findViewById(R.id.tab_work);
+        if (workTab != null) {
+            workTab.setText(R.string.all_apps_work_tab);
         }
     }
 

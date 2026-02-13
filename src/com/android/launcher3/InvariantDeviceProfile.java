@@ -151,6 +151,23 @@ public class InvariantDeviceProfile {
     /** Minimum top/bottom margin (dp) above workspace and below hotseat. */
     public static final float SQUARE_GRID_MIN_TB_MARGIN_DP = 16;
 
+    /** Valid row gap values (dp) for the all-apps drawer. */
+    public static final float[] ALLAPPS_ROW_GAP_OPTIONS = {16f, 24f, 32f};
+
+    /** Snaps a raw dp value to the nearest valid gap option. */
+    public static float snapToNearestGap(int rawDp) {
+        float closest = ALLAPPS_ROW_GAP_OPTIONS[0];
+        float minDist = Math.abs(rawDp - closest);
+        for (int i = 1; i < ALLAPPS_ROW_GAP_OPTIONS.length; i++) {
+            float dist = Math.abs(rawDp - ALLAPPS_ROW_GAP_OPTIONS[i]);
+            if (dist < minDist) {
+                minDist = dist;
+                closest = ALLAPPS_ROW_GAP_OPTIONS[i];
+            }
+        }
+        return closest;
+    }
+
     /** User-configured square grid spacing in DP. 0 means use default AOSP layout. */
     public float squareGridSpacingDp;
 
@@ -478,7 +495,8 @@ public class InvariantDeviceProfile {
         int userColumns = mPrefs.get(LauncherPrefs.GRID_COLUMNS);
         isSquareGrid = true;  // Always active; could be gated by a toggle later
         hideWorkspaceLabels = true;
-        allAppsRowSpacingDp = mPrefs.get(LauncherPrefs.ALLAPPS_ROW_SPACING);
+        int rawGapDp = mPrefs.get(LauncherPrefs.ALLAPPS_ROW_GAP);
+        allAppsRowSpacingDp = snapToNearestGap(rawGapDp);
         if (isSquareGrid) {
             numColumns = userColumns;
             numAllAppsColumns = userColumns;

@@ -122,7 +122,7 @@ public class WorkEduCard extends FrameLayout implements
 
     public void updateStringFromCache() {
         StringCache cache = mActivityContext.getStringCache();
-        if (cache != null) {
+        if (cache != null && cache.workProfileEdu != null && !cache.workProfileEdu.isEmpty()) {
             TextView title = findViewById(R.id.work_apps_paused_title);
             title.setText(cache.workProfileEdu);
         }
