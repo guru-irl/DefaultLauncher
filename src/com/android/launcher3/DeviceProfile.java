@@ -819,13 +819,20 @@ public class DeviceProfile {
 
         int cellLayoutPadding;
         if (inv.isSquareGrid) {
-            cellLayoutPadding = cellLayoutBorderSpacePx.x;  // uniform edge gap
+            cellLayoutPadding = pxFromDp(InvariantDeviceProfile.SQUARE_GRID_EDGE_GAP_DP, mMetrics);
         } else {
             cellLayoutPadding = isTwoPanels ? cellLayoutBorderSpacePx.x / 2
                     : res.getDimensionPixelSize(R.dimen.cell_layout_padding);
         }
         cellLayoutPaddingPx = new Rect(cellLayoutPadding, cellLayoutPadding, cellLayoutPadding,
                 cellLayoutPadding);
+        // Square grid: minimum margin between hotseat icons and screen bottom
+        if (inv.isSquareGrid && !isVerticalBarLayout()) {
+            hotseatBarBottomSpacePx = Math.max(
+                    pxFromDp(InvariantDeviceProfile.SQUARE_GRID_MIN_TB_MARGIN_DP, mMetrics),
+                    mInsets.bottom);
+            hotseatBarSizePx = cellHeightPx + hotseatBarBottomSpacePx;
+        }
         updateWorkspacePadding();
 
         // Square grid: derive visible rows now that workspace padding is known
@@ -1195,30 +1202,100 @@ public class DeviceProfile {
             return;
         }
 
-        int baseGap = cellLayoutBorderSpacePx.x;
-        int cellLayoutH = getCellLayoutHeight();
+        float density = mMetrics.density;
+        int interGap = cellLayoutBorderSpacePx.x;  // inter-cell gap (4dp → px)
+        int edgeGap = pxFromDp(InvariantDeviceProfile.SQUARE_GRID_EDGE_GAP_DP, mMetrics);
+        int bottomMargin = hotseatBarBottomSpacePx;  // max(16dp, navBar), from constructor
 
-        // Derive row count: how many rows fit with baseGap between and around them
-        // numRows * cellH + (numRows + 1) * baseGap <= cellLayoutH
-        int derivedRows = (cellLayoutH - baseGap) / (cellHeightPx + baseGap);
-        if (derivedRows < 1) derivedRows = 1;
-        numRows = Math.min(derivedRows, 20);
+        // Total available height: from below status bar to above bottom margin.
+        // This holds ALL icon rows (workspace + hotseat) and inter-cell gaps.
+        int availH = heightPx - mInsets.top - bottomMargin;
 
-        // Distribute all vertical gap space uniformly across (numRows + 1) gaps
-        int totalGapSpace = cellLayoutH - numRows * cellHeightPx;
-        int numGaps = numRows + 1;
-        int adjustedGap = totalGapSpace / numGaps;
-        int remainder = totalGapSpace % numGaps;
+        // Derive total icon rows (workspace + hotseat) that fit with inter-cell gaps.
+        // totalRows * cellH + (totalRows - 1) * interGap <= availH
+        int totalRows = (availH + interGap) / (cellHeightPx + interGap);
+        if (totalRows < 2) totalRows = 2;  // at least 1 workspace row + hotseat
+        numRows = totalRows - 1;  // subtract hotseat row
 
-        cellLayoutBorderSpacePx.y = adjustedGap;
-        cellLayoutPaddingPx.top = adjustedGap + remainder;  // absorb rounding at top
-        cellLayoutPaddingPx.bottom = adjustedGap;            // exact gap for hotseat continuity
+        // Compute vertical gap: spread evenly between all rows (totalRows-1 gaps).
+        int adjustedGap = (availH - totalRows * cellHeightPx) / Math.max(totalRows - 1, 1);
 
-        android.util.Log.d("SquareGrid",
-                "deriveRows: cellLayoutH=" + cellLayoutH
-                + " cellH=" + cellHeightPx + " cellW=" + cellWidthPx
-                + " baseGap=" + baseGap + " adjustedGap=" + adjustedGap
-                + " rows=" + numRows);
+        // Cap gap for horizontal fit: numCols*cellW + (numCols-1)*gap + 2*edgeGap <= width
+        int cellLayoutW = getCellLayoutWidth();
+        int maxGap = (cellLayoutW - inv.numColumns * cellWidthPx - 2 * edgeGap)
+                / Math.max(inv.numColumns - 1, 1);
+        int gap = Math.max(0, Math.min(adjustedGap, maxGap));
+
+        // Square rule: same inter-cell gap on both axes
+        cellLayoutBorderSpacePx.x = gap;
+        cellLayoutBorderSpacePx.y = gap;
+
+        // Compute slop: excess height beyond grid + margins
+        int gridH = totalRows * cellHeightPx + (totalRows - 1) * gap;
+        int totalUsed = mInsets.top + gridH + bottomMargin;
+        int slop = heightPx - totalUsed;
+
+        // Split slop between top and bottom of screen
+        int slopTop = slop / 2;
+        int slopBottom = slop - slopTop;
+
+        // Apply slopBottom to hotseat bottom margin, update hotseat size
+        hotseatBarBottomSpacePx = bottomMargin + slopBottom;
+        hotseatBarSizePx = cellHeightPx + hotseatBarBottomSpacePx;
+
+        // Recompute workspace padding with updated hotseat (uses AOSP-compatible formula)
+        updateWorkspacePadding();
+
+        // Use getCellLayoutHeight() — this matches the physical CellLayout view size
+        int clH = getCellLayoutHeight();
+        int workspaceGridH = numRows * cellHeightPx + (numRows - 1) * gap;
+        int vPadTotal = clH - workspaceGridH;
+
+        // Bottom padding = gap (workspace-to-hotseat = inter-cell gap)
+        cellLayoutPaddingPx.bottom = gap;
+        // Top padding = remaining vertical space
+        cellLayoutPaddingPx.top = Math.max(0, vPadTotal - gap);
+
+        // Horizontal edges: centered
+        int hGridWidth = inv.numColumns * cellWidthPx + (inv.numColumns - 1) * gap;
+        int hEdgeTotal = cellLayoutW - hGridWidth;
+        cellLayoutPaddingPx.left = hEdgeTotal / 2;
+        cellLayoutPaddingPx.right = hEdgeTotal - hEdgeTotal / 2;
+
+        android.util.Log.d("SquareGrid", "=== Square Grid Derivation ===");
+        android.util.Log.d("SquareGrid", String.format(
+                "Screen: %dx%d  density=%.1f  insets.top=%d insets.bottom=%d",
+                widthPx, heightPx, density, mInsets.top, mInsets.bottom));
+        android.util.Log.d("SquareGrid", String.format(
+                "Cell: %dx%d (%.1fx%.1fdp)  interGap=%dpx(%.1fdp)  edgeGap=%dpx(%.1fdp)",
+                cellWidthPx, cellHeightPx, cellWidthPx/density, cellHeightPx/density,
+                interGap, interGap/density, edgeGap, edgeGap/density));
+        android.util.Log.d("SquareGrid", String.format(
+                "AvailH: %dpx = %d(screenH) - %d(statusBar) - %d(bottomMargin %.1fdp)",
+                availH, heightPx, mInsets.top, bottomMargin, bottomMargin/density));
+        android.util.Log.d("SquareGrid", String.format(
+                "Rows: totalRows=%d  workspaceRows=%d  cols=%d",
+                totalRows, numRows, inv.numColumns));
+        android.util.Log.d("SquareGrid", String.format(
+                "Gap: adjusted=%d  maxH=%d  final=%dpx(%.1fdp)",
+                adjustedGap, maxGap, gap, gap/density));
+        android.util.Log.d("SquareGrid", String.format(
+                "GridH: %d  totalUsed=%d  slop=%d  slopTop=%d  slopBottom=%d",
+                gridH, totalUsed, slop, slopTop, slopBottom));
+        android.util.Log.d("SquareGrid", String.format(
+                "Hotseat: bottomSpace=%dpx(%.1fdp)  barSize=%dpx",
+                hotseatBarBottomSpacePx, hotseatBarBottomSpacePx/density, hotseatBarSizePx));
+        android.util.Log.d("SquareGrid", String.format(
+                "CellLayoutPad: top=%d bottom=%d left=%d right=%d",
+                cellLayoutPaddingPx.top, cellLayoutPaddingPx.bottom,
+                cellLayoutPaddingPx.left, cellLayoutPaddingPx.right));
+        android.util.Log.d("SquareGrid", String.format(
+                "WorkspacePad: top=%d bottom=%d  getCellLayoutH=%d(physical) wsGridH=%d vPad=%d",
+                workspacePadding.top, workspacePadding.bottom,
+                clH, workspaceGridH, vPadTotal));
+        android.util.Log.d("SquareGrid", String.format(
+                "availableHeightPx=%d  getCellLayoutW=%d",
+                availableHeightPx, getCellLayoutWidth()));
     }
 
     /**
@@ -1423,10 +1500,11 @@ public class DeviceProfile {
             iconDrawablePaddingPx = (int) (getNormalizedIconDrawablePadding() * iconScale);
 
             if (inv.isSquareGrid) {
-                // Square grid: cell size from available width, with uniform edge gaps
-                int gapPx = cellLayoutBorderSpacePx.x;
-                int availW = availableWidthPx - 2 * gapPx;  // edge gaps same as inter-cell
-                cellWidthPx = (availW - (inv.numColumns - 1) * gapPx) / inv.numColumns;
+                // Square grid: cell size from available width, with separate edge/inter-cell gaps
+                int interGapPx = cellLayoutBorderSpacePx.x;  // inter-cell gap (4dp)
+                int edgeGapPx = pxFromDp(InvariantDeviceProfile.SQUARE_GRID_EDGE_GAP_DP, mMetrics);
+                int availW = availableWidthPx - 2 * edgeGapPx;  // edge gaps on each side
+                cellWidthPx = (availW - (inv.numColumns - 1) * interGapPx) / inv.numColumns;
                 cellHeightPx = cellWidthPx;  // square
 
                 // Shrink icon if it doesn't fit in the cell width
@@ -1981,16 +2059,23 @@ public class DeviceProfile {
                     padding.right = hotseatBarSizePx;
                 }
             }
+        } else if (inv.isSquareGrid) {
+            // Square grid: Workspace gets mInsets as margins from InsettableFrameLayout,
+            // so workspace padding must NOT include mInsets (avoids double-counting).
+            // Just reserve space for the hotseat at the bottom.
+            int paddingBottom = hotseatBarSizePx - mInsets.bottom;
+            padding.set(0, 0, 0, paddingBottom);
+            // Skip insetPadding — cellLayoutPaddingPx is set by deriveSquareGridRows()
         } else {
             // Pad the bottom of the workspace with hotseat bar
             // and leave a bit of space in case a widget go all the way down
             int paddingBottom = hotseatBarSizePx + workspaceBottomPadding - mInsets.bottom;
-            if (!mIsResponsiveGrid && !inv.isSquareGrid) {
+            if (!mIsResponsiveGrid) {
                 paddingBottom +=
                         workspacePageIndicatorHeight - mWorkspacePageIndicatorOverlapWorkspace;
             }
             int paddingTop = workspaceTopPadding
-                    + (mIsScalableGrid || inv.isSquareGrid ? 0 : edgeMarginPx);
+                    + (mIsScalableGrid ? 0 : edgeMarginPx);
             int paddingLeft = desiredWorkspaceHorizontalMarginPx;
             int paddingRight = desiredWorkspaceHorizontalMarginPx;
 
@@ -2002,10 +2087,6 @@ public class DeviceProfile {
                 paddingRight = isSeascape() ? 0 : desiredWorkspaceHorizontalMarginPx;
             }
             padding.set(paddingLeft, paddingTop, paddingRight, paddingBottom);
-        }
-        // Square grid manages cellLayoutPaddingPx directly (uniform edge gaps);
-        // insetPadding would clobber it since workspace top padding is 0.
-        if (!inv.isSquareGrid) {
             insetPadding(workspacePadding, cellLayoutPaddingPx);
         }
     }

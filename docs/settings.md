@@ -86,11 +86,17 @@ Preferences are defined in [`res/xml/launcher_preferences.xml`](../res/xml/launc
 |-----|------|-------------|------------|
 | `pref_icon_badging` | `NotificationDotsPreference` (custom) | Notification dots on/off status | No (reads system setting) |
 | `pref_add_icon_to_home` | `SwitchPreference` | Auto-add new app icons to home screen | Yes |
-| `pref_allowRotation` | `SwitchPreference` | Allow home screen rotation | Yes |
+| `pref_grid_columns` | `SeekBarPreference` | Grid column count (4-10) | Yes |
+| `pref_allapps_row_spacing` | `SeekBarPreference` | App drawer row spacing in dp (8-48) | Yes |
 
 Two additional preferences are handled in code but not in the base XML (added via overlays or build variants):
 - `pref_developer_options` -- visible only on debug builds with system developer options enabled
 - `pref_fixed_landscape_mode` -- visible only when `Flags.oneGridSpecs()` is true and device is not a tablet
+
+Note: The following preferences were removed in favor of hardcoded values:
+- `pref_allowRotation` -- removed (square grid is portrait-optimized)
+- `pref_grid_spacing` -- removed (replaced by three gap constants in `InvariantDeviceProfile`)
+- `pref_hide_workspace_labels` -- removed (labels always hidden in square grid mode)
 
 ### Conditional Preference Removal
 
@@ -99,7 +105,6 @@ The `initPreference()` method iterates every preference from the XML and returns
 | Key | Removed When |
 |-----|-------------|
 | `pref_icon_badging` | `NOTIFICATION_DOTS_ENABLED` build config is `false` |
-| `pref_allowRotation` | Device is a tablet, OR `Flags.oneGridSpecs()` is true |
 | `pref_developer_options` | Not a debug device, OR system developer options disabled |
 | `pref_fixed_landscape_mode` | `Flags.oneGridSpecs()` is false, OR device is tablet/multi-display |
 
@@ -166,15 +171,9 @@ public static boolean isEnabled(Context context, UserHandle user) {
 
 No active listener -- value is checked each time a package installation completes.
 
-### Allow Rotation (`pref_allowRotation`)
+### Allow Rotation (removed)
 
-A standard `SwitchPreference`. Consumed by [`RotationHelper.java`](../src/com/android/launcher3/states/RotationHelper.java), which registers as a `LauncherPrefChangeListener`:
-
-```java
-LauncherPrefs.get(mActivity).addListener(this, ALLOW_ROTATION);
-```
-
-On change, it recomputes the appropriate `SCREEN_ORIENTATION_*` flag and applies it via `setRequestedOrientation()`.
+The `pref_allowRotation` SwitchPreference was removed from the settings UI. The square grid system is optimized for portrait mode; landscape has known issues with the square grid layout. The `RotationHelper` code remains in the codebase but the setting is no longer exposed.
 
 ### Fixed Landscape Mode (`pref_fixed_landscape_mode`)
 

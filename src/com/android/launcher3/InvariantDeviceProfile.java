@@ -142,6 +142,15 @@ public class InvariantDeviceProfile {
     private final LauncherPrefs mPrefs;
     private final ThemeManager mThemeManager;
 
+    /** Inter-cell gap (dp) between adjacent cells in the square grid. */
+    public static final float SQUARE_GRID_INTER_CELL_GAP_DP = 4;
+
+    /** Edge gap (dp) between outermost cells and screen edges (left/right). */
+    public static final float SQUARE_GRID_EDGE_GAP_DP = 12;
+
+    /** Minimum top/bottom margin (dp) above workspace and below hotseat. */
+    public static final float SQUARE_GRID_MIN_TB_MARGIN_DP = 16;
+
     /** User-configured square grid spacing in DP. 0 means use default AOSP layout. */
     public float squareGridSpacingDp;
 
@@ -467,18 +476,8 @@ public class InvariantDeviceProfile {
 
         // --- Square grid override ---
         int userColumns = mPrefs.get(LauncherPrefs.GRID_COLUMNS);
-        // Density index: 0=Dense(8dp), 1=Comfortable(16dp), 2=Cozy(24dp)
-        int densityIndex;
-        try {
-            densityIndex = mPrefs.get(LauncherPrefs.GRID_SPACING);
-        } catch (ClassCastException e) {
-            // Old versions stored a raw dp String ("8","16","24"). Reset to default index.
-            densityIndex = 1;
-            mPrefs.put(LauncherPrefs.GRID_SPACING, densityIndex);
-        }
-        int userSpacingDp = densityIndexToSpacingDp(densityIndex);
         isSquareGrid = true;  // Always active; could be gated by a toggle later
-        hideWorkspaceLabels = mPrefs.get(LauncherPrefs.HIDE_WORKSPACE_LABELS);
+        hideWorkspaceLabels = true;
         allAppsRowSpacingDp = mPrefs.get(LauncherPrefs.ALLAPPS_ROW_SPACING);
         if (isSquareGrid) {
             numColumns = userColumns;
@@ -495,7 +494,7 @@ public class InvariantDeviceProfile {
                 numDatabaseHotseatIcons = persistedMaxHotseat;
             }
 
-            squareGridSpacingDp = userSpacingDp;
+            squareGridSpacingDp = SQUARE_GRID_INTER_CELL_GAP_DP;
             // Set numRows high for database capacity. Actual visible rows derived in DeviceProfile.
             numRows = 20;
         }
@@ -572,7 +571,8 @@ public class InvariantDeviceProfile {
     private Object[] toModelState() {
         return new Object[]{
                 numColumns, numRows, numSearchContainerColumns, numDatabaseHotseatIcons,
-                iconBitmapSize, fillResIconDpi, numDatabaseAllAppsColumns, dbFile, mLocale};
+                iconBitmapSize, fillResIconDpi, numDatabaseAllAppsColumns, dbFile, mLocale,
+                numShownHotseatIcons};
     }
 
     /** Updates IDP using the provided context. Notifies listeners of change. */
@@ -836,15 +836,6 @@ public class InvariantDeviceProfile {
             }
         } catch (Resources.NotFoundException ex) {
             Log.e(TAG, "Invalid Partner grid resource!", ex);
-        }
-    }
-
-    /** Maps density preset index (0=Dense, 1=Comfortable, 2=Cozy) to spacing in dp. */
-    public static int densityIndexToSpacingDp(int index) {
-        switch (index) {
-            case 0: return 8;
-            case 2: return 24;
-            default: return 16;  // 1 = Comfortable (default)
         }
     }
 

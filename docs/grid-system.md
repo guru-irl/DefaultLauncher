@@ -403,201 +403,182 @@ After dividing available space by column/row count, there's usually a few leftov
 
 ---
 
-## Square Grid Design: Derived Rows from Columns
+## Square Grid: Implementation
 
 ### The model
 
 AOSP configures both `numRows` and `numColumns` as fixed values in XML. This doesn't work for square cells on non-square screens, because the row count that fits depends on the cell size, which depends on the screen.
 
-The better model: **columns are the input, rows are derived**.
+The square grid model: **columns are the input, rows are derived. The hotseat is treated as one additional row of the grid.**
 
 ```
-User configures:   numColumns, gap
-Derived:           cellSize = (availableWidth - (numColumns - 1) * gap) / numColumns
-Derived:           numRows  = floor((availableHeight + gap) / (cellSize + gap))
-Remainder:         slop = availableHeight - (numRows * cellSize + (numRows - 1) * gap)
+User configures:   numColumns (4-10, default 5)
+
+Constants:
+  SQUARE_GRID_INTER_CELL_GAP_DP = 4     (gap between adjacent cells)
+  SQUARE_GRID_EDGE_GAP_DP       = 12    (gap from screen edge to outermost cells)
+  SQUARE_GRID_MIN_TB_MARGIN_DP  = 16    (minimum margin below hotseat)
+
+Derived:
+  cellSize   = (availableWidth - 2 * edgeGap - (numColumns - 1) * interGap) / numColumns
+  totalRows  = floor((availH + interGap) / (cellSize + interGap))   // workspace + hotseat
+  numRows    = totalRows - 1                                        // subtract hotseat
+  gap        = min(adjustedGap, maxGapForHorizontalFit)             // square rule: same both axes
+  slop       = screenH - statusBar - totalRows * cellSize - (totalRows - 1) * gap - bottomMargin
 ```
 
 - Cells are square (`cellSize × cellSize`)
-- Gaps are equal in both directions (`gap` is the same horizontally and vertically)
-- The grid fills the full width
-- Rows are maximized to fill available height
-- A small remainder (`slop`) is distributed as top/bottom padding or extra gap
+- Inter-cell gap is the same on both axes (square widgets stay square)
+- The grid fills the full width, edge gaps are wider than inter-cell gaps
+- Rows are maximized: hotseat counts as one row of the grid
+- Slop is split between top of workspace and bottom of hotseat
+- Labels are always hidden (`hideWorkspaceLabels = true`)
 
-### Concrete example: 5 columns on a 1080x2400 phone
+### Three gap constants
+
+| Constant | Value | Where applied |
+|----------|-------|---------------|
+| `SQUARE_GRID_INTER_CELL_GAP_DP` (4dp) | Between adjacent cells on both axes | `cellLayoutBorderSpacePx`, gap between workspace rows, gap between last row and hotseat |
+| `SQUARE_GRID_EDGE_GAP_DP` (12dp) | Between screen edges and outermost cells | Cell width computation (`updateIconSize`), initial `cellLayoutPaddingPx`, horizontal centering in `deriveSquareGridRows` |
+| `SQUARE_GRID_MIN_TB_MARGIN_DP` (16dp) | Below hotseat to screen bottom (minimum) | `hotseatBarBottomSpacePx` in constructor |
+
+### Calculation pipeline
+
+The square grid calculation happens across three phases:
+
+**Phase 1: Cell sizing** (`updateIconSize()`, called from `updateAvailableDimensions()`):
 
 ```
-Screen: 1080 x 2400 px
-System insets: status bar 100px, nav bar 132px
-Available: 1080 x 2168 px
-Hotseat reservation: ~310px
-Workspace area: 1080 x 1858 px
-
-gap = 16dp × 3.0 density = 48px
-
-cellSize = (1080 - 4 * 48) / 5 = (1080 - 192) / 5 = 888 / 5 = 177px
-
-numRows = floor((1858 + 48) / (177 + 48))
-        = floor(1906 / 225)
-        = floor(8.47)
-        = 8
-
-Grid: 5 columns × 8 rows, 177px square cells, 48px gaps
-Total grid height = 8 * 177 + 7 * 48 = 1416 + 336 = 1752px
-Slop = 1858 - 1752 = 106px → 53px top + 53px bottom padding
+interGapPx = pxFromDp(INTER_CELL_GAP_DP)     // e.g., 14px at 3.5 density
+edgeGapPx  = pxFromDp(EDGE_GAP_DP)           // e.g., 42px at 3.5 density
+availW     = availableWidthPx - 2 * edgeGapPx
+cellWidthPx  = (availW - (numColumns - 1) * interGapPx) / numColumns
+cellHeightPx = cellWidthPx                    // square
 ```
 
-Compare to stock AOSP 5×5: you get 8 rows instead of 5, with cells that are square and uniformly spaced.
+`cellLayoutBorderSpacePx` is set to `(interGapPx, interGapPx)` initially by `getCellLayoutBorderSpace()` reading `squareGridSpacingDp = INTER_CELL_GAP_DP`.
 
-### What the gap value should be
+**Phase 2: Hotseat and workspace padding** (constructor, after `updateAvailableDimensions()`):
 
-The gap is a design choice. For reference:
-
-| Source | Gap | Notes |
-|--------|-----|-------|
-| AOSP tablet grid (6×5) | 16dp horizontal, 64dp vertical | Not uniform |
-| AOSP `dynamic_grid_cell_border_spacing` | 16dp | Defined but unused on phone grids |
-| Material Design grid guidance | 8dp or 16dp | Standard touch spacing |
-| iOS home screen | ~26pt (~52px at 3x) | Between icon centers minus icon size |
-
-16dp is a reasonable starting point. 8dp for denser grids. This could also be a user-configurable setting.
-
-### How this changes `device_profiles.xml`
-
-Under this model, `numRows` in the XML becomes a **maximum or hint**, not the truth. The grid option only needs to declare `numColumns`:
-
-```xml
-<grid-option
-    launcher:name="5_col"
-    launcher:numColumns="5"
-    launcher:numRows="99"
-    launcher:numFolderRows="3"
-    launcher:numFolderColumns="4"
-    launcher:numHotseatIcons="5"
-    launcher:dbFile="launcher_5_col.db"
-    launcher:defaultLayoutId="@xml/default_workspace_5x5"
-    launcher:deviceCategory="phone|multi_display" >
-
-    <display-option
-        launcher:name="Phone"
-        launcher:minWidthDps="255"
-        launcher:minHeightDps="400"
-        launcher:iconImageSize="52"
-        launcher:iconTextSize="13.0"
-        launcher:canBeDefault="true" />
-</grid-option>
+```
+cellLayoutPaddingPx = edgeGapPx on all sides (initial, overridden in Phase 3)
+hotseatBarBottomSpacePx = max(pxFromDp(MIN_TB_MARGIN_DP), mInsets.bottom)
+hotseatBarSizePx = cellHeightPx + hotseatBarBottomSpacePx
 ```
 
-The `numRows="99"` is a placeholder -- the real value is calculated at runtime. This matters because `numRows` is used for the database schema (icon positions go up to `numRows - 1`). Setting it high ensures the database can accommodate any derived row count.
+Workspace padding (`updateWorkspacePadding()`) for square grid:
+```
+padding.top    = 0            // mInsets.top is already applied as a view margin
+padding.bottom = hotseatBarSizePx - mInsets.bottom   // mInsets.bottom also already a margin
+padding.left   = 0
+padding.right  = 0
+```
 
-### Where to implement this
+**Phase 3: Row derivation and final layout** (`deriveSquareGridRows()`, called after `updateWorkspacePadding()`):
 
-The changes span two files:
+```
+availH    = heightPx - mInsets.top - hotseatBarBottomSpacePx
+totalRows = (availH + interGap) / (cellHeightPx + interGap)
+numRows   = totalRows - 1     // subtract hotseat row
 
-#### 1. `InvariantDeviceProfile.initGrid()` -- derive numRows
+adjustedGap = (availH - totalRows * cellHeightPx) / (totalRows - 1)
+maxGap      = (cellLayoutW - numCols * cellW - 2 * edgeGap) / (numCols - 1)
+gap         = min(adjustedGap, maxGap)    // square rule: same on both axes
 
-**File:** [`InvariantDeviceProfile.java:365`](../src/com/android/launcher3/InvariantDeviceProfile.java)
+cellLayoutBorderSpacePx = (gap, gap)      // final gap (may differ from initial interGapPx)
 
-After the grid option is selected and `numColumns` is set, but before anything consumes `numRows`:
+gridH     = totalRows * cellH + (totalRows - 1) * gap
+slop      = heightPx - mInsets.top - gridH - hotseatBarBottomSpacePx
+slopTop   = slop / 2
+slopBottom = slop - slopTop
 
+hotseatBarBottomSpacePx += slopBottom     // absorb bottom slop
+hotseatBarSizePx = cellH + hotseatBarBottomSpacePx
+updateWorkspacePadding()                  // recompute with updated hotseat
+
+clH = getCellLayoutHeight()               // physical CellLayout height
+workspaceGridH = numRows * cellH + (numRows - 1) * gap
+vPadTotal = clH - workspaceGridH
+
+cellLayoutPaddingPx.top    = max(0, vPadTotal - gap)   // absorb top slop
+cellLayoutPaddingPx.bottom = gap                        // workspace-to-hotseat = inter-cell gap
+cellLayoutPaddingPx.left   = hEdgeTotal / 2             // centered horizontally
+cellLayoutPaddingPx.right  = hEdgeTotal - left
+```
+
+### Concrete example: 6 columns on Pixel 7 Pro (1440x3120, density 3.5)
+
+```
+Screen: 1440 x 3120 px
+System insets: status bar 113px, nav bar 53px
+Available: 1440 x 2954 px
+
+Edge gap: 12dp × 3.5 = 42px
+Inter-cell gap: 4dp × 3.5 = 14px (initial)
+Min bottom margin: 16dp × 3.5 = 56px
+
+Cell size:
+  availW = 1440 - 2 × 42 = 1356
+  cellSize = (1356 - 5 × 14) / 6 = 1286 / 6 = 214px (square)
+
+Row derivation:
+  bottomMargin = max(56, 53) = 56
+  availH = 3120 - 113 - 56 = 2951
+  totalRows = (2951 + 14) / (214 + 14) = 2965 / 228 = 13
+  numRows = 12
+
+Gap and slop:
+  adjustedGap = (2951 - 13 × 214) / 12 = 14
+  maxGap = (cellLayoutW - 6 × 214 - 2 × 42) / 5 = 14
+  gap = 14px (4dp)
+  gridH = 13 × 214 + 12 × 14 = 2950
+  slop = 3120 - 113 - 2950 - 56 = 1
+  slopTop = 0, slopBottom = 1
+
+Final layout:
+  hotseatBarBottomSpacePx = 57, hotseatBarSizePx = 271
+  workspacePadding = {0, 0, 0, 218}    (218 = 271 - 53)
+  getCellLayoutHeight = 2954 - 218 = 2736
+  workspaceGridH = 12 × 214 + 11 × 14 = 2722
+  cellLayoutPaddingPx = {top=0, bottom=14, left=43, right=43}
+
+Result: 6 × 12 grid + hotseat, 214px square cells, 14px (4dp) uniform gaps
+```
+
+### AOSP view inset system (critical gotcha)
+
+The Workspace view does **not** implement `Insettable`. When `InsettableFrameLayout` (DragLayer) dispatches system insets to its children:
+- **Insettable children** (Hotseat, etc.) get `setInsets(Rect)` called
+- **Non-Insettable children** (Workspace) get `mInsets` applied as **layout margins**
+
+This means the Workspace already has `margin.top = mInsets.top` and `margin.bottom = mInsets.bottom` from the framework. If `workspacePadding.top` also includes `mInsets.top`, the status bar offset is double-counted and the logical `getCellLayoutHeight()` won't match the physical CellLayout view dimensions.
+
+The square grid workspace padding formula accounts for this:
 ```java
-// After existing grid selection logic populates numColumns, iconSize, etc.
-
-// Derive numRows from available height, square cell size, and gap
-int gapPx = pxFromDp(GAP_DP, metrics);  // e.g., GAP_DP = 16f
-int cellSizePx = (availableWidthPx - (numColumns - 1) * gapPx) / numColumns;
-numRows = (availableHeightForGrid + gapPx) / (cellSizePx + gapPx);
-// availableHeightForGrid = screen height - insets - hotseat reservation
+// mInsets already applied as margins, so padding must NOT include them
+padding.set(0, 0, 0, hotseatBarSizePx - mInsets.bottom);
 ```
 
-The tricky part: `availableHeightForGrid` isn't fully known at `initGrid()` time because workspace padding depends on DeviceProfile, which hasn't been built yet. You may need to approximate the hotseat height here (it's roughly `iconSize + qsbHeight + bottomSpace`) or do the row derivation inside DeviceProfile instead.
+`getCellLayoutHeight() = availableHeightPx - workspacePadding.y` then correctly matches the physical CellLayout because `availableHeightPx = heightPx - mInsets.top - mInsets.bottom` already excludes the margin insets.
 
-#### 2. `DeviceProfile` constructor -- square cells with uniform gaps
+### Database strategy
 
-**File:** [`DeviceProfile.java`](../src/com/android/launcher3/DeviceProfile.java)
-
-Several modifications in the constructor and `updateIconSize()`:
-
-**a) Zero out outer margins** (around line 770):
-
-```java
-// Replace getHorizontalMarginPx() result with 0 for our grid mode
-desiredWorkspaceHorizontalMarginPx = 0;
-```
-
-**b) Zero out cell layout padding** (around line 813-817):
-
-```java
-cellLayoutPaddingPx = new Rect(0, 0, 0, 0);
-```
-
-**c) Force square cells and uniform gap in `updateIconSize()`** (around line 1343-1358):
-
-```java
-// Replace the default mode cell size calculation:
-int gapPx = pxFromDp(GAP_DP, mMetrics);
-cellWidthPx = (availableWidthPx - (inv.numColumns - 1) * gapPx) / inv.numColumns;
-cellHeightPx = cellWidthPx;  // square
-
-cellLayoutBorderSpacePx = new Point(gapPx, gapPx);  // uniform gap
-```
-
-**d) Derive numRows if not done in InvariantDeviceProfile** -- after workspace padding is known:
-
-```java
-// After updateWorkspacePadding()
-int workspaceHeight = getCellLayoutHeight();
-int gapPx = cellLayoutBorderSpacePx.y;
-int derivedRows = (workspaceHeight + gapPx) / (cellHeightPx + gapPx);
-if (derivedRows != inv.numRows) {
-    // Update inv.numRows -- this affects CellLayout.setGridSize() downstream
-    inv.numRows = derivedRows;
-}
-```
-
-**e) Distribute slop as top/bottom padding** in `updateWorkspacePadding()`:
-
-```java
-int gridHeight = inv.numRows * cellHeightPx + (inv.numRows - 1) * gapPx;
-int slop = getCellLayoutHeight() - gridHeight;
-// Add slop/2 to top padding, slop/2 to bottom padding
-// Or: add slop to workspaceTopPadding to push grid down slightly
-```
-
-### Database implications
-
-AOSP stores icon positions as `(cellX, cellY, spanX, spanY)` in the database, with valid ranges `0..numColumns-1` and `0..numRows-1`. The database filename is tied to the grid option (`launcher_5_col.db`).
-
-If `numRows` changes between sessions (e.g., the user rotates from portrait to landscape, or the hotseat size changes), icons in rows that no longer exist would need to be handled. Two strategies:
-
-**Strategy A: Fixed maximum rows.** Set `numRows` to a high constant (e.g., 20) in the XML. Derived rows only affect layout, not the database. CellLayout is set to the derived count, but the DB can hold more. Icons beyond the visible rows are simply off-screen (accessible by scrolling, or migrated to a new page).
-
-**Strategy B: Re-derive on config change.** Recalculate rows on every configuration change and migrate icons. This is more complex and risks losing positions.
-
-Strategy A is simpler and matches how AOSP already handles the `numDatabaseHotseatIcons > numShownHotseatIcons` pattern -- the database capacity is larger than what's displayed, allowing seamless transitions.
+`numRows` is set to `20` in `InvariantDeviceProfile.initGrid()` for database capacity. The actual visible row count is derived at runtime by `deriveSquareGridRows()` and stored in `DeviceProfile.numRows`. This follows Strategy A from the AOSP pattern: database capacity is larger than display, same as `numDatabaseHotseatIcons > numShownHotseatIcons`.
 
 ### Impact on widgets
 
-With uniform gaps (`gapX == gapY`), a 2×2 widget occupies:
+With uniform gaps (`gap` same on both axes), an N×N widget is perfectly square:
 
 ```
-width  = 2 * cellSize + 1 * gap
-height = 2 * cellSize + 1 * gap   → square!
+width  = N * cellSize + (N - 1) * gap
+height = N * cellSize + (N - 1) * gap
 ```
 
-A 3×2 widget would be wider than tall, a 2×3 taller than wide -- natural behavior. The key improvement over stock AOSP is that square-span widgets (2×2, 3×3) are actually square.
+Widgets can also be dropped into the hotseat (enabled when `isSquareGrid`), where they occupy multiple columns with the same cell/gap geometry.
 
 ### Impact on all-apps
 
-The app drawer scrolls vertically, so rows aren't bounded. Apply the same square-cell logic:
-
-```java
-allAppsCellWidthPx = cellWidthPx;   // same square size as workspace
-allAppsCellHeightPx = cellWidthPx;  // square
-allAppsBorderSpacePx = new Point(gapPx, gapPx);  // uniform gap
-```
-
-The column count can be the same as the workspace or different (set via `numAllAppsColumns`).
+The app drawer column count matches the workspace. Cell sizing is independent (from `allAppsCellSize` XML values). Row spacing is user-configurable via `pref_allapps_row_spacing` (8-48dp, default 24dp).
 
 ---
 

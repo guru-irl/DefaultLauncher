@@ -216,28 +216,13 @@ public class SettingsActivity extends FragmentActivity
                 return true;
             };
             String[] gridPrefKeys = {
-                    "pref_grid_columns", "pref_grid_spacing", "pref_hide_workspace_labels",
-                    "pref_allapps_row_spacing"
+                    "pref_grid_columns", "pref_allapps_row_spacing"
             };
             for (String key : gridPrefKeys) {
                 Preference pref = findPreference(key);
                 if (pref != null) {
                     pref.setOnPreferenceChangeListener(gridChangeListener);
                 }
-            }
-
-            // Show density label as summary on the spacing slider
-            Preference spacingPref = findPreference("pref_grid_spacing");
-            if (spacingPref != null) {
-                updateDensitySummary(spacingPref,
-                        getPreferenceManager().getSharedPreferences()
-                                .getInt("pref_grid_spacing", 1));
-                final Preference.OnPreferenceChangeListener prev =
-                        spacingPref.getOnPreferenceChangeListener();
-                spacingPref.setOnPreferenceChangeListener((pref, newValue) -> {
-                    updateDensitySummary(pref, (int) newValue);
-                    return prev != null && prev.onPreferenceChange(pref, newValue);
-                });
             }
 
             // If the target preference is not in the current preference screen, find the parent
@@ -318,20 +303,6 @@ public class SettingsActivity extends FragmentActivity
         public void onSaveInstanceState(Bundle outState) {
             super.onSaveInstanceState(outState);
             outState.putBoolean(SAVE_HIGHLIGHTED_KEY, mPreferenceHighlighted);
-        }
-
-        private void updateDensitySummary(Preference pref, int index) {
-            switch (index) {
-                case 0:
-                    pref.setSummary(R.string.grid_spacing_dense);
-                    break;
-                case 2:
-                    pref.setSummary(R.string.grid_spacing_cozy);
-                    break;
-                default:
-                    pref.setSummary(R.string.grid_spacing_comfortable);
-                    break;
-            }
         }
 
         /**

@@ -152,9 +152,8 @@ public class WorkspaceStateTransitionAnimation {
 
         Interpolator workspaceFadeInterpolator = config.getInterpolator(ANIM_WORKSPACE_FADE,
                 pageAlphaProvider.interpolator);
-        float workspacePageIndicatorAlpha = (elements & WORKSPACE_PAGE_INDICATOR) != 0 ? 1 : 0;
         propertySetter.setViewAlpha(mLauncher.getWorkspace().getPageIndicator(),
-                workspacePageIndicatorAlpha, workspaceFadeInterpolator);
+                0, workspaceFadeInterpolator);
         Interpolator hotseatFadeInterpolator = config.getInterpolator(ANIM_HOTSEAT_FADE,
                 workspaceFadeInterpolator);
         float hotseatIconsAlpha = (elements & HOTSEAT_ICONS) != 0 ? 1 : 0;
