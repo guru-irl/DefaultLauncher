@@ -180,6 +180,9 @@ public class InvariantDeviceProfile {
     /** User-configured app drawer row spacing in DP. */
     public float allAppsRowSpacingDp;
 
+    /** User-configured app drawer label text size in SP. */
+    public float allAppsLabelSizeSp;
+
     /**
      * Number of icons per row and column in the workspace.
      */
@@ -402,7 +405,6 @@ public class InvariantDeviceProfile {
 
     private void initGrid(Context context, Info displayInfo, DisplayOption displayOption) {
         enableTwoLinesInAllApps = Flags.enableTwolineToggle()
-                && Utilities.isEnglishLanguage(context)
                 && mPrefs.get(ENABLE_TWOLINE_ALLAPPS_TOGGLE);
         mLocale = context.getResources().getConfiguration().locale.toString();
 
@@ -497,6 +499,7 @@ public class InvariantDeviceProfile {
         hideWorkspaceLabels = true;
         int rawGapDp = mPrefs.get(LauncherPrefs.ALLAPPS_ROW_GAP);
         allAppsRowSpacingDp = snapToNearestGap(rawGapDp);
+        allAppsLabelSizeSp = mPrefs.get(LauncherPrefs.ALLAPPS_LABEL_SIZE);
         if (isSquareGrid) {
             numColumns = userColumns;
             numAllAppsColumns = userColumns;

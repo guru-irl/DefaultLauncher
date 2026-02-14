@@ -535,6 +535,12 @@
     <string name="grid_columns_title">Grid columns</string>
     <string name="allapps_row_gap_title">App drawer row gap</string>
 
+    <!-- App drawer settings -->
+    <string name="app_drawer_category">App drawer</string>
+    <string name="allapps_label_size_title">Label size</string>
+    <string name="allapps_twoline_title">Two-line labels</string>
+    <string name="allapps_twoline_summary">Show app names on two lines</string>
+
     <!-- Appearance settings -->
     <string name="appearance_category_title">Appearance</string>
     <string name="icon_pack_title">Icon pack</string>

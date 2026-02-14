@@ -269,6 +269,18 @@ public class SettingsActivity extends AppCompatActivity
                 columnsPref.setOnPreferenceChangeListener(gridChangeListener);
             }
 
+            // Label size slider
+            Preference labelSizePref = findPreference("pref_allapps_label_size");
+            if (labelSizePref != null) {
+                labelSizePref.setOnPreferenceChangeListener(gridChangeListener);
+            }
+
+            // Two-line labels switch
+            Preference twoLinePref = findPreference("pref_enable_two_line_toggle");
+            if (twoLinePref != null) {
+                twoLinePref.setOnPreferenceChangeListener(gridChangeListener);
+            }
+
             // Row gap slider: snap to nearest valid value (16/24/32) on release
             M3SliderPreference rowGapPref = findPreference("pref_allapps_row_gap");
             if (rowGapPref != null) {

@@ -49,11 +49,6 @@
             android:layout="@layout/preference_icon_size"
             launcher:iconSpaceReserved="false" />
 
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/grid_settings_category"
-        launcher:iconSpaceReserved="false">
-
         <com.android.launcher3.settings.M3SliderPreference
             android:key="pref_grid_columns"
             android:title="@string/grid_columns_title"
@@ -61,6 +56,28 @@
             android:max="10"
             launcher:min="4"
             launcher:showSeekBarValue="true"
+            launcher:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/app_drawer_category"
+        launcher:iconSpaceReserved="false">
+
+        <com.android.launcher3.settings.M3SliderPreference
+            android:key="pref_allapps_label_size"
+            android:title="@string/allapps_label_size_title"
+            android:defaultValue="14"
+            android:max="18"
+            launcher:min="10"
+            launcher:showSeekBarValue="true"
+            launcher:iconSpaceReserved="false" />
+
+        <SwitchPreference
+            android:key="pref_enable_two_line_toggle"
+            android:title="@string/allapps_twoline_title"
+            android:summary="@string/allapps_twoline_summary"
+            android:defaultValue="false"
             launcher:iconSpaceReserved="false" />
 
         <com.android.launcher3.settings.M3SliderPreference

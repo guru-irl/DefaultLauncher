@@ -1571,7 +1571,7 @@ public class DeviceProfile {
         if (inv.isSquareGrid) {
             // Use base icon size (label-independent) for all-apps
             allAppsIconSizePx = mSquareGridBaseIconSizePx;
-            allAppsIconTextSizePx = pxFromSp(inv.iconTextSize[mTypeIndex], mMetrics);
+            allAppsIconTextSizePx = pxFromSp(inv.allAppsLabelSizeSp, mMetrics);
             allAppsIconDrawablePaddingPx =
                     (int) (getNormalizedIconDrawablePadding() * iconScale);
             allAppsCellWidthPx = cellWidthPx;
