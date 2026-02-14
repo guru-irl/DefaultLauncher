@@ -22,55 +22,55 @@
 
 ## What is this?
 
-Default Launcher takes stock Android's home screen and makes the choices Google won't. No search bar welded to the top. No wasted space between icons. No settings hidden behind flags. Just a clean grid that fills your screen, with every knob exposed in a proper settings page.
+Default Launcher is a custom Android home screen built on AOSP Launcher3, the same launcher that ships on Pixel phones. It removes the search bar, page indicators, and other clutter, replaces the fixed grid with a configurable square grid, and exposes all the layout knobs in a Material 3 settings page.
 
-It's built directly on top of AOSP Launcher3 — the same code that ships on Pixel phones — so everything that works on stock Android works here. We just removed the parts that get in the way and added the parts that should have been there.
+Everything from stock Launcher3 still works (widgets, folders, work profiles, etc.). The changes are focused on the grid system, icon customization, and the app drawer.
 
 ## The grid
 
-Most launchers give you a fixed grid — 5 columns, 5 rows, take it or leave it. Default Launcher flips this around:
+Most launchers give you a fixed grid, like 5 columns and 5 rows. Default Launcher works differently:
 
-1. **You pick the columns** (4 to 10). Want a dense grid with tiny icons? Go for 10. Want big, easy-to-tap icons? Pick 4.
-2. **Rows figure themselves out.** The launcher measures your screen, makes each cell a perfect square, and calculates how many rows actually fit. A tall phone might get 7 rows where a shorter one gets 5.
-3. **Gaps are uniform everywhere.** The space between icons, and between icons and the screen edge, is exactly the same — no awkward padding at the top or bottom.
+1. **You pick the columns** (4 to 10).
+2. **Rows are calculated automatically.** The launcher measures your screen, makes each cell a perfect square, and figures out how many rows fit. A tall phone might get 7 rows where a shorter one gets 5.
+3. **Gaps are uniform everywhere.** The space between icons and the space between icons and the screen edge are the same. No awkward padding at the top or bottom.
 
-The hotseat (the row of apps at the bottom) is part of the same grid — same icon size, same spacing. It's just the last row, not a separate thing floating in space.
+The hotseat (the row of apps at the bottom) is part of the same grid, with the same icon size and spacing. It's just the last row, not a separate floating element.
 
-When you change the column count, your existing icons aren't thrown away. A [reflow system](docs/grid-reflow.md) repacks them into the new layout, row by row, preserving their relative order.
+When you change the column count, your existing icons are preserved. A [reflow system](docs/grid-reflow.md) repacks them into the new layout row by row, keeping their relative order.
 
 ## Features
 
 ### Home screen
-- **Square grid** with user-configurable columns (4-10) and derived rows
-- **Uniform gap distribution** — edges match inter-cell spacing, no dead zones
-- **Hotseat as grid row** — same sizing and gaps as the workspace
-- **Icon size selector** — four presets (S/M/L/XL) or a custom percentage (50-100%)
-- **Grid reflow** — icons repack automatically when columns change
-- **No QSB, no page dots** — removed by default
+- **Square grid** with user-configurable columns (4-10) and automatically derived rows
+- **Uniform gap distribution**: edges match inter-cell spacing, no dead zones
+- **Hotseat as grid row**: same sizing and gaps as the workspace
+- **Icon size selector**: four presets (S/M/L/XL) or a custom percentage (50-100%)
+- **Grid reflow**: icons repack automatically when columns change
+- **No QSB, no page dots**: removed by default
 
 ### App drawer
-- **Label size slider** — adjust text from 10sp to 18sp
-- **Two-line labels** — show full app names when one line isn't enough
-- **Row gap control** — choose between 16dp, 24dp, or 32dp spacing
-- **M3 search bar** — 56dp pill with dynamic colors, proper icon placement
-- **Smooth scrolling** — fixed AOSP's per-frame letter sidebar rebuild
+- **Label size slider**: adjust text from 10sp to 18sp
+- **Two-line labels**: show full app names when one line isn't enough
+- **Row gap control**: choose between 16dp, 24dp, or 32dp spacing
+- **M3 search bar**: 56dp pill with dynamic colors and proper icon placement
+- **Smooth scrolling**: fixed AOSP's per-frame letter sidebar rebuild
 
 ### Icons
-- **ADW icon pack support** — works with thousands of existing icon packs
-- **Icon shape picker** — circle, square, 4-sided cookie, 7-sided cookie, arch, or none (raw icons)
-- **Fallback masking** — apps without pack icons get the pack's background/mask treatment
-- **Cache-clearing apply flow** — icons update instantly, no stale bitmaps
+- **ADW icon pack support**: works with thousands of existing icon packs
+- **Icon shape picker**: circle, square, 4-sided cookie, 7-sided cookie, arch, or none (raw icons)
+- **Fallback masking**: apps without a pack icon get the pack's background/mask treatment
+- **Cache-clearing apply flow**: icons update instantly, no stale bitmaps
 
 ### Settings
-- **Material 3 throughout** — dynamic colors from your wallpaper, dark mode support
+- **Material 3 throughout**: dynamic colors from your wallpaper, dark mode support
 - **Collapsing toolbar** with Dancing Script branding
-- **Card-grouped preferences** — Lawnchair-style rounded sections with dividers
-- **M3 slider** — custom Material 3 slider replacing the stock SeekBar
-- **Color debug swatch** — see your entire dynamic color palette at a glance
-- **Inline icon size toggle** — pick a size right in the settings row, no dialog needed
+- **Card-grouped preferences**: Lawnchair-style rounded sections with dividers
+- **M3 slider**: custom Material 3 slider replacing the stock SeekBar
+- **Color debug swatch**: see your entire dynamic color palette at a glance
+- **Inline icon size toggle**: pick a size right in the settings row, no dialog needed
 
 ### Under the hood
-- **Three-layer grid system**: static XML definitions, parsed config (survives rotation), pixel-level calculations (per orientation) — [detailed docs](docs/grid-system.md)
+- **Three-layer grid system**: static XML definitions, parsed config (survives rotation), pixel-level calculations (per orientation). See [detailed docs](docs/grid-system.md).
 - **Typed preferences** via `LauncherPrefs` with backup support and change listeners
 - **Hidden API compat layer** for WMShared desktop-mode APIs via reflection
 
@@ -148,8 +148,8 @@ Implementation details for each feature are tracked in [`docs/changes/`](docs/ch
 
 ## Credits
 
-- [AOSP Launcher3](https://android.googlesource.com/platform/packages/apps/Launcher3/) — the foundation
-- [yuchuangu85/Launcher3](https://github.com/yuchuangu85/Launcher3) — Gradle port with prebuilt framework stubs
+- [AOSP Launcher3](https://android.googlesource.com/platform/packages/apps/Launcher3/): the foundation
+- [yuchuangu85/Launcher3](https://github.com/yuchuangu85/Launcher3): Gradle port with prebuilt framework stubs
 
 ## License
 
