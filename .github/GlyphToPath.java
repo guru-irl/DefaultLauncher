@@ -16,8 +16,8 @@ public class GlyphToPath {
         Rectangle2D bounds = shape.getBounds2D();
 
         // Center in 108x108 viewport (adaptive icon safe zone is ~66x66 in center)
-        // We want the D centered and fitting within roughly 60x60 area in the middle
-        double targetSize = 64.0;
+        // Keep the D well within the safe zone with comfortable padding
+        double targetSize = 50.0;
         double scale = targetSize / Math.max(bounds.getWidth(), bounds.getHeight());
 
         double scaledW = bounds.getWidth() * scale;
