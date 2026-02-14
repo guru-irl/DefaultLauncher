@@ -533,6 +533,20 @@
     <string name="grid_columns_title">Grid columns</string>
     <string name="allapps_row_gap_title">App drawer row gap</string>
 
+    <!-- Appearance settings -->
+    <string name="appearance_category_title">Appearance</string>
+    <string name="icon_pack_title">Icon pack</string>
+    <string name="icon_pack_default">System default</string>
+    <string name="icon_pack_applying">Applying icon pack\u2026</string>
+    <string name="icon_shape_title">Icon shape</string>
+    <string name="icon_shape_default">System default</string>
+    <string name="icon_shape_none">None (raw icons)</string>
+    <string name="icon_shape_circle">Circle</string>
+    <string name="icon_shape_square">Square</string>
+    <string name="icon_shape_four_sided_cookie">4-sided cookie</string>
+    <string name="icon_shape_seven_sided_cookie">7-sided cookie</string>
+    <string name="icon_shape_arch">Arch</string>
+
 
     <!-- Strings for Private Space -->
     <!-- Private space tile label -->

@@ -43,6 +43,8 @@ object ShapesProvider {
     @VisibleForTesting const val FOUR_SIDED_COOKIE_KEY = "four_sided_cookie"
     @VisibleForTesting const val SEVEN_SIDED_COOKIE_KEY = "seven_sided_cookie"
     @VisibleForTesting const val ARCH_KEY = "arch"
+    @VisibleForTesting const val NONE_KEY = "none"
+    const val NONE_PATH = "M 0 0 H 100 V 100 H 0 Z"
 
     val iconShapes =
         if (/*Flags.newCustomizationPickerUi() &&*/ LauncherFlags.enableLauncherIconShapes()) {
@@ -78,6 +80,12 @@ object ShapesProvider {
                     title = "arch",
                     pathString = ARCH_PATH,
                     folderPathString = FOLDER_ARCH_PATH,
+                ),
+                IconShapeModel(
+                    key = NONE_KEY,
+                    title = "none",
+                    pathString = NONE_PATH,
+                    folderPathString = FOLDER_SQUARE_PATH,
                 ),
             )
         } else {

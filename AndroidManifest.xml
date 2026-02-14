@@ -71,4 +71,18 @@
         </activity>
 
     </application>
+
+    <!-- Icon pack discovery: query for ADW-format icon pack intents -->
+    <queries>
+        <intent>
+            <action android:name="org.adw.launcher.THEMES" />
+        </intent>
+        <intent>
+            <action android:name="com.gau.go.launcherex.theme" />
+        </intent>
+        <intent>
+            <action android:name="com.novalauncher.THEME" />
+        </intent>
+    </queries>
+
 </manifest>

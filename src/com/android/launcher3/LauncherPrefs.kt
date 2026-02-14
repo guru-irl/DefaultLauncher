@@ -316,6 +316,8 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         val ALLAPPS_ROW_GAP = backedUpItem("pref_allapps_row_gap", 16)
         @JvmField
         val HOTSEAT_MAX_DB_COUNT = backedUpItem("pref_hotseat_max_db_count", -1)
+        @JvmField
+        val ICON_PACK = backedUpItem("pref_icon_pack", "")
 
         @JvmField
         val NON_FIXED_LANDSCAPE_GRID_NAME =

@@ -19,8 +19,10 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Path
+import android.graphics.PorterDuff
 import android.graphics.Rect
 import android.graphics.drawable.AdaptiveIconDrawable
+import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import com.android.launcher3.Flags
 import com.android.launcher3.InvariantDeviceProfile
@@ -29,6 +31,7 @@ import com.android.launcher3.dagger.LauncherAppSingleton
 import com.android.launcher3.dagger.LauncherComponentProvider.appComponent
 import com.android.launcher3.graphics.ThemeManager
 import com.android.launcher3.pm.UserCache
+import com.android.launcher3.shapes.ShapesProvider
 import com.android.launcher3.util.UserIconInfo
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -51,9 +54,21 @@ internal constructor(
 ) : BaseIconFactory(context, idp.fillResIconDpi, idp.iconBitmapSize), AutoCloseable {
 
     private val iconScale = themeManager.iconState.iconScale
+    private val isNoneShape = themeManager.iconState.iconMask == ShapesProvider.NONE_PATH
 
     init {
         mThemeController = themeManager.themeController
+    }
+
+    override fun createBadgedIconBitmap(icon: Drawable, options: IconOptions?): BitmapInfo {
+        // For "none" shape with non-adaptive icons (icon packs), bypass the adaptive
+        // wrapping entirely — draw the raw icon at full size without shadow or shape.
+        if (isNoneShape && icon !is AdaptiveIconDrawable) {
+            val bitmap = createIconBitmap(icon, 1.0f, MODE_DEFAULT)
+            val color = ColorExtractor.findDominantColorByHue(bitmap)
+            return BitmapInfo.of(bitmap, color).withFlags(getBitmapFlagOp(options))
+        }
+        return super.createBadgedIconBitmap(icon, options)
     }
 
     /** Recycles a LauncherIcons that may be in-use. */
@@ -76,6 +91,13 @@ internal constructor(
         return themeManager.iconState.iconScale
     }
 
+    override fun wrapToAdaptiveIcon(icon: Drawable): AdaptiveIconDrawable {
+        // Use transparent background for non-adaptive icons so icon pack icons
+        // (and legacy icons) don't get an opaque white fill behind the shape.
+        mWrapperBackgroundColor = Color.TRANSPARENT
+        return super.wrapToAdaptiveIcon(icon)
+    }
+
     override fun drawAdaptiveIcon(
         canvas: Canvas,
         drawable: AdaptiveIconDrawable,
@@ -85,8 +107,20 @@ internal constructor(
             super.drawAdaptiveIcon(canvas, drawable, overridePath)
             return
         }
+        if (isNoneShape) {
+            // Clear the path shadow that was drawn before this method was called
+            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+            // Draw fg/bg layers without clipping to any shape
+            if (drawable.background != null) {
+                drawable.background.draw(canvas)
+            }
+            if (drawable.foreground != null) {
+                drawable.foreground.draw(canvas)
+            }
+            return
+        }
         canvas.clipPath(overridePath)
-        canvas.drawColor(Color.BLACK)
+        canvas.drawColor(Color.TRANSPARENT)
         canvas.save()
         canvas.scale(iconScale, iconScale, canvas.width / 2f, canvas.height / 2f)
         if (drawable.background != null) {

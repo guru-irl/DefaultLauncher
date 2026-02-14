@@ -39,6 +39,25 @@
         launcher:logIdOff="614"
         launcher:iconSpaceReserved="false" />
 
+    <PreferenceCategory
+        android:key="category_appearance"
+        android:title="@string/appearance_category_title"
+        launcher:iconSpaceReserved="false">
+
+        <Preference
+            android:key="pref_icon_pack"
+            android:title="@string/icon_pack_title"
+            android:summary="@string/icon_pack_default"
+            launcher:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="pref_icon_shape"
+            android:title="@string/icon_shape_title"
+            android:summary="@string/icon_shape_default"
+            launcher:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/grid_settings_category"
         launcher:iconSpaceReserved="false">
 

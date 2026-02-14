@@ -202,7 +202,7 @@ public class CustomFeatureFlags implements FeatureFlags {
 
     @Override
     public boolean enableLauncherIconShapes() {
-        return false;
+        return true;
     }
 
     @Override

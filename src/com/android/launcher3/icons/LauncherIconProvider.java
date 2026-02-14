@@ -15,8 +15,12 @@
  */
 package com.android.launcher3.icons;
 
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.ComponentInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.graphics.drawable.AdaptiveIconDrawable;
@@ -34,6 +38,8 @@ import com.android.launcher3.dagger.ApplicationContext;
 import com.android.launcher3.dagger.LauncherAppSingleton;
 import com.android.launcher3.graphics.ShapeDelegate;
 import com.android.launcher3.graphics.ThemeManager;
+import com.android.launcher3.icons.pack.IconPack;
+import com.android.launcher3.icons.pack.IconPackManager;
 import com.android.launcher3.util.ApiWrapper;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -60,15 +66,18 @@ public class LauncherIconProvider extends IconProvider {
 
     private final ApiWrapper mApiWrapper;
     private final ThemeManager mThemeManager;
+    private final IconPackManager mIconPackManager;
 
     @Inject
     public LauncherIconProvider(
             @ApplicationContext Context context,
             ThemeManager themeManager,
-            ApiWrapper apiWrapper) {
+            ApiWrapper apiWrapper,
+            IconPackManager iconPackManager) {
         super(context);
         mThemeManager = themeManager;
         mApiWrapper = apiWrapper;
+        mIconPackManager = iconPackManager;
         setIconThemeSupported(mThemeManager.isMonoThemeEnabled());
     }
 
@@ -86,9 +95,66 @@ public class LauncherIconProvider extends IconProvider {
     }
 
     @Override
+    public Drawable getIcon(ComponentInfo info, int iconDpi) {
+        IconPack pack = mIconPackManager.getCurrentPack();
+        if (pack != null) {
+            ComponentName cn = new ComponentName(info.packageName, info.name);
+            PackageManager pm = mContext.getPackageManager();
+
+            // Calendar icon from pack
+            Drawable cal = pack.getCalendarIcon(cn, pm);
+            if (cal != null) return cal;
+
+            // Exact match
+            Drawable icon = pack.getIconForComponent(cn, pm);
+            if (icon != null) return icon;
+
+            // Fallback masking
+            if (pack.hasFallbackMask()) {
+                Drawable original = super.getIcon(info, iconDpi);
+                int iconSize = Math.round(48 * iconDpi / 160f);
+                Drawable masked = pack.applyFallbackMask(original, iconSize);
+                if (masked != null) return masked;
+            }
+        }
+        return super.getIcon(info, iconDpi);
+    }
+
+    @Override
+    public Drawable getIcon(ApplicationInfo info, int iconDpi) {
+        IconPack pack = mIconPackManager.getCurrentPack();
+        if (pack != null) {
+            PackageManager pm = mContext.getPackageManager();
+            Intent launchIntent = pm.getLaunchIntentForPackage(info.packageName);
+            if (launchIntent != null && launchIntent.getComponent() != null) {
+                ComponentName cn = launchIntent.getComponent();
+
+                Drawable cal = pack.getCalendarIcon(cn, pm);
+                if (cal != null) return cal;
+
+                Drawable icon = pack.getIconForComponent(cn, pm);
+                if (icon != null) return icon;
+            }
+
+            // Fallback masking
+            if (pack.hasFallbackMask()) {
+                Drawable original = super.getIcon(info, iconDpi);
+                int iconSize = Math.round(48 * iconDpi / 160f);
+                Drawable masked = pack.applyFallbackMask(original, iconSize);
+                if (masked != null) return masked;
+            }
+        }
+        return super.getIcon(info, iconDpi);
+    }
+
+    @Override
     public void updateSystemState() {
         super.updateSystemState();
         mSystemState += "," + mThemeManager.getIconState().toUniqueId();
+        String packId = mIconPackManager.getCurrentPackId();
+        if (!packId.isEmpty()) {
+            mSystemState += ",iconpack:" + packId;
+        }
     }
 
     @Override

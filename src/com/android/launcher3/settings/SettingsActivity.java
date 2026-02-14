@@ -27,10 +27,13 @@ import static com.android.launcher3.InvariantDeviceProfile.TYPE_TABLET;
 import static com.android.launcher3.states.RotationHelper.ALLOW_ROTATION_PREFERENCE_KEY;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.MenuItem;
@@ -56,11 +59,25 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.android.launcher3.BuildConfig;
 import com.android.launcher3.Flags;
 import com.android.launcher3.InvariantDeviceProfile;
+import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherFiles;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
+import com.android.launcher3.dagger.LauncherComponentProvider;
+import com.android.launcher3.graphics.ThemeManager;
+import com.android.launcher3.icons.LauncherIcons;
+import com.android.launcher3.icons.pack.IconPack;
+import com.android.launcher3.icons.pack.IconPackManager;
+import com.android.launcher3.shapes.IconShapeModel;
+import com.android.launcher3.shapes.ShapesProvider;
 import com.android.launcher3.states.RotationHelper;
 import com.android.launcher3.util.DisplayController;
+import com.android.launcher3.util.Executors;
 import com.android.launcher3.util.SettingsCache;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Settings activity for Launcher. Currently implements the following setting: Allow rotation
@@ -234,6 +251,29 @@ public class SettingsActivity extends FragmentActivity
                             InvariantDeviceProfile.INSTANCE.get(getContext())
                                     .onConfigChanged(getContext()));
                     return snapped == raw;
+                });
+            }
+
+            // Icon pack picker (manual dialog — ListPreference requires AppCompat theme)
+            Preference iconPackPref = findPreference("pref_icon_pack");
+            if (iconPackPref != null) {
+                IconPackManager mgr = LauncherComponentProvider.get(getContext())
+                        .getIconPackManager();
+                updateIconPackSummary(iconPackPref, mgr);
+
+                iconPackPref.setOnPreferenceClickListener(pref -> {
+                    showIconPackDialog(pref, mgr);
+                    return true;
+                });
+            }
+
+            // Icon shape picker
+            Preference iconShapePref = findPreference("pref_icon_shape");
+            if (iconShapePref != null) {
+                updateIconShapeSummary(iconShapePref);
+                iconShapePref.setOnPreferenceClickListener(pref -> {
+                    showIconShapeDialog(pref);
+                    return true;
                 });
             }
 
@@ -438,6 +478,131 @@ public class SettingsActivity extends FragmentActivity
             return position >= 0 ? new PreferenceHighlighter(
                     list, position, screen.findPreference(mHighLightKey))
                     : null;
+        }
+
+        private void updateIconPackSummary(Preference pref, IconPackManager mgr) {
+            String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_PACK);
+            if (current == null || current.isEmpty()) {
+                pref.setSummary(R.string.icon_pack_default);
+            } else {
+                Map<String, IconPack> packs = mgr.getInstalledPacks();
+                IconPack pack = packs.get(current);
+                pref.setSummary(pack != null ? pack.label : current);
+            }
+        }
+
+        private void showIconPackDialog(Preference pref, IconPackManager mgr) {
+            Map<String, IconPack> packs = mgr.getInstalledPacks();
+
+            List<CharSequence> labels = new ArrayList<>();
+            List<String> pkgs = new ArrayList<>();
+            labels.add(getString(R.string.icon_pack_default));
+            pkgs.add("");
+            for (Map.Entry<String, IconPack> entry : packs.entrySet()) {
+                labels.add(entry.getValue().label);
+                pkgs.add(entry.getKey());
+            }
+
+            String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_PACK);
+            int selected = Math.max(0, pkgs.indexOf(current));
+
+            new AlertDialog.Builder(getContext())
+                    .setTitle(R.string.icon_pack_title)
+                    .setSingleChoiceItems(
+                            labels.toArray(new CharSequence[0]), selected,
+                            (dialog, which) -> {
+                                String pkg = pkgs.get(which);
+                                LauncherPrefs.get(getContext())
+                                        .put(LauncherPrefs.ICON_PACK, pkg);
+                                mgr.invalidate();
+
+                                // Show loading state
+                                AlertDialog ad = (AlertDialog) dialog;
+                                ad.getListView().setEnabled(false);
+                                ad.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(false);
+                                ad.setTitle(R.string.icon_pack_applying);
+
+                                // Pre-parse icon pack and clear caches on background thread
+                                LauncherAppState app = LauncherAppState.INSTANCE
+                                        .get(getContext());
+                                Executors.MODEL_EXECUTOR.execute(() -> {
+                                    mgr.getCurrentPack(); // triggers ensureParsed()
+                                    // Clear both disk and memory cache so workspace
+                                    // binding loads fresh icons from the provider.
+                                    app.getIconCache().clearAllIcons();
+                                    new Handler(Looper.getMainLooper()).post(() -> {
+                                        if (getContext() == null) return;
+                                        updateIconPackSummary(pref, mgr);
+                                        LauncherIcons.clearPool(getContext());
+                                        // forceReload submits LoaderTask to MODEL_EXECUTOR
+                                        app.getModel().forceReload();
+                                        // Queue after LoaderTask — MODEL_EXECUTOR is serial,
+                                        // so this runs once icons are fully loaded.
+                                        Executors.MODEL_EXECUTOR.execute(() ->
+                                            new Handler(Looper.getMainLooper()).post(() -> {
+                                                if (getContext() != null) dialog.dismiss();
+                                            })
+                                        );
+                                    });
+                                });
+                            })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        }
+
+        private void updateIconShapeSummary(Preference pref) {
+            String current = LauncherPrefs.get(getContext()).get(ThemeManager.PREF_ICON_SHAPE);
+            if (current == null || current.isEmpty()) {
+                pref.setSummary(R.string.icon_shape_default);
+                return;
+            }
+            pref.setSummary(getShapeDisplayName(current));
+        }
+
+        private CharSequence getShapeDisplayName(String key) {
+            if (key == null || key.isEmpty()) return getString(R.string.icon_shape_default);
+            switch (key) {
+                case ShapesProvider.CIRCLE_KEY: return getString(R.string.icon_shape_circle);
+                case ShapesProvider.SQUARE_KEY: return getString(R.string.icon_shape_square);
+                case ShapesProvider.FOUR_SIDED_COOKIE_KEY:
+                    return getString(R.string.icon_shape_four_sided_cookie);
+                case ShapesProvider.SEVEN_SIDED_COOKIE_KEY:
+                    return getString(R.string.icon_shape_seven_sided_cookie);
+                case ShapesProvider.ARCH_KEY: return getString(R.string.icon_shape_arch);
+                case ShapesProvider.NONE_KEY: return getString(R.string.icon_shape_none);
+                default: return key;
+            }
+        }
+
+        private void showIconShapeDialog(Preference pref) {
+            IconShapeModel[] shapes = ShapesProvider.INSTANCE.getIconShapes();
+
+            // Build labels: "System default" + all shape names
+            List<CharSequence> labels = new ArrayList<>();
+            List<String> keys = new ArrayList<>();
+            labels.add(getString(R.string.icon_shape_default));
+            keys.add("");
+            for (IconShapeModel shape : shapes) {
+                labels.add(getShapeDisplayName(shape.getKey()));
+                keys.add(shape.getKey());
+            }
+
+            String current = LauncherPrefs.get(getContext()).get(ThemeManager.PREF_ICON_SHAPE);
+            int selected = Math.max(0, keys.indexOf(current));
+
+            new AlertDialog.Builder(getContext())
+                    .setTitle(R.string.icon_shape_title)
+                    .setSingleChoiceItems(
+                            labels.toArray(new CharSequence[0]), selected,
+                            (dialog, which) -> {
+                                String key = keys.get(which);
+                                LauncherPrefs.get(getContext())
+                                        .put(ThemeManager.PREF_ICON_SHAPE, key);
+                                updateIconShapeSummary(pref);
+                                dialog.dismiss();
+                            })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
         }
     }
 }

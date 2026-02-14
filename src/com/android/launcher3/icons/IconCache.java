@@ -173,6 +173,14 @@ public class IconCache extends BaseIconCache {
     }
 
     /**
+     * Clears both disk and memory icon caches. Must be called on the worker thread.
+     */
+    public synchronized void clearAllIcons() {
+        iconDb.clear();
+        clearMemoryCache();
+    }
+
+    /**
      * Closes the cache DB. This will clear any in-memory cache.
      */
     public void close() {

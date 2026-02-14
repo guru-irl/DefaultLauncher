@@ -1,6 +1,7 @@
 package com.android.launcher3.icons;
 
 import static android.graphics.Color.BLACK;
+import static android.graphics.Color.TRANSPARENT;
 import static android.graphics.Paint.ANTI_ALIAS_FLAG;
 import static android.graphics.Paint.DITHER_FLAG;
 import static android.graphics.Paint.FILTER_BITMAP_FLAG;
@@ -95,7 +96,7 @@ public class BaseIconFactory implements AutoCloseable {
     // Shadow bitmap used as background for theme icons
     private Bitmap mWhiteShadowLayer;
 
-    private int mWrapperBackgroundColor = DEFAULT_WRAPPER_BACKGROUND;
+    protected int mWrapperBackgroundColor = DEFAULT_WRAPPER_BACKGROUND;
 
     private static int PLACEHOLDER_BACKGROUND_COLOR = Color.rgb(245, 245, 245);
 
@@ -489,7 +490,7 @@ public class BaseIconFactory implements AutoCloseable {
             return;
         }
         canvas.clipPath(overridePath);
-        canvas.drawColor(BLACK);
+        canvas.drawColor(TRANSPARENT);
         if (drawable.getBackground() != null) {
             drawable.getBackground().draw(canvas);
         }
