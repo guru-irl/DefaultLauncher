@@ -16,7 +16,9 @@
 
 package com.android.launcher3.graphics
 
+import android.content.ComponentCallbacks2
 import android.content.Context
+import android.content.res.Configuration
 import android.content.res.Resources
 import com.android.launcher3.EncryptionType
 import com.android.launcher3.Item
@@ -82,9 +84,19 @@ constructor(
             if (prefKeySet.contains(key)) verifyIconState()
         }
         prefs.addListener(prefListener, *keysArray)
+
+        // Detect dark mode and wallpaper color changes via configuration callbacks
+        val configCallbacks = object : ComponentCallbacks2 {
+            override fun onConfigurationChanged(newConfig: Configuration) = verifyIconState()
+            override fun onLowMemory() {}
+            override fun onTrimMemory(level: Int) {}
+        }
+        context.registerComponentCallbacks(configCallbacks)
+
         lifecycle.addCloseable {
             receiver.unregisterReceiverSafely()
             prefs.removeListener(prefListener, *keysArray)
+            context.unregisterComponentCallbacks(configCallbacks)
         }
     }
 
@@ -95,6 +107,9 @@ constructor(
 
         listeners.forEach { it.onThemeChanged() }
     }
+
+    /** Called when system configuration changes (e.g., dark mode, wallpaper colors). */
+    fun onConfigurationChanged() = verifyIconState()
 
     fun addChangeListener(listener: ThemeChangeListener) = listeners.add(listener)
 
@@ -128,12 +143,16 @@ constructor(
         val iconSizeScale = (prefs.get(LauncherPrefs.ICON_SIZE_SCALE).toFloatOrNull() ?: 1f)
             .coerceIn(0.5f, 1.0f)
 
+        val nightMode = (context.resources.configuration.uiMode
+            and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
         return IconState(
             iconMask = iconMask,
             folderShapeMask = folderShapeMask,
             themeController = iconControllerFactory.createThemeController(),
             iconScale = shapeModel?.iconScale ?: 1f,
             iconSizeScale = iconSizeScale,
+            nightMode = nightMode,
             iconShape = iconShape,
             folderShape = folderShape,
         )
@@ -146,10 +165,11 @@ constructor(
         val themeCode: String = themeController?.themeID ?: "no-theme",
         val iconScale: Float = 1f,
         val iconSizeScale: Float = 1f,
+        val nightMode: Boolean = false,
         val iconShape: ShapeDelegate,
         val folderShape: ShapeDelegate,
     ) {
-        fun toUniqueId() = "${iconMask.hashCode()},$themeCode,$iconSizeScale"
+        fun toUniqueId() = "${iconMask.hashCode()},$themeCode,$iconSizeScale,$nightMode"
     }
 
     /** Interface for receiving theme change events */

@@ -279,12 +279,15 @@ public class WidgetsFullSheet extends BaseWidgetSheet
     }
 
     private void setDeviceManagementResources() {
-        if (mActivityContext.getStringCache() != null) {
-            Button personalTab = findViewById(R.id.tab_personal);
-            personalTab.setText(mActivityContext.getStringCache().widgetsPersonalTab);
-
-            Button workTab = findViewById(R.id.tab_work);
-            workTab.setText(mActivityContext.getStringCache().widgetsWorkTab);
+        // Enterprise StringCache can return empty strings on consumer devices.
+        // Always use the default string resources for tab labels.
+        Button personalTab = findViewById(R.id.tab_personal);
+        if (personalTab != null) {
+            personalTab.setText(R.string.widgets_full_sheet_personal_tab);
+        }
+        Button workTab = findViewById(R.id.tab_work);
+        if (workTab != null) {
+            workTab.setText(R.string.widgets_full_sheet_work_tab);
         }
     }
 

@@ -87,7 +87,7 @@ public class AppsSearchContainerLayout extends ExtendedEditText
             searchIcon.setBounds(0, 0, iconSize, iconSize);
             setCompoundDrawablesRelative(searchIcon, null, null, null);
             setCompoundDrawablePadding((int) TypedValue.applyDimension(
-                    TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics()));
+                    TypedValue.COMPLEX_UNIT_DIP, 16, getResources().getDisplayMetrics()));
         }
 
         mContentOverlap =
