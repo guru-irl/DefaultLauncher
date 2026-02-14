@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="160" viewBox="0 0 720 160">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700');
+    </style>
+  </defs>
+  <text x="360" y="85" text-anchor="middle"
+        font-family="'Dancing Script', cursive" font-weight="700"
+        font-size="72" fill="#e3e2e6">
+    Default Launcher
+  </text>
+  <text x="360" y="130" text-anchor="middle"
+        font-family="sans-serif" font-weight="400"
+        font-size="20" fill="#8e9199" letter-spacing="3">
+    AN OPINIONATED DEFAULT LAUNCHER
+  </text>
+</svg>
