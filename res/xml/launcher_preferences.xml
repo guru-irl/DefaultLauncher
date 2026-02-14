@@ -18,31 +18,17 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:launcher="http://schemas.android.com/apk/res-auto">
 
-    <com.android.launcher3.settings.NotificationDotsPreference
-        android:key="pref_icon_badging"
-        android:title="@string/notification_dots_title"
-        android:persistent="false"
-        android:widgetLayout="@layout/notification_pref_warning"
-        launcher:iconSpaceReserved="false" />
-
-    <!--
-      LAUNCHER_ADD_NEW_APPS_TO_HOME_SCREEN_ENABLED(613)
-      LAUNCHER_ADD_NEW_APPS_TO_HOME_SCREEN_DISABLED(614)
-    -->
-    <SwitchPreference
-        android:key="pref_add_icon_to_home"
-        android:title="@string/auto_add_shortcuts_label"
-        android:summary="@string/auto_add_shortcuts_description"
-        android:defaultValue="true"
-        android:persistent="true"
-        launcher:logIdOn="613"
-        launcher:logIdOff="614"
-        launcher:iconSpaceReserved="false" />
-
     <PreferenceCategory
         android:key="category_appearance"
         android:title="@string/appearance_category_title"
         launcher:iconSpaceReserved="false">
+
+        <com.android.launcher3.settings.NotificationDotsPreference
+            android:key="pref_icon_badging"
+            android:title="@string/notification_dots_title"
+            android:persistent="false"
+            android:widgetLayout="@layout/notification_pref_warning"
+            launcher:iconSpaceReserved="false" />
 
         <Preference
             android:key="pref_icon_pack"
@@ -60,6 +46,7 @@
             android:key="pref_icon_size_scale"
             android:title="@string/icon_size_title"
             android:summary="@string/icon_size_default"
+            android:layout="@layout/preference_icon_size"
             launcher:iconSpaceReserved="false" />
 
     </PreferenceCategory>
@@ -67,7 +54,7 @@
     <PreferenceCategory android:title="@string/grid_settings_category"
         launcher:iconSpaceReserved="false">
 
-        <SeekBarPreference
+        <com.android.launcher3.settings.M3SliderPreference
             android:key="pref_grid_columns"
             android:title="@string/grid_columns_title"
             android:defaultValue="6"
@@ -76,13 +63,24 @@
             launcher:showSeekBarValue="true"
             launcher:iconSpaceReserved="false" />
 
-        <SeekBarPreference
+        <com.android.launcher3.settings.M3SliderPreference
             android:key="pref_allapps_row_gap"
             android:title="@string/allapps_row_gap_title"
             android:defaultValue="16"
             android:max="32"
             launcher:min="16"
             launcher:showSeekBarValue="true"
+            launcher:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/theme_colors_category"
+        launcher:iconSpaceReserved="false">
+
+        <com.android.launcher3.settings.ColorDebugPreference
+            android:key="pref_color_debug"
+            android:selectable="false"
             launcher:iconSpaceReserved="false" />
 
     </PreferenceCategory>

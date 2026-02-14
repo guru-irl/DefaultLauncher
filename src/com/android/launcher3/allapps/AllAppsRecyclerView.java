@@ -75,6 +75,7 @@ public class AllAppsRecyclerView extends FastScrollRecyclerView {
     private final AllAppsFastScrollHelper mFastScrollHelper;
     private int mCumulativeVerticalScroll;
     private ConstraintLayout mLetterList;
+    private List<AlphabeticalAppsList.FastScrollSectionInfo> mLastFastScrollSections;
 
     protected AlphabeticalAppsList<?> mApps;
 
@@ -245,9 +246,14 @@ public class AllAppsRecyclerView extends FastScrollRecyclerView {
             return;
         }
 
-        // TODO(gyc)
+        // Build the letter list once when sections change, not on every scroll frame.
         if (true/*Flags.letterFastScroller()*/ && !mScrollbar.isDraggingThumb()) {
-            setLettersToScrollLayout(mApps.getFastScrollerSections());
+            List<AlphabeticalAppsList.FastScrollSectionInfo> sections =
+                    mApps.getFastScrollerSections();
+            if (sections != mLastFastScrollSections) {
+                mLastFastScrollSections = sections;
+                setLettersToScrollLayout(sections);
+            }
         }
         // Only show the scrollbar if there is height to be scrolled
         int availableScrollBarHeight = getAvailableScrollBarHeight();

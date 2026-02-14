@@ -21,9 +21,13 @@ The `startSettings()` method fires an `ACTION_APPLICATION_PREFERENCES` intent sc
 
 **File:** [`src/com/android/launcher3/settings/SettingsActivity.java`](../src/com/android/launcher3/settings/SettingsActivity.java)
 
-The activity extends `FragmentActivity` (not the deprecated `PreferenceActivity`) and implements:
+The activity extends `AppCompatActivity` (migrated from AOSP's `FragmentActivity`) and implements:
 - `OnPreferenceStartFragmentCallback` -- handles clicks on preferences that specify a `fragment` attribute
 - `OnPreferenceStartScreenCallback` -- handles drilling into nested `PreferenceScreen` nodes
+
+### Theme & Dynamic Colors
+
+The activity theme is `HomeSettings.Theme`, which extends `Theme.Material3.DayNight.NoActionBar`. `DynamicColors.applyToActivityIfAvailable(this)` is called before `super.onCreate()` to pick up the device's wallpaper-extracted color palette.
 
 ### Manifest Declaration
 
@@ -32,7 +36,7 @@ Declared in [`AndroidManifest-common.xml`](../AndroidManifest-common.xml) (the s
 ```xml
 <activity
     android:name="com.android.launcher3.settings.SettingsActivity"
-    android:label="@string/settings_button_text"
+    android:label="@string/settings_title"
     android:theme="@style/HomeSettings.Theme"
     android:exported="true"
     android:autoRemoveFromRecents="true">
@@ -50,8 +54,30 @@ Declared in [`AndroidManifest-common.xml`](../AndroidManifest-common.xml) (the s
 
 | API Level | Layout File | Design |
 |-----------|------------|--------|
-| Default | [`res/layout/settings_activity.xml`](../res/layout/settings_activity.xml) | `LinearLayout` with a `Toolbar` + `FrameLayout` content area |
-| 31+ | [`res/layout-v31/settings_activity.xml`](../res/layout-v31/settings_activity.xml) | `CoordinatorLayout` with collapsing `AppBarLayout` / `CollapsingToolbarLayout` for Material-style header |
+| Default | [`res/layout/settings_activity.xml`](../res/layout/settings_activity.xml) | `LinearLayout` with `MaterialToolbar` + `FrameLayout` content area |
+| 31+ | [`res/layout-v31/settings_activity.xml`](../res/layout-v31/settings_activity.xml) | `CoordinatorLayout` with collapsing `AppBarLayout` / `CollapsingToolbarLayout` for M3 header |
+
+Both layouts use `com.google.android.material.appbar.MaterialToolbar` (not the legacy `Toolbar`), paired with `setSupportActionBar()`.
+
+### Collapsing Toolbar (API 31+)
+
+The `CollapsingToolbarLayout` displays "Default Launcher" in Dancing Script font:
+
+```java
+CollapsingToolbarLayout collapsingToolbar = findViewById(R.id.collapsing_toolbar);
+collapsingToolbar.setTitle(getString(R.string.settings_title));
+Typeface dancingScript = getResources().getFont(R.font.dancing_script);
+collapsingToolbar.setCollapsedTitleTypeface(dancingScript);
+collapsingToolbar.setExpandedTitleTypeface(dancingScript);
+```
+
+Key: the font is set via `setCollapsedTitleTypeface()` / `setExpandedTitleTypeface()`, not via text appearance styles or `SpannableString`. `CollapsingTextHelper` (the internal renderer) ignores `TypefaceSpan` and `android:fontFamily` from text appearances -- only the dedicated typeface setters work.
+
+The background transition uses the CTL's native `contentScrim`:
+```xml
+app:contentScrim="@color/materialColorSurfaceContainer"
+```
+No custom `OnOffsetChangedListener` needed -- the CTL handles the fade between transparent (expanded) and surface container (collapsed). `app:liftOnScroll="false"` is set on the `AppBarLayout` to prevent M3's default elevation tint from conflicting.
 
 ### Fragment Instantiation
 
@@ -82,21 +108,52 @@ An inner static class inside `SettingsActivity.java`. Extends `PreferenceFragmen
 
 Preferences are defined in [`res/xml/launcher_preferences.xml`](../res/xml/launcher_preferences.xml):
 
-| Key | Type | Description | Persistent |
-|-----|------|-------------|------------|
-| `pref_icon_badging` | `NotificationDotsPreference` (custom) | Notification dots on/off status | No (reads system setting) |
-| `pref_add_icon_to_home` | `SwitchPreference` | Auto-add new app icons to home screen | Yes |
-| `pref_grid_columns` | `SeekBarPreference` | Grid column count (4-10) | Yes |
-| `pref_allapps_row_spacing` | `SeekBarPreference` | App drawer row spacing in dp (8-48) | Yes |
+| Key | Type | Description |
+|-----|------|-------------|
+| `pref_icon_badging` | `NotificationDotsPreference` (custom) | Notification dots on/off status |
+| `pref_icon_pack` | `Preference` | Icon pack picker (opens bottom sheet) |
+| `pref_icon_shape` | `Preference` | Icon shape picker (opens bottom sheet) |
+| `pref_icon_size_scale` | `Preference` (custom layout) | Icon size with inline toggle group |
+| `pref_grid_columns` | `M3SliderPreference` (custom) | Grid column count (4-10) |
+| `pref_allapps_row_gap` | `M3SliderPreference` (custom) | App drawer row gap in dp |
 
-Two additional preferences are handled in code but not in the base XML (added via overlays or build variants):
-- `pref_developer_options` -- visible only on debug builds with system developer options enabled
-- `pref_fixed_landscape_mode` -- visible only when `Flags.oneGridSpecs()` is true and device is not a tablet
+Preferences are organized into categories:
+- **Appearance** -- notification dots, icon pack, icon shape, icon size
+- **Grid** -- column count, app drawer row gap
+- **Theme colors** -- color debug swatch grid
 
-Note: The following preferences were removed in favor of hardcoded values:
-- `pref_allowRotation` -- removed (square grid is portrait-optimized)
-- `pref_grid_spacing` -- removed (replaced by three gap constants in `InvariantDeviceProfile`)
-- `pref_hide_workspace_labels` -- removed (labels always hidden in square grid mode)
+### Settings UI Pattern (Card Groups)
+
+The settings list uses a Lawnchair-style card group layout via [`CardGroupItemDecoration`](../src/com/android/launcher3/settings/CardGroupItemDecoration.java), a `RecyclerView.ItemDecoration` that:
+- Draws individual rounded-rect backgrounds per preference item
+- Uses position-aware corner radii (large top corners for first item, large bottom for last)
+- Leaves category headers outside the cards with no background
+- Separates items with a 4dp gap (no divider lines)
+
+### Custom Preferences
+
+| Class | Purpose |
+|-------|---------|
+| [`M3SliderPreference`](../src/com/android/launcher3/settings/M3SliderPreference.java) | Replaces `SeekBarPreference` with a Material 3 `Slider`. Hides the default widget area and injects its own `Slider` + value label into `onBindViewHolder`. |
+| [`ColorDebugPreference`](../src/com/android/launcher3/settings/ColorDebugPreference.java) | Displays a grid of dynamic color swatches using `materialColor*` resources. Useful for verifying M3 dynamic color integration. |
+| `NotificationDotsPreference` | Reflects system `Settings.Secure.notification_badging` state (not persisted locally). |
+
+### Icon Size Inline Binding
+
+The icon size preference uses a custom layout (`res/layout/preference_icon_size.xml`) with a `MaterialButtonToggleGroup` embedded directly in the preference row. The toggle group is bound via `RecyclerView.OnChildAttachStateChangeListener` in `onViewCreated()`:
+
+```java
+rv.addOnChildAttachStateChangeListener(new OnChildAttachStateChangeListener() {
+    @Override
+    public void onChildViewAttachedToWindow(View child) {
+        if (child.findViewById(R.id.size_toggle_group) != null) {
+            bindIconSizeInline(child);
+        }
+    }
+});
+```
+
+Presets: **S** (80%), **M** (86%), **L** (92%), **XL** (100%). A star button opens a `MaterialAlertDialogBuilder` dialog for custom percentage input. Button selection animates corner radii from inner-group shape to pill shape.
 
 ### Conditional Preference Removal
 
@@ -146,41 +203,6 @@ The activity supports jumping directly to a specific preference via intent extra
 
 The visual highlight is handled by [`PreferenceHighlighter.java`](../src/com/android/launcher3/settings/PreferenceHighlighter.java), which draws a pulsing accent-colored rectangle over the target preference using `RecyclerView.ItemDecoration`.
 
-## Individual Preferences
-
-### Notification Dots (`pref_icon_badging`)
-
-**File:** [`NotificationDotsPreference.java`](../src/com/android/launcher3/settings/NotificationDotsPreference.java)
-
-This custom `Preference` does **not** store its own value. It reflects the system setting `Settings.Secure.notification_badging` via [`SettingsCache`](../src/com/android/launcher3/util/SettingsCache.java).
-
-Behavior:
-- Displays "On" or "Off" based on the system setting
-- If notification listener access is missing, shows a warning icon and opens `NotificationAccessConfirmation` (an inner `DialogFragment`) that directs the user to system notification listener settings
-- When clicked normally, opens Android's `Settings.ACTION_NOTIFICATION_SETTINGS`
-
-### Add Icons to Home Screen (`pref_add_icon_to_home`)
-
-A standard `SwitchPreference` stored directly in SharedPreferences. Read on-demand by [`SessionCommitReceiver.java`](../src/com/android/launcher3/SessionCommitReceiver.java) when a new app is installed:
-
-```java
-public static boolean isEnabled(Context context, UserHandle user) {
-    return LauncherPrefs.getPrefs(context).getBoolean(ADD_ICON_PREFERENCE_KEY, true);
-}
-```
-
-No active listener -- value is checked each time a package installation completes.
-
-### Allow Rotation (removed)
-
-The `pref_allowRotation` SwitchPreference was removed from the settings UI. The square grid system is optimized for portrait mode; landscape has known issues with the square grid layout. The `RotationHelper` code remains in the codebase but the setting is no longer exposed.
-
-### Fixed Landscape Mode (`pref_fixed_landscape_mode`)
-
-When toggled, triggers a grid reconfiguration in [`InvariantDeviceProfile.java`](../src/com/android/launcher3/InvariantDeviceProfile.java):
-- ON: saves the current grid name, calls `onConfigChanged()` to reload the device profile
-- OFF: restores the previously saved grid name
-
 ## Change Propagation
 
 Settings changes reach the launcher through four mechanisms:
@@ -217,16 +239,45 @@ Monitored URIs include:
 
 When developer options state changes while the settings activity is open, `tryRecreateActivity()` calls `activity.recreate()` to reflect the new state (show/hide the developer options entry).
 
+## M3 Color Resources
+
+Dynamic M3 colors are defined in [`res/values-v31/colors.xml`](../res/values-v31/colors.xml) (light) and [`res/values-night-v31/colors.xml`](../res/values-night-v31/colors.xml) (dark), mapped to Android's `system_accent1/2/3` and `system_neutral1/2` palette slots. Key resources used throughout settings and launcher themes:
+
+| Resource | Light Source | Usage |
+|----------|-------------|-------|
+| `materialColorSurfaceContainer` | `system_neutral1_100` | Toolbar collapsed bg, search bar bg, popup bg |
+| `materialColorOnSurface` | `system_neutral1_900` | Primary text color |
+| `materialColorOnSurfaceVariant` | `system_neutral2_700` | Search hint text, search icon tint |
+| `materialColorPrimary` | `system_accent1_600` | Category title color, accent |
+| `materialColorOutlineVariant` | `system_neutral2_200` | Popup tertiary color |
+
+## Typography
+
+Settings UI uses M3 Expressive type tokens:
+
+| Element | Style | Specs |
+|---------|-------|-------|
+| Preference title | `TextAppearance.Material3.BodyLarge` | 16sp / 400 weight |
+| Preference summary | (default) `TextAppearance.Material3.BodyMedium` | 14sp / 400 weight |
+| Category header | `TextAppearance.Material3.TitleSmall` | colored with `?attr/colorPrimary` |
+| Toolbar collapsed | `TextAppearance.Material3.TitleLarge` | 20sp, Dancing Script |
+| Toolbar expanded | `TextAppearance.Material3.DisplaySmall` | Dancing Script |
+
 ## Key Files Reference
 
 | File | Role |
 |------|------|
 | [`SettingsActivity.java`](../src/com/android/launcher3/settings/SettingsActivity.java) | Activity + LauncherSettingsFragment |
+| [`CardGroupItemDecoration.java`](../src/com/android/launcher3/settings/CardGroupItemDecoration.java) | Lawnchair-style rounded card groups |
+| [`M3SliderPreference.java`](../src/com/android/launcher3/settings/M3SliderPreference.java) | Material 3 slider replacing SeekBarPreference |
+| [`ColorDebugPreference.java`](../src/com/android/launcher3/settings/ColorDebugPreference.java) | Dynamic color swatch grid |
 | [`NotificationDotsPreference.java`](../src/com/android/launcher3/settings/NotificationDotsPreference.java) | Custom preference for notification dots |
 | [`PreferenceHighlighter.java`](../src/com/android/launcher3/settings/PreferenceHighlighter.java) | Visual highlight animation for deep-linked preferences |
 | [`launcher_preferences.xml`](../res/xml/launcher_preferences.xml) | Preference hierarchy definition |
+| [`preference_icon_size.xml`](../res/layout/preference_icon_size.xml) | Inline icon size toggle layout |
 | [`settings_activity.xml`](../res/layout/settings_activity.xml) | Base layout |
 | [`settings_activity.xml` (v31)](../res/layout-v31/settings_activity.xml) | API 31+ layout with collapsing toolbar |
+| [`dancing_script.ttf`](../res/font/dancing_script.ttf) | Toolbar title font |
 | [`AndroidManifest-common.xml`](../AndroidManifest-common.xml) | Activity declaration |
 | [`split_configuration.xml`](../res/xml/split_configuration.xml) | Activity Embedding rules for large screens |
 | [`config.xml`](../res/values/config.xml) | `settings_fragment_name` extension point |

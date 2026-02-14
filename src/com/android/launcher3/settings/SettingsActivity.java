@@ -26,28 +26,33 @@ import static com.android.launcher3.InvariantDeviceProfile.TYPE_MULTI_DISPLAY;
 import static com.android.launcher3.InvariantDeviceProfile.TYPE_TABLET;
 import static com.android.launcher3.states.RotationHelper.ALLOW_ROTATION_PREFERENCE_KEY;
 
+import android.animation.ValueAnimator;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.text.TextUtils;
-import android.view.ContextThemeWrapper;
-import android.view.LayoutInflater;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -56,12 +61,17 @@ import androidx.preference.PreferenceFragmentCompat.OnPreferenceStartScreenCallb
 import androidx.preference.PreferenceGroup;
 import androidx.preference.PreferenceGroup.PreferencePositionCallback;
 import androidx.preference.PreferenceScreen;
-import androidx.preference.SeekBarPreference;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.appbar.AppBarLayout;
+import com.google.android.material.appbar.CollapsingToolbarLayout;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.shape.CornerSize;
+import com.google.android.material.shape.ShapeAppearanceModel;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -91,7 +101,7 @@ import java.util.Map;
 /**
  * Settings activity for Launcher. Currently implements the following setting: Allow rotation
  */
-public class SettingsActivity extends FragmentActivity
+public class SettingsActivity extends AppCompatActivity
         implements OnPreferenceStartFragmentCallback, OnPreferenceStartScreenCallback {
 
     @VisibleForTesting
@@ -113,16 +123,28 @@ public class SettingsActivity extends FragmentActivity
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        DynamicColors.applyToActivityIfAvailable(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.settings_activity);
 
-        setActionBar(findViewById(R.id.action_bar));
+        setSupportActionBar(findViewById(R.id.action_bar));
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
+        // Set toolbar title with Dancing Script font
+        CollapsingToolbarLayout collapsingToolbar = findViewById(R.id.collapsing_toolbar);
+        if (collapsingToolbar != null) {
+            collapsingToolbar.setTitle(getString(R.string.settings_title));
+            Typeface dancingScript = getResources().getFont(R.font.dancing_script);
+            if (dancingScript != null) {
+                collapsingToolbar.setCollapsedTitleTypeface(dancingScript);
+                collapsingToolbar.setExpandedTitleTypeface(dancingScript);
+            }
+        }
 
         Intent intent = getIntent();
         if (intent.hasExtra(EXTRA_FRAGMENT_ROOT_KEY) || intent.hasExtra(EXTRA_FRAGMENT_ARGS)
                 || intent.hasExtra(EXTRA_FRAGMENT_HIGHLIGHT_KEY)) {
-            getActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
 
         if (savedInstanceState == null) {
@@ -248,13 +270,14 @@ public class SettingsActivity extends FragmentActivity
             }
 
             // Row gap slider: snap to nearest valid value (16/24/32) on release
-            SeekBarPreference rowGapPref = findPreference("pref_allapps_row_gap");
+            M3SliderPreference rowGapPref = findPreference("pref_allapps_row_gap");
             if (rowGapPref != null) {
+                rowGapPref.setStepSize(8f);
                 rowGapPref.setOnPreferenceChangeListener((pref, newValue) -> {
                     int raw = (int) newValue;
                     int snapped = (int) InvariantDeviceProfile.snapToNearestGap(raw);
                     if (snapped != raw) {
-                        ((SeekBarPreference) pref).setValue(snapped);
+                        ((M3SliderPreference) pref).setValue(snapped);
                     }
                     getListView().post(() ->
                             InvariantDeviceProfile.INSTANCE.get(getContext())
@@ -286,14 +309,10 @@ public class SettingsActivity extends FragmentActivity
                 });
             }
 
-            // Icon size picker
+            // Icon size picker — inline binding happens in onViewCreated
             Preference iconSizePref = findPreference("pref_icon_size_scale");
             if (iconSizePref != null) {
                 updateIconSizeSummary(iconSizePref);
-                iconSizePref.setOnPreferenceClickListener(pref -> {
-                    showIconSizeDialog(pref);
-                    return true;
-                });
             }
 
             // If the target preference is not in the current preference screen, find the parent
@@ -368,7 +387,190 @@ public class SettingsActivity extends FragmentActivity
 
             // Overriding Text Direction in the Androidx preference library to support RTL
             view.setTextDirection(View.TEXT_DIRECTION_LOCALE);
+
+            // Card group decoration for Lawnchair-style sectioned cards
+            RecyclerView rv = getListView();
+            rv.addItemDecoration(new CardGroupItemDecoration(getContext()));
+
+            // Bind custom preference layouts when their views attach to RecyclerView
+            rv.addOnChildAttachStateChangeListener(
+                    new RecyclerView.OnChildAttachStateChangeListener() {
+                @Override
+                public void onChildViewAttachedToWindow(View child) {
+                    if (child.findViewById(R.id.size_toggle_group) != null) {
+                        bindIconSizeInline(child);
+                    }
+                }
+                @Override
+                public void onChildViewDetachedFromWindow(View view) { }
+            });
         }
+
+        private boolean mIconSizeBound = false;
+        private int mLastPresetButtonId = View.NO_ID;
+        private static final long CORNER_ANIM_DURATION = 250L;
+
+        private void animateButtonCorners(MaterialButton btn, boolean toPill) {
+            float density = getResources().getDisplayMetrics().density;
+            float innerRadius = 8 * density;
+
+            // Run after the group finishes its shape calculation
+            btn.post(() -> {
+                float pillRadius = btn.getHeight() / 2f;
+                if (pillRadius <= 0) pillRadius = 20 * density;
+
+                float startRadius = toPill ? innerRadius : pillRadius;
+                float endRadius = toPill ? pillRadius : innerRadius;
+
+                ValueAnimator anim = ValueAnimator.ofFloat(startRadius, endRadius);
+                anim.setDuration(CORNER_ANIM_DURATION);
+                anim.setInterpolator(
+                        new androidx.interpolator.view.animation
+                                .FastOutSlowInInterpolator());
+                anim.addUpdateListener(a -> {
+                    float r = (float) a.getAnimatedValue();
+                    btn.setShapeAppearanceModel(
+                            btn.getShapeAppearanceModel().toBuilder()
+                                    .setAllCornerSizes(r)
+                                    .build());
+                });
+                anim.start();
+            });
+        }
+
+        private void bindIconSizeInline(View child) {
+            if (mIconSizeBound) return;
+            mIconSizeBound = true;
+
+            Preference iconSizePref = findPreference("pref_icon_size_scale");
+            if (iconSizePref == null) return;
+
+            MaterialButtonToggleGroup toggleGroup =
+                    child.findViewById(R.id.size_toggle_group);
+
+            String current = LauncherPrefs.get(getContext())
+                    .get(LauncherPrefs.ICON_SIZE_SCALE);
+
+            // Pre-select the matching preset button, or select custom star
+            int[] btnIds = {R.id.btn_size_s, R.id.btn_size_m,
+                    R.id.btn_size_l, R.id.btn_size_xl};
+            boolean isPreset = false;
+            for (int j = 0; j < SIZE_PRESETS.length; j++) {
+                if (SIZE_PRESETS[j].equals(current)) {
+                    toggleGroup.check(btnIds[j]);
+                    mLastPresetButtonId = btnIds[j];
+                    isPreset = true;
+                    break;
+                }
+            }
+            if (!isPreset) {
+                toggleGroup.check(R.id.btn_size_custom);
+            }
+
+            // Set pill shape on initial selection (no animation on first load)
+            toggleGroup.post(() -> {
+                for (int i = 0; i < toggleGroup.getChildCount(); i++) {
+                    View c = toggleGroup.getChildAt(i);
+                    if (c instanceof MaterialButton && ((MaterialButton) c).isChecked()) {
+                        float pill = c.getHeight() / 2f;
+                        if (pill > 0) {
+                            ((MaterialButton) c).setShapeAppearanceModel(
+                                    ShapeAppearanceModel.builder()
+                                            .setAllCornerSizes(pill)
+                                            .build());
+                        }
+                    }
+                }
+            });
+
+            toggleGroup.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+                MaterialButton btn = group.findViewById(checkedId);
+                if (btn != null) {
+                    // Animate to pill when checked, back to group shape when unchecked
+                    animateButtonCorners(btn, isChecked);
+                }
+
+                if (!isChecked) return;
+
+                if (checkedId == R.id.btn_size_custom) {
+                    showCustomIconSizeDialog(toggleGroup, iconSizePref);
+                    return;
+                }
+
+                // Remember last preset selection for cancel-revert
+                mLastPresetButtonId = checkedId;
+
+                if (btn != null) {
+                    String value = (String) btn.getTag();
+                    LauncherPrefs.get(getContext())
+                            .put(LauncherPrefs.ICON_SIZE_SCALE, value);
+                    updateIconSizeSummary(iconSizePref);
+                    getListView().post(() ->
+                        InvariantDeviceProfile.INSTANCE.get(getContext())
+                                .onConfigChanged(getContext()));
+                }
+            });
+        }
+
+        private void showCustomIconSizeDialog(
+                MaterialButtonToggleGroup toggleGroup, Preference iconSizePref) {
+            Context ctx = getContext();
+            float density = ctx.getResources().getDisplayMetrics().density;
+
+            TextInputLayout inputLayout = new TextInputLayout(ctx,
+                    null, com.google.android.material.R.attr.textInputOutlinedStyle);
+            inputLayout.setHint("Icon size (50\u2013100%)");
+            int hPad = (int) (24 * density);
+            int tPad = (int) (16 * density);
+            inputLayout.setPadding(hPad, tPad, hPad, 0);
+
+            TextInputEditText editText = new TextInputEditText(inputLayout.getContext());
+            editText.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                    | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+            inputLayout.addView(editText);
+
+            // Pre-fill with current value as percentage
+            try {
+                String cur = LauncherPrefs.get(ctx)
+                        .get(LauncherPrefs.ICON_SIZE_SCALE);
+                float pct = Float.parseFloat(cur) * 100f;
+                editText.setText(String.format("%.0f", pct));
+            } catch (NumberFormatException ignored) { }
+
+            Runnable revertSelection = () -> {
+                if (mLastPresetButtonId != View.NO_ID) {
+                    toggleGroup.check(mLastPresetButtonId);
+                } else {
+                    toggleGroup.clearChecked();
+                }
+            };
+
+            new MaterialAlertDialogBuilder(ctx)
+                    .setTitle(R.string.icon_size_custom)
+                    .setView(inputLayout)
+                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                        String text = editText.getText() != null
+                                ? editText.getText().toString().trim() : "";
+                        try {
+                            float pct = Float.parseFloat(text);
+                            pct = Math.max(50f, Math.min(100f, pct));
+                            String value = String.valueOf(pct / 100f);
+                            LauncherPrefs.get(ctx)
+                                    .put(LauncherPrefs.ICON_SIZE_SCALE, value);
+                            updateIconSizeSummary(iconSizePref);
+                            getListView().post(() ->
+                                InvariantDeviceProfile.INSTANCE.get(ctx)
+                                        .onConfigChanged(ctx));
+                        } catch (NumberFormatException ignored) {
+                            revertSelection.run();
+                        }
+                    })
+                    .setNegativeButton(android.R.string.cancel,
+                            (dialog, which) -> revertSelection.run())
+                    .setOnCancelListener(dialog -> revertSelection.run())
+                    .show();
+        }
+
 
         @Override
         public void onSaveInstanceState(Bundle outState) {
@@ -499,13 +701,6 @@ public class SettingsActivity extends FragmentActivity
                     : null;
         }
 
-        /** Returns a context themed for Material 3 dialogs/views. Required because
-         *  the settings activity uses Theme.DeviceDefault.Settings (not AppCompat). */
-        private Context getDialogContext() {
-            return new ContextThemeWrapper(getContext(),
-                    com.google.android.material.R.style.Theme_Material3_DayNight);
-        }
-
         private void updateIconPackSummary(Preference pref, IconPackManager mgr) {
             String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_PACK);
             if (current == null || current.isEmpty()) {
@@ -532,48 +727,70 @@ public class SettingsActivity extends FragmentActivity
             String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_PACK);
             int selected = Math.max(0, pkgs.indexOf(current));
 
-            new AlertDialog.Builder(getContext())
-                    .setTitle(R.string.icon_pack_title)
-                    .setSingleChoiceItems(
-                            labels.toArray(new CharSequence[0]), selected,
-                            (dialog, which) -> {
-                                String pkg = pkgs.get(which);
-                                LauncherPrefs.get(getContext())
-                                        .put(LauncherPrefs.ICON_PACK, pkg);
-                                mgr.invalidate();
+            Context ctx = getContext();
+            float density = ctx.getResources().getDisplayMetrics().density;
+            BottomSheetDialog sheet = new BottomSheetDialog(ctx);
 
-                                // Show loading state
-                                AlertDialog ad = (AlertDialog) dialog;
-                                ad.getListView().setEnabled(false);
-                                ad.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(false);
-                                ad.setTitle(R.string.icon_pack_applying);
+            LinearLayout root = new LinearLayout(ctx);
+            root.setOrientation(LinearLayout.VERTICAL);
+            root.setPadding(0, 0, 0, (int) (24 * density));
 
-                                // Pre-parse icon pack and clear caches on background thread
-                                LauncherAppState app = LauncherAppState.INSTANCE
-                                        .get(getContext());
-                                Executors.MODEL_EXECUTOR.execute(() -> {
-                                    mgr.getCurrentPack(); // triggers ensureParsed()
-                                    // Clear both disk and memory cache so workspace
-                                    // binding loads fresh icons from the provider.
-                                    app.getIconCache().clearAllIcons();
-                                    new Handler(Looper.getMainLooper()).post(() -> {
-                                        if (getContext() == null) return;
-                                        updateIconPackSummary(pref, mgr);
-                                        LauncherIcons.clearPool(getContext());
-                                        // forceReload submits LoaderTask to MODEL_EXECUTOR
-                                        app.getModel().forceReload();
-                                        // Queue after LoaderTask — MODEL_EXECUTOR is serial,
-                                        // so this runs once icons are fully loaded.
-                                        Executors.MODEL_EXECUTOR.execute(() ->
-                                            new Handler(Looper.getMainLooper()).post(() -> {
-                                                if (getContext() != null) dialog.dismiss();
-                                            })
-                                        );
-                                    });
-                                });
-                            })
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show();
+            addSheetHandle(root, ctx, density);
+
+            TextView titleView = new TextView(ctx);
+            titleView.setText(R.string.icon_pack_title);
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+            titleView.setTextColor(ctx.getColor(R.color.materialColorOnSurface));
+            titleView.setPadding(
+                    (int) (24 * density), (int) (16 * density),
+                    (int) (24 * density), (int) (16 * density));
+            root.addView(titleView);
+
+            LinearLayout itemsContainer = new LinearLayout(ctx);
+            itemsContainer.setOrientation(LinearLayout.VERTICAL);
+
+            for (int i = 0; i < labels.size(); i++) {
+                final int idx = i;
+                TextView item = createSheetItem(ctx, density,
+                        labels.get(i), i == selected);
+                item.setOnClickListener(v -> {
+                    String pkg = pkgs.get(idx);
+                    LauncherPrefs.get(ctx).put(LauncherPrefs.ICON_PACK, pkg);
+                    mgr.invalidate();
+
+                    // Show loading state
+                    titleView.setText(R.string.icon_pack_applying);
+                    for (int j = 0; j < itemsContainer.getChildCount(); j++) {
+                        itemsContainer.getChildAt(j).setEnabled(false);
+                        itemsContainer.getChildAt(j).setAlpha(0.38f);
+                    }
+
+                    LauncherAppState app = LauncherAppState.INSTANCE.get(ctx);
+                    Executors.MODEL_EXECUTOR.execute(() -> {
+                        mgr.getCurrentPack();
+                        app.getIconCache().clearAllIcons();
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            if (getContext() == null) return;
+                            updateIconPackSummary(pref, mgr);
+                            LauncherIcons.clearPool(ctx);
+                            app.getModel().forceReload();
+                            Executors.MODEL_EXECUTOR.execute(() ->
+                                new Handler(Looper.getMainLooper()).post(() -> {
+                                    if (getContext() != null) sheet.dismiss();
+                                })
+                            );
+                        });
+                    });
+                });
+                itemsContainer.addView(item);
+            }
+
+            ScrollView scroll = new ScrollView(ctx);
+            scroll.addView(itemsContainer);
+            root.addView(scroll);
+
+            sheet.setContentView(root);
+            sheet.show();
         }
 
         private void updateIconShapeSummary(Preference pref) {
@@ -603,7 +820,6 @@ public class SettingsActivity extends FragmentActivity
         private void showIconShapeDialog(Preference pref) {
             IconShapeModel[] shapes = ShapesProvider.INSTANCE.getIconShapes();
 
-            // Build labels: "System default" + all shape names
             List<CharSequence> labels = new ArrayList<>();
             List<String> keys = new ArrayList<>();
             labels.add(getString(R.string.icon_shape_default));
@@ -616,19 +832,83 @@ public class SettingsActivity extends FragmentActivity
             String current = LauncherPrefs.get(getContext()).get(ThemeManager.PREF_ICON_SHAPE);
             int selected = Math.max(0, keys.indexOf(current));
 
-            new AlertDialog.Builder(getContext())
-                    .setTitle(R.string.icon_shape_title)
-                    .setSingleChoiceItems(
-                            labels.toArray(new CharSequence[0]), selected,
-                            (dialog, which) -> {
-                                String key = keys.get(which);
-                                LauncherPrefs.get(getContext())
-                                        .put(ThemeManager.PREF_ICON_SHAPE, key);
-                                updateIconShapeSummary(pref);
-                                dialog.dismiss();
-                            })
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show();
+            Context ctx = getContext();
+            float density = ctx.getResources().getDisplayMetrics().density;
+            BottomSheetDialog sheet = new BottomSheetDialog(ctx);
+
+            LinearLayout root = new LinearLayout(ctx);
+            root.setOrientation(LinearLayout.VERTICAL);
+            root.setPadding(0, 0, 0, (int) (24 * density));
+
+            addSheetHandle(root, ctx, density);
+
+            TextView titleView = new TextView(ctx);
+            titleView.setText(R.string.icon_shape_title);
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+            titleView.setTextColor(ctx.getColor(R.color.materialColorOnSurface));
+            titleView.setPadding(
+                    (int) (24 * density), (int) (16 * density),
+                    (int) (24 * density), (int) (16 * density));
+            root.addView(titleView);
+
+            LinearLayout itemsContainer = new LinearLayout(ctx);
+            itemsContainer.setOrientation(LinearLayout.VERTICAL);
+
+            for (int i = 0; i < labels.size(); i++) {
+                final int idx = i;
+                TextView item = createSheetItem(ctx, density,
+                        labels.get(i), i == selected);
+                item.setOnClickListener(v -> {
+                    String key = keys.get(idx);
+                    LauncherPrefs.get(ctx)
+                            .put(ThemeManager.PREF_ICON_SHAPE, key);
+                    updateIconShapeSummary(pref);
+                    sheet.dismiss();
+                });
+                itemsContainer.addView(item);
+            }
+
+            ScrollView scroll = new ScrollView(ctx);
+            scroll.addView(itemsContainer);
+            root.addView(scroll);
+
+            sheet.setContentView(root);
+            sheet.show();
+        }
+
+        private void addSheetHandle(LinearLayout root, Context ctx, float density) {
+            View handle = new View(ctx);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setShape(GradientDrawable.RECTANGLE);
+            bg.setCornerRadius(2 * density);
+            bg.setColor(ctx.getColor(R.color.materialColorOutline));
+            handle.setBackground(bg);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    (int) (32 * density), (int) (4 * density));
+            lp.gravity = Gravity.CENTER_HORIZONTAL;
+            lp.topMargin = (int) (12 * density);
+            handle.setLayoutParams(lp);
+            root.addView(handle);
+        }
+
+        private TextView createSheetItem(Context ctx, float density,
+                CharSequence text, boolean selected) {
+            TextView item = new TextView(ctx);
+            item.setText(text);
+            item.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+            item.setTextColor(selected
+                    ? ctx.getColor(R.color.materialColorPrimary)
+                    : ctx.getColor(R.color.materialColorOnSurface));
+            item.setMinHeight((int) (56 * density));
+            item.setGravity(Gravity.CENTER_VERTICAL);
+            item.setPadding(
+                    (int) (24 * density), 0,
+                    (int) (24 * density), 0);
+            TypedValue tv = new TypedValue();
+            ctx.getTheme().resolveAttribute(
+                    android.R.attr.selectableItemBackground, tv, true);
+            item.setBackgroundResource(tv.resourceId);
+            return item;
         }
 
         private static final String[] SIZE_PRESETS = {"0.8", "0.863", "0.92", "1.0"};
@@ -642,88 +922,14 @@ public class SettingsActivity extends FragmentActivity
                     return;
                 }
             }
-            // Custom value
-            pref.setSummary(getString(R.string.icon_size_custom) + " (" + current + ")");
-        }
-
-        private void showIconSizeDialog(Preference pref) {
-            Context dialogCtx = getDialogContext();
-            View view = LayoutInflater.from(dialogCtx)
-                    .inflate(R.layout.dialog_icon_size, null);
-            MaterialButtonToggleGroup toggleGroup = view.findViewById(R.id.size_toggle_group);
-            MaterialButton btnCustom = view.findViewById(R.id.btn_custom);
-            TextInputLayout customLayout = view.findViewById(R.id.custom_input_layout);
-            TextInputEditText customInput = view.findViewById(R.id.custom_input);
-
-            String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_SIZE_SCALE);
-
-            // Pre-select the matching preset button, or show custom input
-            int[] btnIds = {R.id.btn_size_s, R.id.btn_size_m, R.id.btn_size_l, R.id.btn_size_xl};
-            boolean isPreset = false;
-            for (int i = 0; i < SIZE_PRESETS.length; i++) {
-                if (SIZE_PRESETS[i].equals(current)) {
-                    toggleGroup.check(btnIds[i]);
-                    isPreset = true;
-                    break;
-                }
+            // Custom value — show as percentage
+            try {
+                float pct = Float.parseFloat(current) * 100f;
+                pref.setSummary(getString(R.string.icon_size_custom)
+                        + " (" + String.format("%.0f%%", pct) + ")");
+            } catch (NumberFormatException e) {
+                pref.setSummary(getString(R.string.icon_size_custom) + " (" + current + ")");
             }
-            if (!isPreset) {
-                customLayout.setVisibility(View.VISIBLE);
-                customInput.setText(current);
-                btnCustom.setChecked(true);
-            }
-
-            final String[] selectedValue = {current};
-
-            toggleGroup.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
-                if (isChecked) {
-                    // A preset was selected — hide custom input
-                    customLayout.setVisibility(View.GONE);
-                    btnCustom.setChecked(false);
-                    View btn = group.findViewById(checkedId);
-                    if (btn != null) {
-                        selectedValue[0] = (String) btn.getTag();
-                    }
-                }
-            });
-
-            btnCustom.setOnClickListener(v -> {
-                boolean nowChecked = !btnCustom.isChecked();
-                btnCustom.setChecked(nowChecked);
-                if (nowChecked) {
-                    toggleGroup.clearChecked();
-                    customLayout.setVisibility(View.VISIBLE);
-                    customInput.setText(selectedValue[0]);
-                    customInput.requestFocus();
-                } else {
-                    customLayout.setVisibility(View.GONE);
-                }
-            });
-
-            new MaterialAlertDialogBuilder(dialogCtx)
-                    .setTitle(R.string.icon_size_title)
-                    .setView(view)
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                        String value;
-                        if (customLayout.getVisibility() == View.VISIBLE) {
-                            String text = customInput.getText() != null
-                                    ? customInput.getText().toString().trim() : "";
-                            try {
-                                float f = Float.parseFloat(text);
-                                f = Math.max(0.5f, Math.min(1.0f, f));
-                                value = String.valueOf(f);
-                            } catch (NumberFormatException e) {
-                                value = selectedValue[0];
-                            }
-                        } else {
-                            value = selectedValue[0];
-                        }
-                        LauncherPrefs.get(getContext())
-                                .put(LauncherPrefs.ICON_SIZE_SCALE, value);
-                        updateIconSizeSummary(pref);
-                    })
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show();
         }
     }
 }

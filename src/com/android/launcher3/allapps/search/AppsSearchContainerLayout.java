@@ -19,11 +19,12 @@ import static android.view.View.MeasureSpec.EXACTLY;
 import static android.view.View.MeasureSpec.getSize;
 import static android.view.View.MeasureSpec.makeMeasureSpec;
 
-import static com.android.launcher3.Utilities.prefixTextWithIcon;
 import static com.android.launcher3.icons.IconNormalizer.ICON_VISIBLE_AREA_FACTOR;
 
 import android.content.Context;
 import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
+import android.util.TypedValue;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
 import android.text.method.TextKeyListener;
@@ -77,7 +78,17 @@ public class AppsSearchContainerLayout extends ExtendedEditText
 
         mSearchQueryBuilder = new SpannableStringBuilder();
         Selection.setSelection(mSearchQueryBuilder, 0);
-        setHint(prefixTextWithIcon(getContext(), R.drawable.ic_allapps_search, getHint()));
+
+        // Use compound drawable for search icon with proper 8dp gap
+        Drawable searchIcon = getContext().getDrawable(R.drawable.ic_allapps_search);
+        if (searchIcon != null) {
+            int iconSize = (int) TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP, 24, getResources().getDisplayMetrics());
+            searchIcon.setBounds(0, 0, iconSize, iconSize);
+            setCompoundDrawablesRelative(searchIcon, null, null, null);
+            setCompoundDrawablePadding((int) TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics()));
+        }
 
         mContentOverlap =
                 getResources().getDimensionPixelSize(R.dimen.all_apps_search_bar_content_overlap);

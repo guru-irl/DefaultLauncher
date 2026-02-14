@@ -21,13 +21,11 @@
     android:orientation="vertical"
     android:fitsSystemWindows="true">
 
-    <Toolbar
+    <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/action_bar"
-        style="?android:attr/actionBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:theme="?android:attr/actionBarTheme"
-        android:titleTextColor="?android:attr/textColorPrimary" />
+        android:background="@color/materialColorSurfaceContainer" />
 
     <FrameLayout
         android:id="@+id/content_frame"

@@ -322,8 +322,10 @@
     <string name="styles_wallpaper_button_text">Wallpaper &amp; style</string>
     <!-- Text for edit home screen button [CHAR LIMIT=30]-->
     <string name="edit_home_screen">Edit Home Screen</string>
-    <!-- Text for settings button [CHAR LIMIT=20]-->
-    <string name="settings_button_text">Default Launcher</string>
+    <!-- Text for settings button in long-press menu [CHAR LIMIT=20]-->
+    <string name="settings_button_text">Home Settings</string>
+    <!-- Title shown in the settings activity toolbar -->
+    <string name="settings_title">Default Launcher</string>
     <!-- Message shown when a feature is disabled by the administrator -->
     <string name="msg_disabled_by_admin">Disabled by your admin</string>
 
@@ -550,6 +552,7 @@
     <string name="icon_size_title">Icon size</string>
     <string name="icon_size_default">XL (100%)</string>
     <string name="icon_size_custom">Custom</string>
+    <string name="theme_colors_category">Theme colors</string>
 
     <!-- Strings for Private Space -->
     <!-- Private space tile label -->

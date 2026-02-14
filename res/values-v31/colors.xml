@@ -107,4 +107,32 @@
     <color name="overview_foreground_scrim_color">@android:color/system_neutral1_1000</color>
 
     <color name="material_color_on_surface">@android:color/system_neutral1_900</color>
+
+    <!-- M3 dynamic color overrides (light) -->
+    <color name="materialColorPrimary">@android:color/system_accent1_600</color>
+    <color name="materialColorOnPrimary">@android:color/system_accent1_0</color>
+    <color name="materialColorPrimaryContainer">@android:color/system_accent1_100</color>
+    <color name="materialColorOnPrimaryContainer">@android:color/system_accent1_900</color>
+    <color name="materialColorSecondary">@android:color/system_accent2_600</color>
+    <color name="materialColorOnSecondary">@android:color/system_accent2_0</color>
+    <color name="materialColorSecondaryContainer">@android:color/system_accent2_100</color>
+    <color name="materialColorOnSecondaryContainer">@android:color/system_accent2_900</color>
+    <color name="materialColorTertiary">@android:color/system_accent3_600</color>
+    <color name="materialColorOnTertiary">@android:color/system_accent3_0</color>
+    <color name="materialColorTertiaryContainer">@android:color/system_accent3_100</color>
+    <color name="materialColorOnTertiaryContainer">@android:color/system_accent3_900</color>
+    <color name="materialColorError">@android:color/system_error_0</color>
+    <color name="materialColorSurface">@android:color/system_neutral1_10</color>
+    <color name="materialColorOnSurface">@android:color/system_neutral1_900</color>
+    <color name="materialColorOnSurfaceVariant">@android:color/system_neutral2_700</color>
+    <color name="materialColorSurfaceVariant">@android:color/system_neutral2_100</color>
+    <color name="materialColorSurfaceContainer">@android:color/system_neutral1_100</color>
+    <color name="materialColorSurfaceContainerHigh">@android:color/system_neutral1_200</color>
+    <color name="materialColorSurfaceContainerHighest">@android:color/system_neutral1_300</color>
+    <color name="materialColorSurfaceContainerLow">@android:color/system_neutral1_50</color>
+    <color name="materialColorSurfaceContainerLowest">@android:color/system_neutral1_0</color>
+    <color name="materialColorSurfaceDim">@android:color/system_neutral1_200</color>
+    <color name="materialColorSurfaceBright">@android:color/system_neutral1_10</color>
+    <color name="materialColorOutline">@android:color/system_neutral2_500</color>
+    <color name="materialColorOutlineVariant">@android:color/system_neutral2_200</color>
 </resources>
