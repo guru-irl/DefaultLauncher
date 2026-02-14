@@ -74,7 +74,7 @@ constructor(
         val receiver = SimpleBroadcastReceiver(context, MAIN_EXECUTOR) { verifyIconState() }
         receiver.registerPkgActions("android", ACTION_OVERLAY_CHANGED)
 
-        val keys = (iconControllerFactory.prefKeys + PREF_ICON_SHAPE)
+        val keys = (iconControllerFactory.prefKeys + PREF_ICON_SHAPE + LauncherPrefs.ICON_SIZE_SCALE)
 
         val keysArray = keys.toTypedArray()
         val prefKeySet = keys.map { it.sharedPrefKey }
@@ -125,11 +125,15 @@ constructor(
                 else -> pickBestShape(folderShapeMask)
             }
 
+        val iconSizeScale = (prefs.get(LauncherPrefs.ICON_SIZE_SCALE).toFloatOrNull() ?: 1f)
+            .coerceIn(0.5f, 1.0f)
+
         return IconState(
             iconMask = iconMask,
             folderShapeMask = folderShapeMask,
             themeController = iconControllerFactory.createThemeController(),
             iconScale = shapeModel?.iconScale ?: 1f,
+            iconSizeScale = iconSizeScale,
             iconShape = iconShape,
             folderShape = folderShape,
         )
@@ -141,10 +145,11 @@ constructor(
         val themeController: IconThemeController?,
         val themeCode: String = themeController?.themeID ?: "no-theme",
         val iconScale: Float = 1f,
+        val iconSizeScale: Float = 1f,
         val iconShape: ShapeDelegate,
         val folderShape: ShapeDelegate,
     ) {
-        fun toUniqueId() = "${iconMask.hashCode()},$themeCode"
+        fun toUniqueId() = "${iconMask.hashCode()},$themeCode,$iconSizeScale"
     }
 
     /** Interface for receiving theme change events */

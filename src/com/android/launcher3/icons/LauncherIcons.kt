@@ -54,17 +54,27 @@ internal constructor(
 ) : BaseIconFactory(context, idp.fillResIconDpi, idp.iconBitmapSize), AutoCloseable {
 
     private val iconScale = themeManager.iconState.iconScale
+    private val iconSizeScale = themeManager.iconState.iconSizeScale
     private val isNoneShape = themeManager.iconState.iconMask == ShapesProvider.NONE_PATH
 
     init {
         mThemeController = themeManager.themeController
     }
 
+    override fun normalizeAndWrapToAdaptiveIcon(
+        icon: Drawable?,
+        outScale: FloatArray,
+    ): AdaptiveIconDrawable? {
+        if (icon == null) return null
+        outScale[0] = iconSizeScale
+        return wrapToAdaptiveIcon(icon)
+    }
+
     override fun createBadgedIconBitmap(icon: Drawable, options: IconOptions?): BitmapInfo {
         // For "none" shape with non-adaptive icons (icon packs), bypass the adaptive
-        // wrapping entirely — draw the raw icon at full size without shadow or shape.
+        // wrapping entirely — draw the raw icon at the user's size scale without shadow or shape.
         if (isNoneShape && icon !is AdaptiveIconDrawable) {
-            val bitmap = createIconBitmap(icon, 1.0f, MODE_DEFAULT)
+            val bitmap = createIconBitmap(icon, iconSizeScale, MODE_DEFAULT)
             val color = ColorExtractor.findDominantColorByHue(bitmap)
             return BitmapInfo.of(bitmap, color).withFlags(getBitmapFlagOp(options))
         }
@@ -119,6 +129,42 @@ internal constructor(
             }
             return
         }
+
+        // The private drawIconBitmap() computes:
+        //   offset = max(ceil(BLUR_FACTOR * size), round(size * (1 - scale) / 2))
+        // BLUR_FACTOR (~0.035) creates a minimum offset of ~4px even at scale=1.0,
+        // capping the effective icon size at ~92.6%. Compensate when the user's
+        // iconSizeScale would produce a smaller offset than the floor allows.
+        val bounds = drawable.bounds
+        val currentSize = bounds.width()
+        val size = mIconBitmapSize
+        val actualOffset = (size - currentSize) / 2
+        val desiredOffset = Math.round(size * (1 - iconSizeScale) / 2f)
+
+        if (desiredOffset < actualOffset) {
+            // BLUR_FACTOR floor is limiting us — redraw at the user's desired size.
+            // Undo the excess offset so the icon fills the intended area.
+            val compensation = actualOffset - desiredOffset
+            val newSize = size - desiredOffset * 2
+
+            canvas.save()
+            canvas.translate(-compensation.toFloat(), -compensation.toFloat())
+            drawable.setBounds(0, 0, newSize, newSize)
+            val compensatedPath = getShapePath(drawable, drawable.bounds)
+
+            canvas.clipPath(compensatedPath)
+            canvas.drawColor(Color.TRANSPARENT)
+            canvas.save()
+            canvas.scale(iconScale, iconScale, canvas.width / 2f, canvas.height / 2f)
+            drawable.background?.draw(canvas)
+            drawable.foreground?.draw(canvas)
+            canvas.restore()
+
+            drawable.setBounds(bounds)
+            canvas.restore()
+            return
+        }
+
         canvas.clipPath(overridePath)
         canvas.drawColor(Color.TRANSPARENT)
         canvas.save()

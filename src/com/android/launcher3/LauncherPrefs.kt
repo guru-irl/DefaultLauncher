@@ -318,6 +318,8 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         val HOTSEAT_MAX_DB_COUNT = backedUpItem("pref_hotseat_max_db_count", -1)
         @JvmField
         val ICON_PACK = backedUpItem("pref_icon_pack", "")
+        @JvmField
+        val ICON_SIZE_SCALE = backedUpItem("pref_icon_size_scale", "1.0", EncryptionType.ENCRYPTED)
 
         @JvmField
         val NON_FIXED_LANDSCAPE_GRID_NAME =

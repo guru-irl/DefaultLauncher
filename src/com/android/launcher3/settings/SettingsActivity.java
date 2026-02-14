@@ -28,6 +28,7 @@ import static com.android.launcher3.states.RotationHelper.ALLOW_ROTATION_PREFERE
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.net.Uri;
@@ -36,6 +37,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.view.ContextThemeWrapper;
+import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 
@@ -55,6 +58,12 @@ import androidx.preference.PreferenceGroup.PreferencePositionCallback;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.SeekBarPreference;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import com.android.launcher3.BuildConfig;
 import com.android.launcher3.Flags;
@@ -277,6 +286,16 @@ public class SettingsActivity extends FragmentActivity
                 });
             }
 
+            // Icon size picker
+            Preference iconSizePref = findPreference("pref_icon_size_scale");
+            if (iconSizePref != null) {
+                updateIconSizeSummary(iconSizePref);
+                iconSizePref.setOnPreferenceClickListener(pref -> {
+                    showIconSizeDialog(pref);
+                    return true;
+                });
+            }
+
             // If the target preference is not in the current preference screen, find the parent
             // preference screen that contains the target preference and set it as the preference
             // screen.
@@ -480,6 +499,13 @@ public class SettingsActivity extends FragmentActivity
                     : null;
         }
 
+        /** Returns a context themed for Material 3 dialogs/views. Required because
+         *  the settings activity uses Theme.DeviceDefault.Settings (not AppCompat). */
+        private Context getDialogContext() {
+            return new ContextThemeWrapper(getContext(),
+                    com.google.android.material.R.style.Theme_Material3_DayNight);
+        }
+
         private void updateIconPackSummary(Preference pref, IconPackManager mgr) {
             String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_PACK);
             if (current == null || current.isEmpty()) {
@@ -601,6 +627,101 @@ public class SettingsActivity extends FragmentActivity
                                 updateIconShapeSummary(pref);
                                 dialog.dismiss();
                             })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        }
+
+        private static final String[] SIZE_PRESETS = {"0.8", "0.863", "0.92", "1.0"};
+        private static final String[] SIZE_LABELS = {"S (80%)", "M (86%)", "L (92%)", "XL (100%)"};
+
+        private void updateIconSizeSummary(Preference pref) {
+            String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_SIZE_SCALE);
+            for (int i = 0; i < SIZE_PRESETS.length; i++) {
+                if (SIZE_PRESETS[i].equals(current)) {
+                    pref.setSummary(SIZE_LABELS[i]);
+                    return;
+                }
+            }
+            // Custom value
+            pref.setSummary(getString(R.string.icon_size_custom) + " (" + current + ")");
+        }
+
+        private void showIconSizeDialog(Preference pref) {
+            Context dialogCtx = getDialogContext();
+            View view = LayoutInflater.from(dialogCtx)
+                    .inflate(R.layout.dialog_icon_size, null);
+            MaterialButtonToggleGroup toggleGroup = view.findViewById(R.id.size_toggle_group);
+            MaterialButton btnCustom = view.findViewById(R.id.btn_custom);
+            TextInputLayout customLayout = view.findViewById(R.id.custom_input_layout);
+            TextInputEditText customInput = view.findViewById(R.id.custom_input);
+
+            String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_SIZE_SCALE);
+
+            // Pre-select the matching preset button, or show custom input
+            int[] btnIds = {R.id.btn_size_s, R.id.btn_size_m, R.id.btn_size_l, R.id.btn_size_xl};
+            boolean isPreset = false;
+            for (int i = 0; i < SIZE_PRESETS.length; i++) {
+                if (SIZE_PRESETS[i].equals(current)) {
+                    toggleGroup.check(btnIds[i]);
+                    isPreset = true;
+                    break;
+                }
+            }
+            if (!isPreset) {
+                customLayout.setVisibility(View.VISIBLE);
+                customInput.setText(current);
+                btnCustom.setChecked(true);
+            }
+
+            final String[] selectedValue = {current};
+
+            toggleGroup.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+                if (isChecked) {
+                    // A preset was selected — hide custom input
+                    customLayout.setVisibility(View.GONE);
+                    btnCustom.setChecked(false);
+                    View btn = group.findViewById(checkedId);
+                    if (btn != null) {
+                        selectedValue[0] = (String) btn.getTag();
+                    }
+                }
+            });
+
+            btnCustom.setOnClickListener(v -> {
+                boolean nowChecked = !btnCustom.isChecked();
+                btnCustom.setChecked(nowChecked);
+                if (nowChecked) {
+                    toggleGroup.clearChecked();
+                    customLayout.setVisibility(View.VISIBLE);
+                    customInput.setText(selectedValue[0]);
+                    customInput.requestFocus();
+                } else {
+                    customLayout.setVisibility(View.GONE);
+                }
+            });
+
+            new MaterialAlertDialogBuilder(dialogCtx)
+                    .setTitle(R.string.icon_size_title)
+                    .setView(view)
+                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                        String value;
+                        if (customLayout.getVisibility() == View.VISIBLE) {
+                            String text = customInput.getText() != null
+                                    ? customInput.getText().toString().trim() : "";
+                            try {
+                                float f = Float.parseFloat(text);
+                                f = Math.max(0.5f, Math.min(1.0f, f));
+                                value = String.valueOf(f);
+                            } catch (NumberFormatException e) {
+                                value = selectedValue[0];
+                            }
+                        } else {
+                            value = selectedValue[0];
+                        }
+                        LauncherPrefs.get(getContext())
+                                .put(LauncherPrefs.ICON_SIZE_SCALE, value);
+                        updateIconSizeSummary(pref);
+                    })
                     .setNegativeButton(android.R.string.cancel, null)
                     .show();
         }

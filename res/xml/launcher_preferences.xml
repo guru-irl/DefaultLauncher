@@ -56,6 +56,12 @@
             android:summary="@string/icon_shape_default"
             launcher:iconSpaceReserved="false" />
 
+        <Preference
+            android:key="pref_icon_size_scale"
+            android:title="@string/icon_size_title"
+            android:summary="@string/icon_size_default"
+            launcher:iconSpaceReserved="false" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/grid_settings_category"

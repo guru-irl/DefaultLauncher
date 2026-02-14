@@ -547,6 +547,9 @@
     <string name="icon_shape_seven_sided_cookie">7-sided cookie</string>
     <string name="icon_shape_arch">Arch</string>
 
+    <string name="icon_size_title">Icon size</string>
+    <string name="icon_size_default">XL (100%)</string>
+    <string name="icon_size_custom">Custom</string>
 
     <!-- Strings for Private Space -->
     <!-- Private space tile label -->
