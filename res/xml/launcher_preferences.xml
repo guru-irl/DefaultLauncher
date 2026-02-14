@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2015 Google Inc.
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:launcher="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        android:key="category_appearance"
+        android:title="@string/appearance_category_title"
+        launcher:iconSpaceReserved="false">
+
+        <com.android.launcher3.settings.NotificationDotsPreference
+            android:key="pref_icon_badging"
+            android:title="@string/notification_dots_title"
+            android:persistent="false"
+            android:widgetLayout="@layout/notification_pref_warning"
+            launcher:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="pref_icon_pack"
+            android:title="@string/icon_pack_title"
+            android:summary="@string/icon_pack_default"
+            launcher:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="pref_icon_shape"
+            android:title="@string/icon_shape_title"
+            android:summary="@string/icon_shape_default"
+            launcher:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="pref_icon_size_scale"
+            android:title="@string/icon_size_title"
+            android:summary="@string/icon_size_default"
+            android:layout="@layout/preference_icon_size"
+            launcher:iconSpaceReserved="false" />
+
+        <com.android.launcher3.settings.M3SliderPreference
+            android:key="pref_grid_columns"
+            android:title="@string/grid_columns_title"
+            android:defaultValue="6"
+            android:max="10"
+            launcher:min="4"
+            launcher:showSeekBarValue="true"
+            launcher:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/app_drawer_category"
+        launcher:iconSpaceReserved="false">
+
+        <com.android.launcher3.settings.M3SliderPreference
+            android:key="pref_allapps_label_size"
+            android:title="@string/allapps_label_size_title"
+            android:defaultValue="14"
+            android:max="18"
+            launcher:min="10"
+            launcher:showSeekBarValue="true"
+            launcher:iconSpaceReserved="false" />
+
+        <SwitchPreference
+            android:key="pref_enable_two_line_toggle"
+            android:title="@string/allapps_twoline_title"
+            android:summary="@string/allapps_twoline_summary"
+            android:defaultValue="false"
+            launcher:iconSpaceReserved="false" />
+
+        <com.android.launcher3.settings.M3SliderPreference
+            android:key="pref_allapps_row_gap"
+            android:title="@string/allapps_row_gap_title"
+            android:defaultValue="16"
+            android:max="32"
+            launcher:min="16"
+            launcher:showSeekBarValue="true"
+            launcher:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/theme_colors_category"
+        launcher:iconSpaceReserved="false">
+
+        <com.android.launcher3.settings.ColorDebugPreference
+            android:key="pref_color_debug"
+            android:selectable="false"
+            launcher:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
+</androidx.preference.PreferenceScreen>

@@ -1,0 +1,33 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace "androidx.dynamicanimation.animation"
+
+    compileSdk 36
+
+    defaultConfig {
+        minSdkVersion 26
+        targetSdkVersion 36
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+
+    sourceSets {
+        main {
+            java.srcDirs = ['src']
+        }
+    }
+}
+
+dependencies {
+    implementation libs.core
+    implementation libs.annotation
+    androidTestImplementation libs.androidx.junit
+    androidTestImplementation libs.androidx.rules
+}
+
+//addFrameworkJar('framework-15.jar')
+//compileOnlyCommonJars()

@@ -1,17 +1,11 @@
-*.iml
+# Created by .ignore support plugin (hsz.mobi)
 .gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
+.idea
+build
+Launcher3_mx.iml
+gradlew
+gradlew.bat
 .claude/
 nul
+local.properties
+.kotlin/
