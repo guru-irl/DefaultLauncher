@@ -83,6 +83,23 @@ public abstract class SQLiteCacheHelper {
         mOpenHelper.clearDB(mOpenHelper.getWritableDatabase());
     }
 
+    /**
+     * Deletes all rows from the table without dropping/recreating the schema.
+     * Faster than {@link #clear()} for large tables since it avoids schema recreation overhead.
+     */
+    public void clearRows() {
+        if (mIgnoreWrites) {
+            return;
+        }
+        try {
+            mOpenHelper.getWritableDatabase().delete(mTableName, null, null);
+        } catch (SQLiteFullException e) {
+            onDiskFull(e);
+        } catch (SQLiteException e) {
+            Log.d(TAG, "Ignoring sqlite exception", e);
+        }
+    }
+
     public void close() {
         mOpenHelper.close();
     }

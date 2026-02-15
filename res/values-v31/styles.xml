@@ -76,12 +76,19 @@
 
     <style name="HomeSettings.CollapsedToolbarTitle"
             parent="@style/TextAppearance.Material3.TitleLarge">
-        <item name="android:fontFamily">@font/dancing_script</item>
+        <item name="android:fontFamily">@font/danfo</item>
         <item name="android:textSize">20sp</item>
     </style>
 
     <style name="HomeSettings.ExpandedToolbarTitle"
             parent="@style/TextAppearance.Material3.DisplaySmall">
-        <item name="android:fontFamily">@font/dancing_script</item>
+        <item name="android:fontFamily">@font/danfo</item>
+    </style>
+
+    <!-- Main page only: larger expanded title for "Default" -->
+    <style name="HomeSettings.ExpandedToolbarTitle.Main"
+            parent="@style/TextAppearance.Material3.DisplaySmall">
+        <item name="android:fontFamily">@font/danfo</item>
+        <item name="android:textSize">64sp</item>
     </style>
 </resources>

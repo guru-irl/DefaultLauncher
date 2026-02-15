@@ -76,7 +76,8 @@ constructor(
         val receiver = SimpleBroadcastReceiver(context, MAIN_EXECUTOR) { verifyIconState() }
         receiver.registerPkgActions("android", ACTION_OVERLAY_CHANGED)
 
-        val keys = (iconControllerFactory.prefKeys + PREF_ICON_SHAPE + LauncherPrefs.ICON_SIZE_SCALE)
+        val keys = (iconControllerFactory.prefKeys + PREF_ICON_SHAPE + LauncherPrefs.ICON_SIZE_SCALE
+            + PREF_ICON_SHAPE_DRAWER + LauncherPrefs.ICON_SIZE_SCALE_DRAWER)
 
         val keysArray = keys.toTypedArray()
         val prefKeySet = keys.map { it.sharedPrefKey }
@@ -143,6 +144,24 @@ constructor(
         val iconSizeScale = (prefs.get(LauncherPrefs.ICON_SIZE_SCALE).toFloatOrNull() ?: 1f)
             .coerceIn(0.5f, 1.0f)
 
+        // Drawer-specific shape/size
+        val drawerShapeModel =
+            prefs.get(PREF_ICON_SHAPE_DRAWER).let { shapeOverride ->
+                ShapesProvider.iconShapes.firstOrNull { it.key == shapeOverride }
+            }
+        val iconMaskDrawer =
+            when {
+                drawerShapeModel != null -> drawerShapeModel.pathString
+                CONFIG_ICON_MASK_RES_ID == Resources.ID_NULL -> ""
+                else -> context.resources.getString(CONFIG_ICON_MASK_RES_ID)
+            }
+        val iconShapeDrawer =
+            if (oldState != null && oldState.iconMaskDrawer == iconMaskDrawer) oldState.iconShapeDrawer
+            else pickBestShape(iconMaskDrawer)
+
+        val iconSizeScaleDrawer = (prefs.get(LauncherPrefs.ICON_SIZE_SCALE_DRAWER).toFloatOrNull() ?: 1f)
+            .coerceIn(0.5f, 1.0f)
+
         val nightMode = (context.resources.configuration.uiMode
             and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
@@ -155,6 +174,10 @@ constructor(
             nightMode = nightMode,
             iconShape = iconShape,
             folderShape = folderShape,
+            iconMaskDrawer = iconMaskDrawer,
+            iconScaleDrawer = drawerShapeModel?.iconScale ?: 1f,
+            iconSizeScaleDrawer = iconSizeScaleDrawer,
+            iconShapeDrawer = iconShapeDrawer,
         )
     }
 
@@ -168,6 +191,11 @@ constructor(
         val nightMode: Boolean = false,
         val iconShape: ShapeDelegate,
         val folderShape: ShapeDelegate,
+        // Drawer-specific fields
+        val iconMaskDrawer: String = "",
+        val iconScaleDrawer: Float = 1f,
+        val iconSizeScaleDrawer: Float = 1f,
+        val iconShapeDrawer: ShapeDelegate = iconShape,
     ) {
         fun toUniqueId() = "${iconMask.hashCode()},$themeCode,$iconSizeScale,$nightMode"
     }
@@ -191,9 +219,12 @@ constructor(
         @JvmField val INSTANCE = DaggerSingletonObject(LauncherAppComponent::getThemeManager)
         const val KEY_ICON_SHAPE = "icon_shape_model"
 
+        const val KEY_ICON_SHAPE_DRAWER = "icon_shape_model_drawer"
+
         const val KEY_THEMED_ICONS = "themed_icons"
         @JvmField val THEMED_ICONS = backedUpItem(KEY_THEMED_ICONS, false, EncryptionType.ENCRYPTED)
         @JvmField val PREF_ICON_SHAPE = backedUpItem(KEY_ICON_SHAPE, "", EncryptionType.ENCRYPTED)
+        @JvmField val PREF_ICON_SHAPE_DRAWER = backedUpItem(KEY_ICON_SHAPE_DRAWER, "", EncryptionType.ENCRYPTED)
 
         private const val ACTION_OVERLAY_CHANGED = "android.intent.action.OVERLAY_CHANGED"
         private val CONFIG_ICON_MASK_RES_ID: Int =

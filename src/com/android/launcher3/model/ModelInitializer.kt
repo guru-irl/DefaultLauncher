@@ -79,8 +79,11 @@ constructor(
         idp.addOnChangeListener(idpChangeListener)
         lifeCycle.addCloseable { idp.removeOnChangeListener(idpChangeListener) }
 
-        // Theme changes
-        val themeChangeListener = ThemeChangeListener { refreshAndReloadLauncher() }
+        // Theme changes (also invalidate drawer icon cache for shape/size changes)
+        val themeChangeListener = ThemeChangeListener {
+            com.android.launcher3.icons.DrawerIconResolver.getInstance().invalidate()
+            refreshAndReloadLauncher()
+        }
         themeManager.addChangeListener(themeChangeListener)
         lifeCycle.addCloseable { themeManager.removeChangeListener(themeChangeListener) }
 

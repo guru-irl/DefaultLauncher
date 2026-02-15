@@ -321,7 +321,11 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField
         val ICON_PACK = backedUpItem("pref_icon_pack", "")
         @JvmField
+        val ICON_PACK_DRAWER = backedUpItem("pref_icon_pack_drawer", "")
+        @JvmField
         val ICON_SIZE_SCALE = backedUpItem("pref_icon_size_scale", "1.0", EncryptionType.ENCRYPTED)
+        @JvmField
+        val ICON_SIZE_SCALE_DRAWER = backedUpItem("pref_icon_size_scale_drawer", "1.0", EncryptionType.ENCRYPTED)
 
         // App drawer color preferences (store Material color resource name; empty = default)
         @JvmField val DRAWER_BG_COLOR = backedUpItem("pref_drawer_bg_color", "")

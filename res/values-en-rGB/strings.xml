@@ -132,7 +132,7 @@
     <string name="styles_wallpaper_button_text" msgid="8216961355289236794">"Wallpaper and style"</string>
     <string name="edit_home_screen" msgid="8947858375782098427">"Edit home screen"</string>
     <string name="settings_button_text" msgid="8873672322605444408">"Home Settings"</string>
-    <string name="settings_title">"Default Launcher"</string>
+    <string name="settings_title">"Default"</string>
     <string name="msg_disabled_by_admin" msgid="6898038085516271325">"Disabled by your admin"</string>
     <string name="allow_rotation_title" msgid="7222049633713050106">"Allow home screen rotation"</string>
     <string name="allow_rotation_desc" msgid="8662546029078692509">"When phone is rotated"</string>

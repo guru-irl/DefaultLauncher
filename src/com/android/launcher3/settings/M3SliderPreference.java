@@ -138,7 +138,7 @@ public class M3SliderPreference extends Preference {
         LinearLayout.LayoutParams sliderRowParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        sliderRowParams.topMargin = (int) (12 * density);
+        sliderRowParams.topMargin = (int) (8 * density);
         sliderRow.setLayoutParams(sliderRowParams);
 
         // Slider — use native thumb sizing to preserve built-in animations

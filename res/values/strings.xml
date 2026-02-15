@@ -325,7 +325,7 @@
     <!-- Text for settings button in long-press menu [CHAR LIMIT=20]-->
     <string name="settings_button_text">Home Settings</string>
     <!-- Title shown in the settings activity toolbar -->
-    <string name="settings_title">Default Launcher</string>
+    <string name="settings_title">Default</string>
     <!-- Message shown when a feature is disabled by the administrator -->
     <string name="msg_disabled_by_admin">Disabled by your admin</string>
 
@@ -533,9 +533,29 @@
     <!-- Grid settings -->
     <string name="grid_settings_category">Grid</string>
     <string name="grid_columns_title">Grid columns</string>
-    <string name="allapps_row_gap_title">App drawer row gap</string>
+    <string name="allapps_row_gap_title">Row gap</string>
 
-    <!-- App drawer settings -->
+    <!-- Settings sub-page titles -->
+    <string name="home_screen_title">Home Screen</string>
+    <string name="home_screen_summary">Icon pack, shape, size</string>
+    <string name="app_drawer_title">App Drawer</string>
+    <string name="app_drawer_summary">Icons, labels, layout, colors</string>
+    <string name="debug_title">Debug</string>
+    <string name="debug_summary">Theme color swatches</string>
+
+    <!-- Home screen icons category -->
+    <string name="home_screen_icons_category">Icons</string>
+
+    <!-- Grids sub-page -->
+    <string name="grids_title">Grids</string>
+    <string name="grids_summary">Column count</string>
+
+    <!-- App drawer sub-page categories -->
+    <string name="drawer_icons_category">Icons</string>
+    <string name="drawer_labels_category">Labels</string>
+    <string name="drawer_layout_category">Layout</string>
+
+    <!-- App drawer settings (legacy keys kept for compat) -->
     <string name="app_drawer_category">App drawer</string>
     <string name="allapps_label_size_title">Label size</string>
     <string name="allapps_twoline_title">Two-line labels</string>

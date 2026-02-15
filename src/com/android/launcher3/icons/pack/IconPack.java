@@ -246,6 +246,71 @@ public class IconPack {
         return cn;
     }
 
+    /**
+     * Returns the icon pack's own application icon.
+     */
+    @Nullable
+    public Drawable getPackIcon(PackageManager pm) {
+        try {
+            return pm.getApplicationIcon(packageName);
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Well-known preview components — 5 categories, each with multiple fallback ComponentNames.
+     */
+    private static final ComponentName[][] PREVIEW_COMPONENTS = {
+        { // Phone
+            new ComponentName("com.google.android.dialer", "com.google.android.dialer.extensions.GoogleDialtactsActivity"),
+            new ComponentName("com.android.dialer", "com.android.dialer.DialtactsActivity"),
+            new ComponentName("com.samsung.android.dialer", "com.samsung.android.dialer.DialtactsActivity"),
+        },
+        { // Messages
+            new ComponentName("com.google.android.apps.messaging", "com.google.android.apps.messaging.ui.ConversationListActivity"),
+            new ComponentName("com.android.mms", "com.android.mms.ui.ConversationList"),
+            new ComponentName("com.samsung.android.messaging", "com.samsung.android.messaging.ui.view.setting.MainSettingActivity"),
+        },
+        { // Instagram
+            new ComponentName("com.instagram.android", "com.instagram.android.activity.MainTabActivity"),
+        },
+        { // Camera
+            new ComponentName("com.google.android.GoogleCamera", "com.android.camera.CameraLauncher"),
+            new ComponentName("com.android.camera2", "com.android.camera.CameraActivity"),
+            new ComponentName("com.samsung.android.camera", "com.samsung.android.camera.CameraEntry"),
+        },
+        { // YouTube
+            new ComponentName("com.google.android.youtube", "com.google.android.youtube.HomeActivity"),
+            new ComponentName("com.google.android.youtube", "com.google.android.youtube.app.honeycomb.Shell$HomeActivity"),
+            new ComponentName("com.google.android.youtube", "com.google.android.apps.youtube.app.WatchWhileActivity"),
+        },
+    };
+
+    /**
+     * Returns up to 5 preview drawables for well-known apps from this icon pack.
+     * Must call ensureParsed() first.
+     */
+    public List<Drawable> getPreviewIcons(PackageManager pm) {
+        List<Drawable> previews = new ArrayList<>();
+        if (mComponentToDrawable == null) return previews;
+
+        for (ComponentName[] category : PREVIEW_COMPONENTS) {
+            if (previews.size() >= 5) break;
+            for (ComponentName cn : category) {
+                String drawableName = mComponentToDrawable.get(cn);
+                if (drawableName != null) {
+                    Drawable d = loadDrawableByName(pm, drawableName);
+                    if (d != null) {
+                        previews.add(d);
+                        break; // got one for this category, next category
+                    }
+                }
+            }
+        }
+        return previews;
+    }
+
     /** Get the exact icon pack drawable for a given component, or null. */
     @Nullable
     public Drawable getIconForComponent(ComponentName cn, PackageManager pm) {

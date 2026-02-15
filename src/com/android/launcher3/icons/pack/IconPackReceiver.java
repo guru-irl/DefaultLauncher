@@ -24,6 +24,7 @@ import android.content.Intent;
 
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherPrefs;
+import com.android.launcher3.icons.DrawerIconResolver;
 
 /**
  * Handles icon pack install/uninstall/update broadcasts.
@@ -48,6 +49,7 @@ public class IconPackReceiver extends BroadcastReceiver {
 
         if (isIconPack || isCurrentPack) {
             mManager.invalidate();
+            DrawerIconResolver.getInstance().invalidate();
 
             // If the active pack was uninstalled, revert to system default
             if (isCurrentPack

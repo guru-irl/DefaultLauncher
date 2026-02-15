@@ -127,9 +127,69 @@ public class IconPackManager {
         return pack != null ? pack.packageName : "";
     }
 
+    /** Get the home screen icon pack (alias for getCurrentPack). */
+    @Nullable
+    public IconPack getHomePack() {
+        return getCurrentPack();
+    }
+
+    /** Get the app drawer icon pack, or null for system default. */
+    @Nullable
+    public synchronized IconPack getDrawerPack() {
+        String pkg = mPrefs.get(LauncherPrefs.ICON_PACK_DRAWER);
+        if (pkg == null || pkg.isEmpty()) {
+            return null;
+        }
+        Map<String, IconPack> packs = getInstalledPacks();
+        IconPack pack = packs.get(pkg);
+        if (pack != null) {
+            pack.ensureParsed(mContext.getPackageManager());
+        }
+        return pack;
+    }
+
+    /** Get the drawer pack package ID. Empty string = no pack. */
+    public String getDrawerPackId() {
+        String pkg = mPrefs.get(LauncherPrefs.ICON_PACK_DRAWER);
+        return (pkg != null) ? pkg : "";
+    }
+
+    /** Resolve a pack by package name. Returns null if empty or not found. */
+    @Nullable
+    public synchronized IconPack getPack(String packageName) {
+        if (packageName == null || packageName.isEmpty()) return null;
+        Map<String, IconPack> packs = getInstalledPacks();
+        IconPack pack = packs.get(packageName);
+        if (pack != null) {
+            pack.ensureParsed(mContext.getPackageManager());
+        }
+        return pack;
+    }
+
+    /** Returns true if the drawer icon pack differs from the home icon pack. */
+    public boolean hasDistinctDrawerPack() {
+        String home = mPrefs.get(LauncherPrefs.ICON_PACK);
+        String drawer = mPrefs.get(LauncherPrefs.ICON_PACK_DRAWER);
+        if (home == null) home = "";
+        if (drawer == null) drawer = "";
+        return !home.equals(drawer);
+    }
+
     /** Check if a package is a known icon pack. */
     public boolean isIconPack(String packageName) {
         return getInstalledPacks().containsKey(packageName);
+    }
+
+    /**
+     * Pre-parse all installed icon packs so they're ready when the user selects one.
+     * Should be called on MODEL_EXECUTOR (e.g., when the icon pack dialog opens).
+     */
+    public void preParseAllPacks() {
+        PackageManager pm = mContext.getPackageManager();
+        Map<String, IconPack> packs = getInstalledPacks();
+        for (IconPack pack : packs.values()) {
+            pack.ensureParsed(pm);
+        }
     }
 
     /** Clear cached state. Call on pack change or pack uninstall. */
