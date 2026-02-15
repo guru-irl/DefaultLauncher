@@ -36,7 +36,9 @@ import android.view.ViewGroup.MarginLayoutParams;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.ExtendedEditText;
 import com.android.launcher3.Insettable;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
+import com.android.launcher3.allapps.AllAppsColorResolver;
 import com.android.launcher3.allapps.ActivityAllAppsContainerView;
 import com.android.launcher3.allapps.AllAppsStore;
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
@@ -60,6 +62,8 @@ public class AppsSearchContainerLayout extends ExtendedEditText
     private ActivityAllAppsContainerView<?> mAppsView;
 
     // The amount of pixels to shift down and overlap with the rest of the content.
+    private Drawable mOriginalBackground;
+
     private final int mContentOverlap;
 
     public AppsSearchContainerLayout(Context context) {
@@ -98,6 +102,28 @@ public class AppsSearchContainerLayout extends ExtendedEditText
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         mAppsView.getAppsStore().addUpdateListener(this);
+        if (mOriginalBackground == null) {
+            mOriginalBackground = getBackground();
+        }
+        refreshSearchBarColor();
+    }
+
+    /** Re-reads custom search bar background color from preferences. */
+    public void refreshSearchBarColor() {
+        String searchBgName = LauncherPrefs.get(getContext())
+                .get(LauncherPrefs.DRAWER_SEARCH_BG_COLOR);
+        int searchBgColor = AllAppsColorResolver.resolveColorByName(getContext(), searchBgName);
+        if (searchBgColor != 0) {
+            android.graphics.drawable.GradientDrawable searchBg =
+                    new android.graphics.drawable.GradientDrawable();
+            searchBg.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+            searchBg.setCornerRadius(TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP, 28, getResources().getDisplayMetrics()));
+            searchBg.setColor(searchBgColor);
+            setBackground(searchBg);
+        } else if (mOriginalBackground != null) {
+            setBackground(mOriginalBackground);
+        }
     }
 
     @Override

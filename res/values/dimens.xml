@@ -114,6 +114,9 @@
     <!-- all_apps_search_bar_field_height / 2 -->
     <dimen name="all_apps_search_bar_content_overlap">24dp</dimen>
     <dimen name="all_apps_search_bar_bottom_padding">30dp</dimen>
+    <!-- Gap between the topmost icon row and the header element above it
+         (tabs if visible, or search bar if not). Used in FloatingHeaderView. -->
+    <dimen name="all_apps_content_gap">16dp</dimen>
     <dimen name="all_apps_empty_search_message_top_offset">40dp</dimen>
     <dimen name="all_apps_search_top_row_extra_height">4dp</dimen>
     <dimen name="all_apps_header_pill_height">48dp</dimen>

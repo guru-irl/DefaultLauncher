@@ -560,6 +560,22 @@
     <string name="icon_size_custom">Custom</string>
     <string name="theme_colors_category">Theme colors</string>
 
+    <!-- App drawer colors settings -->
+    <string name="drawer_colors_title">App Drawer Colors</string>
+    <string name="drawer_colors_summary">Customize drawer colors</string>
+    <string name="drawer_colors_general_category">General</string>
+    <string name="drawer_colors_tabs_category">Tabs</string>
+    <string name="drawer_bg_color_title">Drawer background</string>
+    <string name="drawer_bg_opacity_title">Background opacity</string>
+    <string name="drawer_search_bg_color_title">Search bar background</string>
+    <string name="drawer_scrollbar_color_title">Scrollbar</string>
+    <string name="drawer_hide_tabs_title">Hide tabs</string>
+    <string name="drawer_hide_tabs_summary">Hide personal/work tab bar</string>
+    <string name="drawer_tab_selected_color_title">Selected tab</string>
+    <string name="drawer_tab_unselected_color_title">Unselected tab</string>
+    <string name="drawer_color_default">Default</string>
+    <string name="drawer_tab_color_hint">Enable tabs on the main settings page to see changes</string>
+
     <!-- Strings for Private Space -->
     <!-- Private space tile label -->
     <string name="private_space_label">Private space</string>

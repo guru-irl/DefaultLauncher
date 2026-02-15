@@ -63,7 +63,6 @@ import androidx.preference.PreferenceGroup.PreferencePositionCallback;
 import androidx.preference.PreferenceScreen;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
@@ -112,6 +111,8 @@ public class SettingsActivity extends AppCompatActivity
     private static final String NOTIFICATION_DOTS_PREFERENCE_KEY = "pref_icon_badging";
 
     public static final String EXTRA_FRAGMENT_ARGS = ":settings:fragment_args";
+    public static final String EXTRA_FRAGMENT_CLASS = ":settings:fragment_class";
+    public static final String EXTRA_FRAGMENT_TITLE = ":settings:fragment_title";
 
     // Intent extra to indicate the pref-key to highlighted when opening the settings activity
     public static final String EXTRA_FRAGMENT_HIGHLIGHT_KEY = ":settings:fragment_args_key";
@@ -130,21 +131,43 @@ public class SettingsActivity extends AppCompatActivity
         setSupportActionBar(findViewById(R.id.action_bar));
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
-        // Set toolbar title with Dancing Script font
-        CollapsingToolbarLayout collapsingToolbar = findViewById(R.id.collapsing_toolbar);
-        if (collapsingToolbar != null) {
-            collapsingToolbar.setTitle(getString(R.string.settings_title));
-            Typeface dancingScript = getResources().getFont(R.font.dancing_script);
-            if (dancingScript != null) {
-                collapsingToolbar.setCollapsedTitleTypeface(dancingScript);
-                collapsingToolbar.setExpandedTitleTypeface(dancingScript);
-            }
-        }
-
         Intent intent = getIntent();
-        if (intent.hasExtra(EXTRA_FRAGMENT_ROOT_KEY) || intent.hasExtra(EXTRA_FRAGMENT_ARGS)
-                || intent.hasExtra(EXTRA_FRAGMENT_HIGHLIGHT_KEY)) {
+        String fragmentClass = intent.getStringExtra(EXTRA_FRAGMENT_CLASS);
+        boolean isSubPage = !TextUtils.isEmpty(fragmentClass)
+                && !fragmentClass.equals(getString(R.string.settings_fragment_name));
+
+        CollapsingToolbarLayout collapsingToolbar = findViewById(R.id.collapsing_toolbar);
+
+        if (isSubPage) {
+            // Sub-page: back button, sub-page title, collapsing toolbar with regular font
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
+            String subTitle = intent.getStringExtra(EXTRA_FRAGMENT_TITLE);
+            if (collapsingToolbar != null) {
+                if (!TextUtils.isEmpty(subTitle)) {
+                    collapsingToolbar.setTitle(subTitle);
+                }
+                collapsingToolbar.setCollapsedTitleTypeface(Typeface.DEFAULT);
+                collapsingToolbar.setExpandedTitleTypeface(Typeface.DEFAULT);
+            } else {
+                if (!TextUtils.isEmpty(subTitle)) {
+                    getSupportActionBar().setTitle(subTitle);
+                }
+            }
+        } else {
+            // Main settings page: Dancing Script title, collapsing toolbar
+            if (collapsingToolbar != null) {
+                collapsingToolbar.setTitle(getString(R.string.settings_title));
+                Typeface dancingScript = getResources().getFont(R.font.dancing_script);
+                if (dancingScript != null) {
+                    collapsingToolbar.setCollapsedTitleTypeface(dancingScript);
+                    collapsingToolbar.setExpandedTitleTypeface(dancingScript);
+                }
+            }
+            if (intent.hasExtra(EXTRA_FRAGMENT_ROOT_KEY) || intent.hasExtra(EXTRA_FRAGMENT_ARGS)
+                    || intent.hasExtra(EXTRA_FRAGMENT_HIGHLIGHT_KEY)) {
+                getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            }
         }
 
         if (savedInstanceState == null) {
@@ -162,16 +185,22 @@ public class SettingsActivity extends AppCompatActivity
                 args.putString(EXTRA_FRAGMENT_ROOT_KEY, root);
             }
 
+            String resolvedFragment = fragmentClass;
+            if (TextUtils.isEmpty(resolvedFragment)) {
+                resolvedFragment = getString(R.string.settings_fragment_name);
+            }
+
             final FragmentManager fm = getSupportFragmentManager();
             final Fragment f = fm.getFragmentFactory().instantiate(getClassLoader(),
-                    getString(R.string.settings_fragment_name));
+                    resolvedFragment);
             f.setArguments(args);
             // Display the fragment as the main content.
             fm.beginTransaction().replace(R.id.content_frame, f).commit();
         }
     }
 
-    private boolean startPreference(String fragment, Bundle args, String key) {
+    private boolean startPreference(String fragment, Bundle args, String key,
+            CharSequence title) {
         if (getSupportFragmentManager().isStateSaved()) {
             // Sometimes onClick can come after onPause because of being posted on the handler.
             // Skip starting new preferences in that case.
@@ -183,8 +212,13 @@ public class SettingsActivity extends AppCompatActivity
             f.setArguments(args);
             ((DialogFragment) f).show(fm, key);
         } else {
-            startActivity(new Intent(this, SettingsActivity.class)
-                    .putExtra(EXTRA_FRAGMENT_ARGS, args));
+            Intent intent = new Intent(this, SettingsActivity.class)
+                    .putExtra(EXTRA_FRAGMENT_CLASS, fragment)
+                    .putExtra(EXTRA_FRAGMENT_ARGS, args);
+            if (title != null) {
+                intent.putExtra(EXTRA_FRAGMENT_TITLE, title.toString());
+            }
+            startActivity(intent);
         }
         return true;
     }
@@ -192,14 +226,16 @@ public class SettingsActivity extends AppCompatActivity
     @Override
     public boolean onPreferenceStartFragment(
             PreferenceFragmentCompat preferenceFragment, Preference pref) {
-        return startPreference(pref.getFragment(), pref.getExtras(), pref.getKey());
+        return startPreference(pref.getFragment(), pref.getExtras(), pref.getKey(),
+                pref.getTitle());
     }
 
     @Override
     public boolean onPreferenceStartScreen(PreferenceFragmentCompat caller, PreferenceScreen pref) {
         Bundle args = new Bundle();
         args.putString(ARG_PREFERENCE_ROOT, pref.getKey());
-        return startPreference(getString(R.string.settings_fragment_name), args, pref.getKey());
+        return startPreference(getString(R.string.settings_fragment_name), args, pref.getKey(),
+                pref.getTitle());
     }
 
     @Override
@@ -279,6 +315,12 @@ public class SettingsActivity extends AppCompatActivity
             Preference twoLinePref = findPreference("pref_enable_two_line_toggle");
             if (twoLinePref != null) {
                 twoLinePref.setOnPreferenceChangeListener(gridChangeListener);
+            }
+
+            // Hide tabs switch
+            Preference hideTabsPref = findPreference("pref_drawer_hide_tabs");
+            if (hideTabsPref != null) {
+                hideTabsPref.setOnPreferenceChangeListener(gridChangeListener);
             }
 
             // Row gap slider: snap to nearest valid value (16/24/32) on release

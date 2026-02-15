@@ -189,7 +189,10 @@ public class RecyclerViewAnimationController {
             duration = 0;
         }
 
-        mAnimator.addListener(forEndCallback(() -> mAnimator = null));
+        mAnimator.addListener(forEndCallback(() -> {
+            mAnimator = null;
+            resetChildViewProperties();
+        }));
         mAnimator.setDuration(duration).setInterpolator(timeInterpolator);
         mAnimator.addListener(forSuccessCallback(onEndRunnable));
         mAnimator.start();
@@ -222,6 +225,33 @@ public class RecyclerViewAnimationController {
             }
             if (child.getBackground() != null) {
                 child.getBackground().setAlpha(255);
+            }
+        }
+    }
+
+    /** Resets all visible children to default view properties after animation ends. */
+    private void resetChildViewProperties() {
+        AllAppsRecyclerView rv = getRecyclerView();
+        if (rv == null) return;
+        rv.setChildAttachedConsumer(null);
+        for (int i = 0; i < rv.getChildCount(); i++) {
+            View child = rv.getChildAt(i);
+            if (child == null) continue;
+            child.setAlpha(1);
+            child.setScaleY(1);
+            child.setTranslationY(0);
+            if (child instanceof ViewGroup childGroup) {
+                for (int j = 0; j < childGroup.getChildCount(); j++) {
+                    childGroup.getChildAt(j).setAlpha(1f);
+                }
+            }
+            if (child.getBackground() != null) {
+                child.getBackground().setAlpha(255);
+            }
+            int adapterPosition = rv.getChildAdapterPosition(child);
+            List<BaseAllAppsAdapter.AdapterItem> items = rv.getApps().getAdapterItems();
+            if (adapterPosition >= 0 && adapterPosition < items.size()) {
+                items.get(adapterPosition).setDecorationFillAlpha(255);
             }
         }
     }

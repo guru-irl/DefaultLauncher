@@ -89,6 +89,20 @@
             launcher:showSeekBarValue="true"
             launcher:iconSpaceReserved="false" />
 
+        <SwitchPreference
+            android:key="pref_drawer_hide_tabs"
+            android:title="@string/drawer_hide_tabs_title"
+            android:summary="@string/drawer_hide_tabs_summary"
+            android:defaultValue="false"
+            launcher:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="pref_drawer_colors"
+            android:title="@string/drawer_colors_title"
+            android:summary="@string/drawer_colors_summary"
+            android:fragment="com.android.launcher3.settings.AppDrawerColorsFragment"
+            launcher:iconSpaceReserved="false" />
+
     </PreferenceCategory>
 
     <PreferenceCategory

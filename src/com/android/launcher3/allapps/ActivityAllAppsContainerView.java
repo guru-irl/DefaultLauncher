@@ -69,6 +69,7 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.graphics.ColorUtils;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.launcher3.allapps.search.AppsSearchContainerLayout;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.DeviceProfile.OnDeviceProfileChangeListener;
 import com.android.launcher3.DragSource;
@@ -76,6 +77,7 @@ import com.android.launcher3.DropTarget.DragObject;
 import com.android.launcher3.Flags;
 import com.android.launcher3.Insettable;
 import com.android.launcher3.InsettableFrameLayout;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
@@ -313,17 +315,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 0,
                 0 // Bottom left
         };
-        if (true/*Flags.allAppsBlur()*/) {
-            int resId = Utilities.isDarkTheme(getContext())
-                    ? android.R.color.system_accent1_800 : android.R.color.system_accent1_100;
-            int layerAbove = ColorUtils.setAlphaComponent(getResources().getColor(resId, null),
-                    (int) (0.4f * 255));
-            int layerBelow = ColorUtils.setAlphaComponent(Color.WHITE, (int) (0.1f * 255));
-            mBottomSheetBackgroundColor = ColorUtils.compositeColors(layerAbove, layerBelow);
-        } else {
-            mBottomSheetBackgroundColor = getContext().getColor(R.color.materialColorSurfaceDim);
-        }
-        mBottomSheetBackgroundAlpha = Color.alpha(mBottomSheetBackgroundColor) / 255.0f;
+        refreshCustomColors();
         updateBackgroundVisibility(mActivityContext.getDeviceProfile());
         mSearchUiManager.initializeSearch(this);
     }
@@ -630,6 +622,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                         }
                     });
             setDeviceManagementResources();
+            applyCustomTabColors();
             if (mHeader.isSetUp()) {
                 onActivePageChanged(mViewPager.getNextPage());
             }
@@ -657,6 +650,72 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mAllAppsStore.registerIconContainer(mAH.get(AdapterHolder.MAIN).mRecyclerView);
         mAllAppsStore.registerIconContainer(mAH.get(AdapterHolder.WORK).mRecyclerView);
         mAllAppsStore.registerIconContainer(mAH.get(AdapterHolder.SEARCH).mRecyclerView);
+    }
+
+    private void applyCustomTabColors() {
+        View personalTab = findViewById(R.id.tab_personal);
+        View workTab = findViewById(R.id.tab_work);
+        if (personalTab == null || workTab == null) return;
+
+        Context ctx = getContext();
+        String selectedName = LauncherPrefs.get(ctx).get(LauncherPrefs.DRAWER_TAB_SELECTED_COLOR);
+        String unselectedName = LauncherPrefs.get(ctx).get(LauncherPrefs.DRAWER_TAB_UNSELECTED_COLOR);
+
+        int selectedColor = AllAppsColorResolver.resolveColorByName(ctx, selectedName);
+        int unselectedColor = AllAppsColorResolver.resolveColorByName(ctx, unselectedName);
+
+        if (selectedColor == 0 && unselectedColor == 0) {
+            // Both default — restore original drawable backgrounds
+            android.graphics.drawable.Drawable original =
+                    ctx.getDrawable(R.drawable.all_apps_tabs_background);
+            personalTab.setBackground(original);
+            workTab.setBackground(original.getConstantState().newDrawable().mutate());
+            return;
+        }
+        applyTabBackground(personalTab, selectedColor, unselectedColor);
+        applyTabBackground(workTab, selectedColor, unselectedColor);
+    }
+
+    private void applyTabBackground(View tab, int selectedColor, int unselectedColor) {
+        Context ctx = getContext();
+        float density = getResources().getDisplayMetrics().density;
+        float cornerRadius = getResources().getDimension(R.dimen.all_apps_header_pill_corner_radius);
+        int hInset = getResources().getDimensionPixelSize(
+                R.dimen.all_apps_tabs_focus_horizontal_inset);
+        int vInset = getResources().getDimensionPixelSize(
+                R.dimen.all_apps_tabs_focus_vertical_inset);
+
+        int sel = selectedColor != 0 ? selectedColor
+                : ctx.getColor(R.color.materialColorPrimary);
+        int unsel = unselectedColor != 0 ? unselectedColor
+                : ctx.getColor(R.color.materialColorSurfaceBright);
+
+        // Selected pill
+        android.graphics.drawable.GradientDrawable selShape =
+                new android.graphics.drawable.GradientDrawable();
+        selShape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        selShape.setCornerRadius(cornerRadius);
+        selShape.setColor(sel);
+        android.graphics.drawable.InsetDrawable selInset =
+                new android.graphics.drawable.InsetDrawable(selShape, hInset, vInset, hInset, vInset);
+
+        // Unselected pill
+        android.graphics.drawable.GradientDrawable unselShape =
+                new android.graphics.drawable.GradientDrawable();
+        unselShape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        unselShape.setCornerRadius(cornerRadius);
+        unselShape.setColor(unsel);
+        unselShape.setStroke((int) (1 * density),
+                ctx.getColor(R.color.materialColorOutlineVariant));
+        android.graphics.drawable.InsetDrawable unselInset =
+                new android.graphics.drawable.InsetDrawable(unselShape, hInset, vInset, hInset, vInset);
+
+        // Build StateListDrawable
+        android.graphics.drawable.StateListDrawable stateList =
+                new android.graphics.drawable.StateListDrawable();
+        stateList.addState(new int[] { android.R.attr.state_selected }, selInset);
+        stateList.addState(new int[] {}, unselInset);
+        tab.setBackground(stateList);
     }
 
     /**
@@ -697,6 +756,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         addView(rvContainer, index);
         if (showTabs) {
             mViewPager = (AllAppsPagedView) rvContainer;
+            // Remove the XML paddingTop (all_apps_paged_view_top_padding = 40dp) so that
+            // getMaxTranslation() is the sole source of spacing above the first icon row.
+            mViewPager.setPadding(mViewPager.getPaddingLeft(), 0,
+                    mViewPager.getPaddingRight(), mViewPager.getPaddingBottom());
             mViewPager.initParentViews(this);
             mViewPager.getPageIndicator().setOnActivePageChangedListener(this);
             mViewPager.setOutlineProvider(new ViewOutlineProvider() {
@@ -720,17 +783,32 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             mViewPager = null;
         }
 
-        removeCustomRules(rvContainer);
-        removeCustomRules(getSearchRecyclerView());
-        if (isSearchBarFloating()) {
-            alignParentTop(rvContainer, showTabs);
-            alignParentTop(getSearchRecyclerView(), /* tabs= */ false);
-        } else {
-            layoutBelowSearchContainer(rvContainer, showTabs);
-            layoutBelowSearchContainer(getSearchRecyclerView(), /* tabs= */ false);
-        }
+        updateRVContainerRules();
 
         updateSearchResultsVisibility();
+    }
+
+    /**
+     * Updates the layout rules of the RV container and search RV to match the current
+     * tab visibility. Must be called whenever tab visibility might change (e.g., after
+     * replacing the RV container or when the "Hide tabs" preference changes).
+     */
+    private void updateRVContainerRules() {
+        View rvContainer = getAppsRecyclerViewContainer();
+        if (rvContainer == null) return;
+
+        removeCustomRules(rvContainer);
+        removeCustomRules(getSearchRecyclerView());
+
+        boolean tabsVisible = mViewPager != null
+                && !LauncherPrefs.get(getContext()).get(LauncherPrefs.DRAWER_HIDE_TABS);
+        if (isSearchBarFloating()) {
+            alignParentTop(rvContainer, tabsVisible);
+            alignParentTop(getSearchRecyclerView(), /* tabs= */ false);
+        } else {
+            layoutBelowSearchContainer(rvContainer, tabsVisible);
+            layoutBelowSearchContainer(getSearchRecyclerView(), /* tabs= */ false);
+        }
     }
 
     void setupHeader() {
@@ -918,6 +996,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
         RelativeLayout.LayoutParams layoutParams = (LayoutParams) v.getLayoutParams();
         layoutParams.removeRule(RelativeLayout.ABOVE);
+        layoutParams.removeRule(RelativeLayout.BELOW);
         layoutParams.removeRule(RelativeLayout.ALIGN_TOP);
         layoutParams.removeRule(RelativeLayout.ALIGN_PARENT_TOP);
     }
@@ -1001,13 +1080,85 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 holder.mRecyclerView.getRecycledViewPool().clear();
             }
         }
+        refreshCustomColors();
         updateBackgroundVisibility(dp);
+
+        // Re-apply search bar color
+        if (mSearchContainer instanceof AppsSearchContainerLayout) {
+            ((AppsSearchContainerLayout) mSearchContainer).refreshSearchBarColor();
+        }
+
+        // Re-apply tab colors if tabs are in use
+        if (mUsingTabs) {
+            applyCustomTabColors();
+        }
+
+        // Update RV container margin + header padding for tab visibility changes.
+        // updateRVContainerRules() must run before setupHeader() so the VP margin
+        // matches the padding computed by getMaxTranslation().
+        updateRVContainerRules();
+        if (mHeader.isSetUp()) {
+            setupHeader();
+        }
+
+        // Refresh scrollbar thumb color
+        if (mFastScroller != null) {
+            mFastScroller.refreshThumbColor();
+        }
 
         int navBarScrimColor = Themes.getNavBarScrimColor(mActivityContext);
         if (mNavBarScrimPaint.getColor() != navBarScrimColor) {
             mNavBarScrimPaint.setColor(navBarScrimColor);
             invalidate();
         }
+    }
+
+    /**
+     * Re-reads custom drawer color preferences and updates the background color/opacity.
+     * Called from both onFinishInflate() and onDeviceProfileChanged().
+     */
+    private void refreshCustomColors() {
+        Context ctx = getContext();
+        // Recompute default background color first
+        if (true/*Flags.allAppsBlur()*/) {
+            int resId = Utilities.isDarkTheme(ctx)
+                    ? android.R.color.system_accent1_800 : android.R.color.system_accent1_100;
+            int layerAbove = ColorUtils.setAlphaComponent(getResources().getColor(resId, null),
+                    (int) (0.4f * 255));
+            int layerBelow = ColorUtils.setAlphaComponent(Color.WHITE, (int) (0.1f * 255));
+            mBottomSheetBackgroundColor = ColorUtils.compositeColors(layerAbove, layerBelow);
+        } else {
+            mBottomSheetBackgroundColor = ctx.getColor(R.color.materialColorSurfaceDim);
+        }
+        // Override with custom color if set
+        String customBgColor = LauncherPrefs.get(ctx).get(LauncherPrefs.DRAWER_BG_COLOR);
+        int resolvedBg = AllAppsColorResolver.resolveColorByName(ctx, customBgColor);
+        if (resolvedBg != 0) {
+            mBottomSheetBackgroundColor = resolvedBg;
+        }
+        // Apply custom opacity
+        int opacity = LauncherPrefs.get(ctx).get(LauncherPrefs.DRAWER_BG_OPACITY);
+        if (opacity < 100) {
+            mBottomSheetBackgroundColor = ColorUtils.setAlphaComponent(
+                    mBottomSheetBackgroundColor, (int) (opacity / 100f * 255));
+        }
+        mBottomSheetBackgroundAlpha = Color.alpha(mBottomSheetBackgroundColor) / 255.0f;
+        // On phones, the background is drawn by ScrimView's background (not the bottom sheet).
+        // Update it directly so custom colors apply immediately.
+        if (mScrimView != null && !mActivityContext.getDeviceProfile().isTablet) {
+            int phoneColor;
+            if (resolvedBg != 0) {
+                phoneColor = resolvedBg;
+            } else {
+                phoneColor = Themes.getAttrColor(ctx, R.attr.allAppsScrimColor);
+            }
+            if (opacity < 100) {
+                phoneColor = ColorUtils.setAlphaComponent(
+                        phoneColor, (int) (opacity / 100f * 255));
+            }
+            mScrimView.setBackgroundColor(phoneColor);
+        }
+        invalidateHeader();
     }
 
     protected void updateBackgroundVisibility(DeviceProfile deviceProfile) {
@@ -1399,6 +1550,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
     public void setScrimView(ScrimView scrimView) {
         mScrimView = scrimView;
+        refreshCustomColors();
     }
 
     @Override
@@ -1431,6 +1583,13 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             canvas.drawPath(mTmpPath, mHeaderPaint);
         }
 
+        // On phones, the ScrimView background already covers the header area uniformly.
+        // Skip drawing a separate header protection rect to avoid color mismatches
+        // (e.g., with custom drawer colors) and flash during the close animation.
+        if (!hasBottomSheet) {
+            return;
+        }
+
         if (DEBUG_HEADER_PROTECTION) {
             mHeaderPaint.setColor(Color.MAGENTA);
             mHeaderPaint.setAlpha(255);
@@ -1442,32 +1601,24 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             return;
         }
 
-        if (hasBottomSheet) {
-            mHeaderPaint.setAlpha((int) (mHeaderPaint.getAlpha() * mBottomSheetBackgroundAlpha));
-        }
+        mHeaderPaint.setAlpha((int) (mHeaderPaint.getAlpha() * mBottomSheetBackgroundAlpha));
 
         // Draw header on background panel
         final float headerBottomNoScale =
                 getHeaderBottom() + getVisibleContainerView().getPaddingTop();
         final float headerHeightNoScale = headerBottomNoScale - topNoScale;
         final float headerBottomWithScaleOnTablet = topWithScale + headerHeightNoScale * scale;
-        final float headerBottomOffset = (getVisibleContainerView().getHeight() * (1 - scale) / 2);
-        final float headerBottomWithScaleOnPhone = headerBottomNoScale * scale + headerBottomOffset;
         final FloatingHeaderView headerView = getFloatingHeaderView();
-        if (hasBottomSheet) {
-            // Start adding header protection if search bar or tabs will attach to the top.
-            if (!isSearchBarFloating() || mUsingTabs) {
-                mTmpRectF.set(
-                        leftWithScale,
-                        topWithScale,
-                        rightWithScale,
-                        headerBottomWithScaleOnTablet);
-                mTmpPath.reset();
-                mTmpPath.addRoundRect(mTmpRectF, mBottomSheetCornerRadii, Direction.CW);
-                canvas.drawPath(mTmpPath, mHeaderPaint);
-            }
-        } else {
-            canvas.drawRect(0, 0, canvas.getWidth(), headerBottomWithScaleOnPhone, mHeaderPaint);
+        // Start adding header protection if search bar or tabs will attach to the top.
+        if (!isSearchBarFloating() || mUsingTabs) {
+            mTmpRectF.set(
+                    leftWithScale,
+                    topWithScale,
+                    rightWithScale,
+                    headerBottomWithScaleOnTablet);
+            mTmpPath.reset();
+            mTmpPath.addRoundRect(mTmpRectF, mBottomSheetCornerRadii, Direction.CW);
+            canvas.drawPath(mTmpPath, mHeaderPaint);
         }
 
         // If tab exist (such as work profile), extend header with tab height
@@ -1477,27 +1628,17 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 mHeaderPaint.setColor(Color.BLUE);
                 mHeaderPaint.setAlpha(255);
             } else {
-                float tabAlpha = getAlpha() * mTabsProtectionAlpha;
-                if (hasBottomSheet) {
-                    tabAlpha *= mBottomSheetBackgroundAlpha;
-                }
+                float tabAlpha = getAlpha() * mTabsProtectionAlpha * mBottomSheetBackgroundAlpha;
                 mHeaderPaint.setAlpha((int) tabAlpha);
             }
-            float left = 0f;
-            float right = canvas.getWidth();
-            if (hasBottomSheet) {
-                left = mBottomSheetBackground.getLeft() + horizontalScaleOffset;
-                right = mBottomSheetBackground.getRight() - horizontalScaleOffset;
-            }
+            float left = mBottomSheetBackground.getLeft() + horizontalScaleOffset;
+            float right = mBottomSheetBackground.getRight() - horizontalScaleOffset;
 
-            final float tabTopWithScale = hasBottomSheet
-                    ? headerBottomWithScaleOnTablet
-                    : headerBottomWithScaleOnPhone;
-            final float tabBottomWithScale = tabTopWithScale + tabsHeight * scale;
+            final float tabBottomWithScale = headerBottomWithScaleOnTablet + tabsHeight * scale;
 
             canvas.drawRect(
                     left,
-                    tabTopWithScale,
+                    headerBottomWithScaleOnTablet,
                     right,
                     tabBottomWithScale,
                     mHeaderPaint);
