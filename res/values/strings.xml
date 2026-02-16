@@ -561,6 +561,8 @@
     <string name="search_web_app_title">Web search app</string>
     <string name="search_web_app_summary">Choose which app handles web searches</string>
     <string name="search_web_app_system_default">System default</string>
+    <string name="search_auto_keyboard_title">Automatically show keyboard</string>
+    <string name="search_auto_keyboard_summary">Focus search bar when opening the app drawer</string>
     <string name="search_permission_denied">Permission denied. Enable in system settings.</string>
 
     <!-- Home screen icons category -->
@@ -569,6 +571,7 @@
     <!-- Grids sub-page -->
     <string name="grids_title">Grids</string>
     <string name="grids_summary">Column count</string>
+    <string name="grid_preview_explanation">Rows adapt so n\u00D7n widgets are always perfect squares</string>
 
     <!-- App drawer sub-page categories -->
     <string name="drawer_icons_category">Icons</string>
@@ -648,4 +651,27 @@
     <string name="ps_app_content_description">Add files and more to Private Space</string>
     <!-- Web search FAB label shown above keyboard during all-apps search -->
     <string name="search_online">Web search</string>
+
+    <!-- Match home screen icons switch (app drawer settings) -->
+    <string name="drawer_match_home_title">Match home screen icons</string>
+    <string name="drawer_match_home_summary">Use the same icon pack, shape, and size as the home screen</string>
+
+    <!-- Per-app icon customization -->
+    <string name="customize_icon_label">Customize</string>
+    <string name="customize_icon_title">Customize icon</string>
+    <string name="customize_home_icon">Home screen icon</string>
+    <string name="customize_drawer_icon">App drawer icon</string>
+    <string name="customize_reset">Reset to default</string>
+    <string name="customize_icon_cleared">Icon overrides cleared</string>
+    <string name="customize_follow_global">Follow global setting</string>
+    <string name="customize_system_default">System default</string>
+    <string name="customize_icon_global_summary">Global (%s)</string>
+    <string name="customize_icon_pack_summary">%1$s \u2014 %2$s</string>
+    <string name="customize_icon_system_summary">System default</string>
+    <string name="icon_picker_search_hint">Search icons</string>
+    <string name="icon_picker_all_icons">All icons</string>
+    <string name="icon_picker_no_results">No icons found</string>
+    <string name="icon_picker_choose_icon">Choose an icon</string>
+    <string name="icon_picker_suggested">Suggested</string>
+    <string name="choose_icon_pack">Choose icon pack</string>
 </resources>

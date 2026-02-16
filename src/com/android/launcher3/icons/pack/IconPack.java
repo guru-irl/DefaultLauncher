@@ -42,9 +42,12 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * Model representing a parsed ADW-format icon pack.
@@ -320,6 +323,13 @@ public class IconPack {
         return loadDrawableByName(pm, drawableName);
     }
 
+    /** Get the drawable name mapped to a component, or null if unmapped. */
+    @Nullable
+    public String getDrawableNameForComponent(ComponentName cn, PackageManager pm) {
+        ensureParsed(pm);
+        return mComponentToDrawable.get(cn);
+    }
+
     /** Get calendar icon for today's date, or null. */
     @Nullable
     public Drawable getCalendarIcon(ComponentName cn, PackageManager pm) {
@@ -380,8 +390,142 @@ public class IconPack {
         return new BitmapDrawable(null, result);
     }
 
+    /** Data class for a category of icons within this pack. */
+    public static class IconCategory {
+        public final String title;
+        public final List<IconEntry> items;
+
+        public IconCategory(String title, List<IconEntry> items) {
+            this.title = title;
+            this.items = items;
+        }
+    }
+
+    /** Data class for a single icon entry: drawable name + human-readable label. */
+    public static class IconEntry {
+        public final String drawableName;
+        public final String label;
+
+        public IconEntry(String drawableName, String label) {
+            this.drawableName = drawableName;
+            this.label = label;
+        }
+    }
+
+    /**
+     * Returns all icons in this pack, organized by category.
+     * Parses drawable.xml for categories; falls back to building a single "All icons"
+     * category from appfilter.xml component mappings.
+     */
+    public List<IconCategory> getAllIcons(PackageManager pm) {
+        ensureParsed(pm);
+
+        List<IconCategory> result = tryParseDrawableXml(pm);
+        if (result != null && !result.isEmpty()) {
+            return result;
+        }
+
+        // Fallback: collect unique drawable names from appfilter.xml mappings
+        Set<String> seen = new LinkedHashSet<>();
+        List<IconEntry> entries = new ArrayList<>();
+        if (mComponentToDrawable != null) {
+            for (String drawableName : mComponentToDrawable.values()) {
+                if (seen.add(drawableName)) {
+                    entries.add(new IconEntry(drawableName, humanizeDrawableName(drawableName)));
+                }
+            }
+        }
+        result = new ArrayList<>();
+        if (!entries.isEmpty()) {
+            result.add(new IconCategory("All icons", entries));
+        }
+        return result;
+    }
+
     @Nullable
-    private Drawable loadDrawableByName(PackageManager pm, String drawableName) {
+    private List<IconCategory> tryParseDrawableXml(PackageManager pm) {
+        try {
+            Resources res = pm.getResourcesForApplication(packageName);
+            int xmlId = res.getIdentifier("drawable", "xml", packageName);
+            if (xmlId == 0) return null;
+
+            List<IconCategory> categories = new ArrayList<>();
+            try (XmlResourceParser parser = res.getXml(xmlId)) {
+                String currentCategory = null;
+                List<IconEntry> currentItems = null;
+                Set<String> seen = new LinkedHashSet<>();
+
+                int eventType = parser.getEventType();
+                while (eventType != XmlPullParser.END_DOCUMENT) {
+                    if (eventType == XmlPullParser.START_TAG) {
+                        String tag = parser.getName();
+                        if ("category".equals(tag)) {
+                            // Save previous category
+                            if (currentCategory != null && currentItems != null
+                                    && !currentItems.isEmpty()) {
+                                categories.add(new IconCategory(currentCategory, currentItems));
+                            }
+                            currentCategory = parser.getAttributeValue(null, "title");
+                            if (currentCategory == null) {
+                                currentCategory = "Uncategorized";
+                            }
+                            currentItems = new ArrayList<>();
+                        } else if ("item".equals(tag)) {
+                            String drawableName = parser.getAttributeValue(null, "drawable");
+                            if (drawableName != null && !drawableName.isEmpty()
+                                    && seen.add(drawableName)) {
+                                if (currentItems == null) {
+                                    currentCategory = "All icons";
+                                    currentItems = new ArrayList<>();
+                                }
+                                currentItems.add(new IconEntry(drawableName,
+                                        humanizeDrawableName(drawableName)));
+                            }
+                        }
+                    }
+                    eventType = parser.next();
+                }
+                // Save last category
+                if (currentCategory != null && currentItems != null && !currentItems.isEmpty()) {
+                    categories.add(new IconCategory(currentCategory, currentItems));
+                }
+            }
+            return categories;
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to parse drawable.xml for " + packageName, e);
+            return null;
+        }
+    }
+
+    private static String humanizeDrawableName(String name) {
+        // "ic_launcher_chrome" -> "Launcher Chrome"
+        // Remove common prefixes
+        if (name.startsWith("ic_")) name = name.substring(3);
+        else if (name.startsWith("icon_")) name = name.substring(5);
+        // Replace underscores with spaces, title case
+        String[] parts = name.split("_");
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+            if (part.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(Character.toUpperCase(part.charAt(0)));
+            if (part.length() > 1) sb.append(part.substring(1));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Load a specific drawable by name from this pack. Public for per-app override resolution.
+     * Calls ensureParsed internally.
+     */
+    @Nullable
+    public Drawable getDrawableForEntry(String drawableName, PackageManager pm) {
+        ensureParsed(pm);
+        return loadDrawableByName(pm, drawableName);
+    }
+
+    @Nullable
+    public Drawable loadDrawableByName(PackageManager pm, String drawableName) {
         try {
             Resources res = pm.getResourcesForApplication(packageName);
             int id = res.getIdentifier(drawableName, "drawable", packageName);

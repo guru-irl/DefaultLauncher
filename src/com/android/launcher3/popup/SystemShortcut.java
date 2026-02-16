@@ -13,6 +13,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ShortcutInfo;
 import android.graphics.Rect;
+import android.os.Bundle;
 import android.os.Process;
 import android.os.UserHandle;
 import android.util.Log;
@@ -32,9 +33,12 @@ import com.android.launcher3.R;
 import com.android.launcher3.SecondaryDropTarget;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.allapps.PrivateProfileManager;
+import com.android.launcher3.model.data.AppInfo;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.pm.UserCache;
+import com.android.launcher3.settings.AppCustomizeFragment;
+import com.android.launcher3.settings.SettingsActivity;
 import com.android.launcher3.util.ActivityOptionsWrapper;
 import com.android.launcher3.util.ApiWrapper;
 import com.android.launcher3.util.ComponentKey;
@@ -392,6 +396,89 @@ public abstract class SystemShortcut<T extends ActivityContext> extends ItemInfo
                     .logger()
                     .withItemInfo(mItemInfo)
                     .log(LAUNCHER_PRIVATE_SPACE_UNINSTALL_SYSTEM_SHORTCUT_TAP);
+        }
+    }
+
+    public static final Factory<ActivityContext> CUSTOMIZE_ICON =
+            (context, itemInfo, originalView) -> {
+                if (originalView == null) return null;
+                if (itemInfo.getTargetComponent() == null) return null;
+                if (itemInfo.itemType != LauncherSettings.Favorites.ITEM_TYPE_APPLICATION
+                        && !(itemInfo instanceof AppInfo)) {
+                    return null;
+                }
+                return new CustomizeIcon<>(context, itemInfo, originalView);
+            };
+
+    private static class CustomizeIcon<T extends ActivityContext> extends SystemShortcut<T> {
+        CustomizeIcon(T target, ItemInfo itemInfo, @NonNull View originalView) {
+            super(R.drawable.ic_customize, R.string.customize_icon_label,
+                    target, itemInfo, originalView);
+        }
+
+        @Override
+        public void onClick(View view) {
+            dismissTaskMenuView();
+            Context ctx = view.getContext();
+            ComponentName cn = mItemInfo.getTargetComponent();
+
+            Bundle args = new Bundle();
+            args.putString(AppCustomizeFragment.EXTRA_COMPONENT_NAME,
+                    cn.flattenToString());
+            CharSequence appLabel = mItemInfo.title;
+            if (appLabel == null) {
+                try {
+                    appLabel = ctx.getPackageManager()
+                            .getApplicationLabel(ctx.getPackageManager()
+                                    .getApplicationInfo(cn.getPackageName(), 0));
+                } catch (Exception e) {
+                    appLabel = cn.getPackageName();
+                }
+            }
+            args.putString(AppCustomizeFragment.EXTRA_APP_LABEL,
+                    appLabel.toString());
+
+            Intent intent = new Intent(ctx, SettingsActivity.class)
+                    .putExtra(SettingsActivity.EXTRA_FRAGMENT_CLASS,
+                            AppCustomizeFragment.class.getName())
+                    .putExtra(SettingsActivity.EXTRA_FRAGMENT_ARGS, args)
+                    .putExtra(SettingsActivity.EXTRA_FRAGMENT_TITLE,
+                            appLabel.toString());
+            ctx.startActivity(intent);
+        }
+    }
+
+    public static final Factory<ActivityContext> UNINSTALL_APP_GENERAL =
+            (context, itemInfo, originalView) -> {
+                if (originalView == null) return null;
+                if (!itemInfo.getContainerInfo().hasAllAppsContainer()) return null;
+                if (Flags.enablePrivateSpace() && UserCache.INSTANCE.get(
+                        originalView.getContext()).getUserInfo(itemInfo.user).isPrivate()) {
+                    return null;
+                }
+                ComponentName cn = SecondaryDropTarget.getUninstallTarget(
+                        originalView.getContext(), itemInfo);
+                if (cn == null) return null;
+                return new UninstallAppGeneral<>(context, itemInfo, originalView, cn);
+            };
+
+    private static class UninstallAppGeneral<T extends ActivityContext> extends SystemShortcut<T> {
+        @NonNull
+        private final ComponentName mComponentName;
+
+        UninstallAppGeneral(T target, ItemInfo itemInfo, @NonNull View originalView,
+                @NonNull ComponentName cn) {
+            super(R.drawable.ic_uninstall_no_shadow,
+                    R.string.uninstall_drop_target_label, target,
+                    itemInfo, originalView);
+            mComponentName = cn;
+        }
+
+        @Override
+        public void onClick(View view) {
+            dismissTaskMenuView();
+            SecondaryDropTarget.performUninstall(
+                    view.getContext(), mComponentName, mItemInfo);
         }
     }
 

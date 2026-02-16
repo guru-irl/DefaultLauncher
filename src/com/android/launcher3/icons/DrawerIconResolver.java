@@ -35,12 +35,15 @@ import androidx.annotation.Nullable;
 
 import com.android.launcher3.Flags;
 import com.android.launcher3.InvariantDeviceProfile;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.dagger.LauncherComponentProvider;
 import com.android.launcher3.graphics.ShapeDelegate;
 import com.android.launcher3.graphics.ThemeManager;
 import com.android.launcher3.icons.pack.IconPack;
 import com.android.launcher3.icons.pack.IconPackManager;
+import com.android.launcher3.icons.pack.PerAppIconOverrideManager;
+import com.android.launcher3.icons.pack.PerAppIconOverrideManager.IconOverride;
 import com.android.launcher3.model.data.ItemInfoWithIcon;
 import com.android.launcher3.shapes.ShapesProvider;
 
@@ -79,6 +82,10 @@ public class DrawerIconResolver {
      * Checks icon pack, shape, and size.
      */
     public boolean hasDistinctDrawerSettings(Context context) {
+        // If "match home" is on, drawer always uses home settings
+        boolean matchHome = LauncherPrefs.get(context).get(LauncherPrefs.DRAWER_MATCH_HOME);
+        if (matchHome) return false;
+
         IconPackManager mgr = LauncherComponentProvider.get(context).getIconPackManager();
         if (mgr.hasDistinctDrawerPack()) return true;
 
@@ -101,40 +108,77 @@ public class DrawerIconResolver {
      */
     @Nullable
     public FastBitmapDrawable getDrawerIcon(ItemInfoWithIcon info, Context context, int flags) {
-        if (!hasDistinctDrawerSettings(context)) return null;
-
         ComponentName cn = info.getTargetComponent();
         if (cn == null) return null;
 
+        // Check per-app drawer override first (even when match-home is on,
+        // per-app drawer overrides still apply)
+        PerAppIconOverrideManager overrideMgr = PerAppIconOverrideManager.getInstance(context);
+        IconOverride perAppOverride = overrideMgr.getDrawerOverride(cn);
+
+        if (perAppOverride == null && !hasDistinctDrawerSettings(context)) return null;
+
         Path badgeShape = Utilities.getIconShapeOrNull(context);
 
-        BitmapInfo cached = mCache.get(cn);
-        if (cached != null) {
-            FastBitmapDrawable drawable = cached.newIcon(context, flags, badgeShape);
-            drawable.setIsDisabled(info.isDisabled());
-            return drawable;
+        // Skip cache if there's a per-app override (cache doesn't track per-app)
+        if (perAppOverride == null) {
+            BitmapInfo cached = mCache.get(cn);
+            if (cached != null) {
+                FastBitmapDrawable drawable = cached.newIcon(context, flags, badgeShape);
+                drawable.setIsDisabled(info.isDisabled());
+                return drawable;
+            }
         }
-
-        // Determine which pack to use for icon resolution.
-        // If drawer has its own pack, use it; otherwise use the home pack (or null for system).
-        IconPackManager mgr = LauncherComponentProvider.get(context).getIconPackManager();
-        IconPack pack = mgr.hasDistinctDrawerPack()
-                ? mgr.getDrawerPack()
-                : mgr.getCurrentPack();
 
         PackageManager pm = context.getPackageManager();
         Drawable icon = null;
 
-        if (pack != null) {
-            icon = pack.getCalendarIcon(cn, pm);
-            if (icon == null) {
-                icon = pack.getIconForComponent(cn, pm);
-            }
-            if (icon == null && pack.hasFallbackMask()) {
+        if (perAppOverride != null) {
+            // Resolve per-app override
+            if (perAppOverride.isSystemDefault()) {
                 try {
-                    Drawable original = pm.getActivityIcon(cn);
-                    icon = pack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
+                    icon = pm.getActivityIcon(cn);
                 } catch (PackageManager.NameNotFoundException ignored) { }
+            } else {
+                IconPackManager mgr = LauncherComponentProvider.get(context).getIconPackManager();
+                IconPack overridePack = mgr.getPack(perAppOverride.packPackage);
+                if (overridePack != null) {
+                    if (perAppOverride.hasSpecificDrawable()) {
+                        icon = overridePack.getDrawableForEntry(
+                                perAppOverride.drawableName, pm);
+                    }
+                    if (icon == null) {
+                        icon = overridePack.getCalendarIcon(cn, pm);
+                    }
+                    if (icon == null) {
+                        icon = overridePack.getIconForComponent(cn, pm);
+                    }
+                    if (icon == null && overridePack.hasFallbackMask()) {
+                        try {
+                            Drawable original = pm.getActivityIcon(cn);
+                            icon = overridePack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
+                        } catch (PackageManager.NameNotFoundException ignored) { }
+                    }
+                }
+            }
+        } else {
+            // Standard drawer pack resolution
+            IconPackManager mgr = LauncherComponentProvider.get(context).getIconPackManager();
+            IconPack pack = mgr.hasDistinctDrawerPack()
+                    ? mgr.getDrawerPack()
+                    : mgr.getCurrentPack();
+
+            if (pack != null) {
+                icon = pack.getCalendarIcon(cn, pm);
+                if (icon == null) {
+                    icon = pack.getIconForComponent(cn, pm);
+                }
+                if (icon == null && pack.hasFallbackMask()) {
+                    try {
+                        Drawable original = pm.getActivityIcon(cn);
+                        icon = pack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
+                    } catch (PackageManager.NameNotFoundException ignored) { }
+                }
             }
         }
 
@@ -155,7 +199,11 @@ public class DrawerIconResolver {
                 context, idp.fillResIconDpi, idp.iconBitmapSize, state)) {
             bitmapInfo = factory.createBadgedIconBitmap(icon);
         }
-        mCache.put(cn, bitmapInfo);
+
+        // Only cache when there's no per-app override
+        if (perAppOverride == null) {
+            mCache.put(cn, bitmapInfo);
+        }
 
         FastBitmapDrawable drawable = bitmapInfo.newIcon(context, flags, badgeShape);
         drawable.setIsDisabled(info.isDisabled());

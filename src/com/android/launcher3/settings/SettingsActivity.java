@@ -34,6 +34,8 @@ import android.content.pm.ActivityInfo;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.Gravity;
+import android.view.ViewGroup;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.MenuItem;
@@ -102,12 +104,20 @@ public class SettingsActivity extends AppCompatActivity
         setSupportActionBar(findViewById(R.id.action_bar));
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
+        // Prevent M3 AppBarLayout from changing color on scroll (lifted state)
+        com.google.android.material.appbar.AppBarLayout appBar = findViewById(R.id.app_bar);
+        if (appBar != null) {
+            appBar.setLiftable(false);
+        }
+
         Intent intent = getIntent();
         String fragmentClass = intent.getStringExtra(EXTRA_FRAGMENT_CLASS);
         boolean isSubPage = !TextUtils.isEmpty(fragmentClass)
                 && !fragmentClass.equals(getString(R.string.settings_fragment_name));
 
         CollapsingToolbarLayout collapsingToolbar = findViewById(R.id.collapsing_toolbar);
+
+        float density = getResources().getDisplayMetrics().density;
 
         if (isSubPage) {
             // Sub-page: back button, sub-page title, collapsing toolbar with regular font
@@ -120,13 +130,19 @@ public class SettingsActivity extends AppCompatActivity
                 }
                 collapsingToolbar.setCollapsedTitleTypeface(Typeface.DEFAULT);
                 collapsingToolbar.setExpandedTitleTypeface(Typeface.DEFAULT);
+                // Sub-pages: 140dp height, centered title
+                ViewGroup.LayoutParams lp = collapsingToolbar.getLayoutParams();
+                lp.height = (int) (140 * density);
+                collapsingToolbar.setLayoutParams(lp);
+                collapsingToolbar.setExpandedTitleGravity(
+                        Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
             } else {
                 if (!TextUtils.isEmpty(subTitle)) {
                     getSupportActionBar().setTitle(subTitle);
                 }
             }
         } else {
-            // Main settings page: Danfo title, larger expanded size
+            // Main settings page: Danfo title, 200dp, centered
             if (collapsingToolbar != null) {
                 collapsingToolbar.setTitle(getString(R.string.settings_title));
                 collapsingToolbar.setExpandedTitleTextAppearance(
@@ -136,6 +152,12 @@ public class SettingsActivity extends AppCompatActivity
                     collapsingToolbar.setCollapsedTitleTypeface(danfo);
                     collapsingToolbar.setExpandedTitleTypeface(danfo);
                 }
+                // Main page: 200dp height, centered title
+                ViewGroup.LayoutParams lp = collapsingToolbar.getLayoutParams();
+                lp.height = (int) (200 * density);
+                collapsingToolbar.setLayoutParams(lp);
+                collapsingToolbar.setExpandedTitleGravity(
+                        Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
             }
             if (intent.hasExtra(EXTRA_FRAGMENT_ROOT_KEY) || intent.hasExtra(EXTRA_FRAGMENT_ARGS)
                     || intent.hasExtra(EXTRA_FRAGMENT_HIGHLIGHT_KEY)) {

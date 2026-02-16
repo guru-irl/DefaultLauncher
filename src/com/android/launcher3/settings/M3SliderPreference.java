@@ -36,11 +36,16 @@ import com.google.android.material.slider.Slider;
 
 public class M3SliderPreference extends Preference {
 
+    public interface OnTrackingStopListener {
+        void onStopTracking(int finalValue);
+    }
+
     private float mMin = 0f;
     private float mMax = 100f;
     private float mStepSize = 1f;
     private float mValue;
     private boolean mShowValue = true;
+    private OnTrackingStopListener mTrackingStopListener;
 
     private static final String TAG_SLIDER = "m3_slider_container";
 
@@ -71,6 +76,10 @@ public class M3SliderPreference extends Preference {
         mValue = value;
         persistInt(value);
         notifyChanged();
+    }
+
+    public void setOnTrackingStopListener(OnTrackingStopListener listener) {
+        mTrackingStopListener = listener;
     }
 
     @Override
@@ -193,6 +202,18 @@ public class M3SliderPreference extends Preference {
                     valueFinal.setText(String.valueOf((int) value));
                 }
                 callChangeListener((int) value);
+            }
+        });
+
+        slider.addOnSliderTouchListener(new Slider.OnSliderTouchListener() {
+            @Override
+            public void onStartTrackingTouch(Slider s) {}
+
+            @Override
+            public void onStopTrackingTouch(Slider s) {
+                if (mTrackingStopListener != null) {
+                    mTrackingStopListener.onStopTracking((int) s.getValue());
+                }
             }
         });
 
