@@ -18,11 +18,13 @@
  */
 package com.android.launcher3.icons.pack;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.drawable.Drawable;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -31,6 +33,8 @@ import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.dagger.ApplicationContext;
 import com.android.launcher3.dagger.LauncherAppSingleton;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +60,7 @@ public class IconPackManager {
     private Map<String, IconPack> mInstalledPacks;
     private IconPack mCurrentPack;
     private boolean mCurrentPackResolved = false;
+    private Map<String, List<Drawable>> mPreviewCache;
 
     private static final String TAG = "IconPackManager";
 
@@ -127,9 +132,113 @@ public class IconPackManager {
         return pack != null ? pack.packageName : "";
     }
 
+    /** Get the home screen icon pack (alias for getCurrentPack). */
+    @Nullable
+    public IconPack getHomePack() {
+        return getCurrentPack();
+    }
+
+    /** Get the app drawer icon pack, or null for system default. */
+    @Nullable
+    public synchronized IconPack getDrawerPack() {
+        String pkg = mPrefs.get(LauncherPrefs.ICON_PACK_DRAWER);
+        if (pkg == null || pkg.isEmpty()) {
+            return null;
+        }
+        Map<String, IconPack> packs = getInstalledPacks();
+        IconPack pack = packs.get(pkg);
+        if (pack != null) {
+            pack.ensureParsed(mContext.getPackageManager());
+        }
+        return pack;
+    }
+
+    /** Get the drawer pack package ID. Empty string = no pack. */
+    public String getDrawerPackId() {
+        String pkg = mPrefs.get(LauncherPrefs.ICON_PACK_DRAWER);
+        return (pkg != null) ? pkg : "";
+    }
+
+    /** Resolve a pack by package name. Returns null if empty or not found. */
+    @Nullable
+    public synchronized IconPack getPack(String packageName) {
+        if (packageName == null || packageName.isEmpty()) return null;
+        Map<String, IconPack> packs = getInstalledPacks();
+        IconPack pack = packs.get(packageName);
+        if (pack != null) {
+            pack.ensureParsed(mContext.getPackageManager());
+        }
+        return pack;
+    }
+
+    /** Returns true if the drawer icon pack differs from the home icon pack. */
+    public boolean hasDistinctDrawerPack() {
+        String home = mPrefs.get(LauncherPrefs.ICON_PACK);
+        String drawer = mPrefs.get(LauncherPrefs.ICON_PACK_DRAWER);
+        if (home == null) home = "";
+        if (drawer == null) drawer = "";
+        return !home.equals(drawer);
+    }
+
     /** Check if a package is a known icon pack. */
     public boolean isIconPack(String packageName) {
         return getInstalledPacks().containsKey(packageName);
+    }
+
+    /**
+     * Pre-parse all installed icon packs so they're ready when the user selects one.
+     * Should be called on MODEL_EXECUTOR (e.g., when the icon pack dialog opens).
+     */
+    public void preParseAllPacks() {
+        PackageManager pm = mContext.getPackageManager();
+        Map<String, IconPack> packs = getInstalledPacks();
+        for (IconPack pack : packs.values()) {
+            pack.ensureParsed(pm);
+        }
+    }
+
+    /**
+     * Preload preview icons for all installed packs and the system default.
+     * Should be called on MODEL_EXECUTOR from fragment onCreatePreferences().
+     */
+    public void preloadAllPreviews() {
+        PackageManager pm = mContext.getPackageManager();
+        preParseAllPacks();
+
+        Map<String, List<Drawable>> cache = new HashMap<>();
+
+        // Default system icons (cache key "")
+        List<Drawable> defaultPreviews = new ArrayList<>();
+        for (ComponentName[] category : IconPack.PREVIEW_COMPONENTS) {
+            for (ComponentName cn : category) {
+                try {
+                    Drawable d = pm.getActivityIcon(cn);
+                    if (d != null) {
+                        defaultPreviews.add(d);
+                        break;
+                    }
+                } catch (PackageManager.NameNotFoundException ignored) { }
+            }
+        }
+        cache.put("", defaultPreviews);
+
+        // Each installed pack
+        Map<String, IconPack> packs = getInstalledPacks();
+        for (Map.Entry<String, IconPack> entry : packs.entrySet()) {
+            List<Drawable> previews = entry.getValue().getPreviewIcons(pm);
+            cache.put(entry.getKey(), previews);
+        }
+
+        synchronized (this) {
+            mPreviewCache = cache;
+        }
+    }
+
+    /** Returns cached preview icons for a pack, or null if not yet cached. */
+    @Nullable
+    public synchronized List<Drawable> getCachedPreviews(String packageName) {
+        if (mPreviewCache == null) return null;
+        return mPreviewCache.get(packageName);
     }
 
     /** Clear cached state. Call on pack change or pack uninstall. */
@@ -137,6 +246,7 @@ public class IconPackManager {
         mInstalledPacks = null;
         mCurrentPack = null;
         mCurrentPackResolved = false;
+        mPreviewCache = null;
     }
 
     Context getContext() {

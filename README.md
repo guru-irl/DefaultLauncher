@@ -63,7 +63,7 @@ When you change the column count, your existing icons are preserved. A [reflow s
 
 ### Settings
 - **Material 3 throughout**: dynamic colors from your wallpaper, dark mode support
-- **Collapsing toolbar** with Dancing Script branding
+- **Collapsing toolbar** with Danfo branding
 - **Card-grouped preferences**: Lawnchair-style rounded sections with dividers
 - **M3 slider**: custom Material 3 slider replacing the stock SeekBar
 - **Color debug swatch**: see your entire dynamic color palette at a glance

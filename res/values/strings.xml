@@ -325,7 +325,7 @@
     <!-- Text for settings button in long-press menu [CHAR LIMIT=20]-->
     <string name="settings_button_text">Home Settings</string>
     <!-- Title shown in the settings activity toolbar -->
-    <string name="settings_title">Default Launcher</string>
+    <string name="settings_title">Default</string>
     <!-- Message shown when a feature is disabled by the administrator -->
     <string name="msg_disabled_by_admin">Disabled by your admin</string>
 
@@ -533,9 +533,29 @@
     <!-- Grid settings -->
     <string name="grid_settings_category">Grid</string>
     <string name="grid_columns_title">Grid columns</string>
-    <string name="allapps_row_gap_title">App drawer row gap</string>
+    <string name="allapps_row_gap_title">Row gap</string>
 
-    <!-- App drawer settings -->
+    <!-- Settings sub-page titles -->
+    <string name="home_screen_title">Home Screen</string>
+    <string name="home_screen_summary">Icon pack, shape, size</string>
+    <string name="app_drawer_title">App Drawer</string>
+    <string name="app_drawer_summary">Icons, labels, layout, colors</string>
+    <string name="debug_title">Debug</string>
+    <string name="debug_summary">Theme color swatches</string>
+
+    <!-- Home screen icons category -->
+    <string name="home_screen_icons_category">Icons</string>
+
+    <!-- Grids sub-page -->
+    <string name="grids_title">Grids</string>
+    <string name="grids_summary">Column count</string>
+
+    <!-- App drawer sub-page categories -->
+    <string name="drawer_icons_category">Icons</string>
+    <string name="drawer_labels_category">Labels</string>
+    <string name="drawer_layout_category">Layout</string>
+
+    <!-- App drawer settings (legacy keys kept for compat) -->
     <string name="app_drawer_category">App drawer</string>
     <string name="allapps_label_size_title">Label size</string>
     <string name="allapps_twoline_title">Two-line labels</string>
@@ -559,6 +579,30 @@
     <string name="icon_size_default">XL (100%)</string>
     <string name="icon_size_custom">Custom</string>
     <string name="theme_colors_category">Theme colors</string>
+
+    <!-- App drawer colors settings -->
+    <string name="drawer_colors_title">App Drawer Colors</string>
+    <string name="drawer_colors_summary">Customize drawer colors</string>
+    <string name="drawer_colors_general_category">General</string>
+    <string name="drawer_colors_tabs_category">Tabs</string>
+    <string name="drawer_bg_color_title">Drawer background</string>
+    <string name="drawer_bg_opacity_title">Background opacity</string>
+    <string name="drawer_search_bg_color_title">Search bar background</string>
+    <string name="drawer_scrollbar_color_title">Scrollbar</string>
+    <string name="drawer_hide_tabs_title">Hide tabs</string>
+    <string name="drawer_hide_tabs_summary">Hide personal/work tab bar</string>
+    <string name="drawer_tab_selected_color_title">Selected tab</string>
+    <string name="drawer_tab_unselected_color_title">Unselected tab</string>
+    <string name="drawer_color_default">Default</string>
+    <string name="drawer_tab_color_hint">Enable tabs on the main settings page to see changes</string>
+
+    <!-- Set as default banner -->
+    <string name="set_default_title">Set as default launcher</string>
+    <string name="set_default_subtitle">Tap to set Default Launcher as your home app</string>
+
+    <!-- Debug: restart launcher -->
+    <string name="restart_launcher_title">Restart launcher</string>
+    <string name="restart_launcher_summary">Force stop and restart the launcher process</string>
 
     <!-- Strings for Private Space -->
     <!-- Private space tile label -->

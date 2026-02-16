@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:launcher="http://schemas.android.com/apk/res-auto"
+    android:title="@string/grids_title">
+
+    <com.android.launcher3.settings.M3SliderPreference
+        android:key="pref_grid_columns"
+        android:title="@string/grid_columns_title"
+        android:defaultValue="6"
+        android:max="10"
+        launcher:min="4"
+        launcher:showSeekBarValue="true"
+        launcher:iconSpaceReserved="false" />
+
+</androidx.preference.PreferenceScreen>

@@ -18,9 +18,13 @@ package com.android.launcher3.uioverrides.states;
 import static com.android.app.animation.Interpolators.DECELERATE;
 import static com.android.launcher3.logging.StatsLogManager.LAUNCHER_STATE_ALLAPPS;
 
+import androidx.core.graphics.ColorUtils;
+
 import com.android.launcher3.Launcher;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.LauncherState;
 import com.android.launcher3.R;
+import com.android.launcher3.allapps.AllAppsColorResolver;
 import com.android.launcher3.util.Themes;
 import com.android.launcher3.views.ActivityContext;
 
@@ -97,8 +101,19 @@ public class AllAppsState extends LauncherState {
 
     @Override
     public int getWorkspaceScrimColor(Launcher launcher) {
-        return launcher.getDeviceProfile().isTablet
-                ? launcher.getResources().getColor(R.color.widgets_picker_scrim)
-                : Themes.getAttrColor(launcher, R.attr.allAppsScrimColor);
+        if (launcher.getDeviceProfile().isTablet) {
+            return launcher.getResources().getColor(R.color.widgets_picker_scrim);
+        }
+        int defaultColor = Themes.getAttrColor(launcher, R.attr.allAppsScrimColor);
+        String customBgColor = LauncherPrefs.get(launcher)
+                .get(LauncherPrefs.DRAWER_BG_COLOR);
+        int resolved = AllAppsColorResolver.resolveColorByName(launcher, customBgColor);
+        int baseColor = resolved != 0 ? resolved : defaultColor;
+        int opacity = LauncherPrefs.get(launcher).get(LauncherPrefs.DRAWER_BG_OPACITY);
+        if (opacity < 100) {
+            baseColor = ColorUtils.setAlphaComponent(
+                    baseColor, (int) (opacity / 100f * 255));
+        }
+        return baseColor;
     }
 }

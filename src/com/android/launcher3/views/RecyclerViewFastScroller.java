@@ -49,8 +49,10 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.launcher3.FastScrollRecyclerView;
 import com.android.launcher3.Flags;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.allapps.AllAppsColorResolver;
 import com.android.launcher3.allapps.LetterListTextView;
 import com.android.launcher3.graphics.FastScrollThumbDrawable;
 import com.android.launcher3.util.Themes;
@@ -126,7 +128,7 @@ public class RecyclerViewFastScroller extends View {
     private final Point mThumbDrawOffset = new Point();
 
     private final Paint mTrackPaint;
-    private final int mThumbColor;
+    private int mThumbColor;
     private final int mThumbLetterScrollerColor;
 
     private float mLastTouchY;
@@ -180,6 +182,14 @@ public class RecyclerViewFastScroller extends View {
         mTrackPaint.setAlpha(MAX_TRACK_ALPHA);
 
         mThumbColor = Themes.getColorAccent(context);
+        // Apply custom scrollbar color if set
+        String scrollbarColorName = LauncherPrefs.get(context)
+                .get(LauncherPrefs.DRAWER_SCROLLBAR_COLOR);
+        int customScrollbarColor = AllAppsColorResolver.resolveColorByName(
+                context, scrollbarColorName);
+        if (customScrollbarColor != 0) {
+            mThumbColor = customScrollbarColor;
+        }
         mThumbLetterScrollerColor = context.getColor(R.color.materialColorSurfaceBright);
         mThumbPaint = new Paint();
         mThumbPaint.setAntiAlias(true);
@@ -202,6 +212,20 @@ public class RecyclerViewFastScroller extends View {
                 context.obtainStyledAttributes(attrs, R.styleable.RecyclerViewFastScroller, defStyleAttr, 0);
         mCanThumbDetach = ta.getBoolean(R.styleable.RecyclerViewFastScroller_canThumbDetach, false);
         ta.recycle();
+    }
+
+    /** Re-reads the custom scrollbar color preference and updates the thumb paint. */
+    public void refreshThumbColor() {
+        mThumbColor = Themes.getColorAccent(getContext());
+        String scrollbarColorName = LauncherPrefs.get(getContext())
+                .get(LauncherPrefs.DRAWER_SCROLLBAR_COLOR);
+        int customColor = AllAppsColorResolver.resolveColorByName(
+                getContext(), scrollbarColorName);
+        if (customColor != 0) {
+            mThumbColor = customColor;
+        }
+        mThumbPaint.setColor(mThumbColor);
+        invalidate();
     }
 
     /** Sets the popup view to show while the scroller is being dragged */

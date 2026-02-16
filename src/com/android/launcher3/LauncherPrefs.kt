@@ -321,7 +321,20 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField
         val ICON_PACK = backedUpItem("pref_icon_pack", "")
         @JvmField
+        val ICON_PACK_DRAWER = backedUpItem("pref_icon_pack_drawer", "")
+        @JvmField
         val ICON_SIZE_SCALE = backedUpItem("pref_icon_size_scale", "1.0", EncryptionType.ENCRYPTED)
+        @JvmField
+        val ICON_SIZE_SCALE_DRAWER = backedUpItem("pref_icon_size_scale_drawer", "1.0", EncryptionType.ENCRYPTED)
+
+        // App drawer color preferences (store Material color resource name; empty = default)
+        @JvmField val DRAWER_BG_COLOR = backedUpItem("pref_drawer_bg_color", "")
+        @JvmField val DRAWER_BG_OPACITY = backedUpItem("pref_drawer_bg_opacity", 100)
+        @JvmField val DRAWER_SEARCH_BG_COLOR = backedUpItem("pref_drawer_search_bg_color", "")
+        @JvmField val DRAWER_SCROLLBAR_COLOR = backedUpItem("pref_drawer_scrollbar_color", "")
+        @JvmField val DRAWER_TAB_SELECTED_COLOR = backedUpItem("pref_drawer_tab_selected_color", "")
+        @JvmField val DRAWER_TAB_UNSELECTED_COLOR = backedUpItem("pref_drawer_tab_unselected_color", "")
+        @JvmField val DRAWER_HIDE_TABS = backedUpItem("pref_drawer_hide_tabs", false)
 
         @JvmField
         val NON_FIXED_LANDSCAPE_GRID_NAME =

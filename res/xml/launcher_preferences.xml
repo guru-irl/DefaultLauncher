@@ -18,88 +18,44 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:launcher="http://schemas.android.com/apk/res-auto">
 
-    <PreferenceCategory
-        android:key="category_appearance"
-        android:title="@string/appearance_category_title"
-        launcher:iconSpaceReserved="false">
+    <Preference
+        android:key="pref_grids"
+        android:icon="@drawable/ic_settings_grid"
+        android:title="@string/grids_title"
+        android:summary="@string/grids_summary"
+        android:fragment="com.android.launcher3.settings.GridsFragment"
+        launcher:iconSpaceReserved="true" />
 
-        <com.android.launcher3.settings.NotificationDotsPreference
-            android:key="pref_icon_badging"
-            android:title="@string/notification_dots_title"
-            android:persistent="false"
-            android:widgetLayout="@layout/notification_pref_warning"
-            launcher:iconSpaceReserved="false" />
+    <Preference
+        android:key="pref_home_screen"
+        android:icon="@drawable/ic_settings_home"
+        android:title="@string/home_screen_title"
+        android:summary="@string/home_screen_summary"
+        android:fragment="com.android.launcher3.settings.HomeScreenFragment"
+        launcher:iconSpaceReserved="true" />
 
-        <Preference
-            android:key="pref_icon_pack"
-            android:title="@string/icon_pack_title"
-            android:summary="@string/icon_pack_default"
-            launcher:iconSpaceReserved="false" />
+    <Preference
+        android:key="pref_app_drawer"
+        android:icon="@drawable/ic_settings_drawer"
+        android:title="@string/app_drawer_title"
+        android:summary="@string/app_drawer_summary"
+        android:fragment="com.android.launcher3.settings.AppDrawerFragment"
+        launcher:iconSpaceReserved="true" />
 
-        <Preference
-            android:key="pref_icon_shape"
-            android:title="@string/icon_shape_title"
-            android:summary="@string/icon_shape_default"
-            launcher:iconSpaceReserved="false" />
+    <com.android.launcher3.settings.NotificationDotsPreference
+        android:key="pref_icon_badging"
+        android:icon="@drawable/ic_settings_notifications"
+        android:title="@string/notification_dots_title"
+        android:persistent="false"
+        android:widgetLayout="@layout/notification_pref_warning"
+        launcher:iconSpaceReserved="true" />
 
-        <Preference
-            android:key="pref_icon_size_scale"
-            android:title="@string/icon_size_title"
-            android:summary="@string/icon_size_default"
-            android:layout="@layout/preference_icon_size"
-            launcher:iconSpaceReserved="false" />
-
-        <com.android.launcher3.settings.M3SliderPreference
-            android:key="pref_grid_columns"
-            android:title="@string/grid_columns_title"
-            android:defaultValue="6"
-            android:max="10"
-            launcher:min="4"
-            launcher:showSeekBarValue="true"
-            launcher:iconSpaceReserved="false" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        android:title="@string/app_drawer_category"
-        launcher:iconSpaceReserved="false">
-
-        <com.android.launcher3.settings.M3SliderPreference
-            android:key="pref_allapps_label_size"
-            android:title="@string/allapps_label_size_title"
-            android:defaultValue="14"
-            android:max="18"
-            launcher:min="10"
-            launcher:showSeekBarValue="true"
-            launcher:iconSpaceReserved="false" />
-
-        <SwitchPreference
-            android:key="pref_enable_two_line_toggle"
-            android:title="@string/allapps_twoline_title"
-            android:summary="@string/allapps_twoline_summary"
-            android:defaultValue="false"
-            launcher:iconSpaceReserved="false" />
-
-        <com.android.launcher3.settings.M3SliderPreference
-            android:key="pref_allapps_row_gap"
-            android:title="@string/allapps_row_gap_title"
-            android:defaultValue="16"
-            android:max="32"
-            launcher:min="16"
-            launcher:showSeekBarValue="true"
-            launcher:iconSpaceReserved="false" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        android:title="@string/theme_colors_category"
-        launcher:iconSpaceReserved="false">
-
-        <com.android.launcher3.settings.ColorDebugPreference
-            android:key="pref_color_debug"
-            android:selectable="false"
-            launcher:iconSpaceReserved="false" />
-
-    </PreferenceCategory>
+    <Preference
+        android:key="pref_debug"
+        android:icon="@drawable/ic_settings_debug"
+        android:title="@string/debug_title"
+        android:summary="@string/debug_summary"
+        android:fragment="com.android.launcher3.settings.DebugFragment"
+        launcher:iconSpaceReserved="true" />
 
 </androidx.preference.PreferenceScreen>

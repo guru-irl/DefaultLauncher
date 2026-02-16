@@ -89,7 +89,8 @@ public class ColorDebugPreference extends Preference {
         if (title != null) title.setVisibility(View.GONE);
         View summary = holder.findViewById(android.R.id.summary);
         if (summary != null) summary.setVisibility(View.GONE);
-        View iconFrame = holder.findViewById(android.R.id.icon_frame);
+        View iconFrame = holder.findViewById(
+                androidx.preference.R.id.icon_frame);
         if (iconFrame != null) iconFrame.setVisibility(View.GONE);
 
         Context ctx = getContext();
@@ -131,7 +132,7 @@ public class ColorDebugPreference extends Preference {
 
             TextView tv = new TextView(ctx);
             tv.setText(COLOR_NAMES[i] + "\n" + String.format("#%06X", 0xFFFFFF & color));
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             swatch.addView(tv);
 
             GridLayout.LayoutParams glp = new GridLayout.LayoutParams();

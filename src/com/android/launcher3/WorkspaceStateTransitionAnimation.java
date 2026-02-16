@@ -47,10 +47,13 @@ import static com.android.launcher3.states.StateAnimationConfig.ANIM_WORKSPACE_T
 import static com.android.launcher3.states.StateAnimationConfig.SKIP_SCRIM;
 
 import android.animation.ValueAnimator;
+import android.graphics.Color;
 import android.util.FloatProperty;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Interpolator;
+
+import androidx.core.graphics.ColorUtils;
 
 import com.android.launcher3.LauncherState.PageAlphaProvider;
 import com.android.launcher3.LauncherState.PageTranslationProvider;
@@ -206,8 +209,19 @@ public class WorkspaceStateTransitionAnimation {
         propertySetter.setFloat(sysUiScrim.getSysUIProgress(), AnimatedFloat.VALUE,
                 state.hasFlag(FLAG_HAS_SYS_UI_SCRIM) ? 1 : 0, LINEAR);
 
+        // When fading to TRANSPARENT, preserve the current RGB and only fade alpha.
+        // ObjectAnimator.ofArgb linearly interpolates all ARGB channels, so fading from
+        // e.g. blue (0xFF0000FF) to TRANSPARENT (0x00000000) would shift through dark blue
+        // instead of cleanly fading out.
+        int targetColor = state.getWorkspaceScrimColor(mLauncher);
+        if (targetColor == Color.TRANSPARENT) {
+            int currentColor = mLauncher.getScrimView().getBackgroundColor();
+            if (currentColor != Color.TRANSPARENT) {
+                targetColor = ColorUtils.setAlphaComponent(currentColor, 0);
+            }
+        }
         propertySetter.setViewBackgroundColor(mLauncher.getScrimView(),
-                state.getWorkspaceScrimColor(mLauncher),
+                targetColor,
                 config.getInterpolator(ANIM_SCRIM_FADE, ACCELERATE_2));
     }
 

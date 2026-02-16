@@ -70,6 +70,19 @@
                 android:value="${packageName}.grid_control" />
         </activity>
 
+        <!-- Alias so other launchers show this app in their app drawers -->
+        <activity-alias
+            android:name="com.android.launcher3.LauncherAppDrawerAlias"
+            android:targetActivity="com.android.launcher3.Launcher"
+            android:icon="@drawable/ic_launcher_home"
+            android:label="@string/derived_app_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
     </application>
 
     <!-- Icon pack discovery: query for ADW-format icon pack intents -->

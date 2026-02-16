@@ -34,6 +34,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.launcher3.Flags;
 import com.android.launcher3.Insettable;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.allapps.ActivityAllAppsContainerView.AdapterHolder;
 import com.android.launcher3.util.PluginManagerWrapper;
@@ -271,7 +272,14 @@ public class FloatingHeaderView extends LinearLayout implements
 
     /** Update tab visibility to the given state, only if tabs are active (work profile exists). */
     void maybeSetTabVisibility(int visibility) {
-        mTabLayout.setVisibility(mTabsHidden ? GONE : visibility);
+        boolean forceHide = LauncherPrefs.get(getContext()).get(LauncherPrefs.DRAWER_HIDE_TABS);
+        mTabLayout.setVisibility((mTabsHidden || forceHide) ? GONE : visibility);
+    }
+
+    /** Returns true if tabs should be treated as hidden (either no work profile or user pref). */
+    private boolean areTabsEffectivelyHidden() {
+        return mTabsHidden
+                || LauncherPrefs.get(getContext()).get(LauncherPrefs.DRAWER_HIDE_TABS);
     }
 
     /** Returns whether search bar has multi-line support, and is currently in multi-line state. */
@@ -294,18 +302,33 @@ public class FloatingHeaderView extends LinearLayout implements
     }
 
     int getMaxTranslation() {
-        if (mMaxTranslation == 0 && (mTabsHidden || mFloatingRowsCollapsed)) {
-            return getResources().getDimensionPixelSize(R.dimen.all_apps_search_bar_bottom_padding);
-        } else if (mMaxTranslation > 0 && mTabsHidden) {
-            return mMaxTranslation + getPaddingTop();
-        } else if (!mTabsHidden) {
-            // Tabs are pinned — pad RecyclerView so content starts below tabs with gap
-            int tabPadding = getResources().getDimensionPixelSize(R.dimen.all_apps_tabs_margin_top)
-                    + 2 * mTabsAdditionalPaddingBottom;
-            return mMaxTranslation + tabPadding;
-        } else {
-            return mMaxTranslation;
+        if (mFloatingRowsCollapsed) {
+            // Search active — keep stock search padding
+            return getResources().getDimensionPixelSize(
+                    R.dimen.all_apps_search_bar_bottom_padding);
         }
+
+        int gap = getResources().getDimensionPixelSize(R.dimen.all_apps_content_gap);
+        boolean effectivelyHidden = areTabsEffectivelyHidden();
+
+        // Compute how far the bottom-most header element extends into the RV container
+        // (in RV-local coordinates), then add the uniform gap.
+        int headerContentBottom;
+        if (!effectivelyHidden) {
+            // Tabs visible: tab bottom in RV coords = paddingTop + tabs_marginTop
+            // (the tab height itself is already offset by the RV container's extra margin)
+            headerContentBottom = getPaddingTop()
+                    + getResources().getDimensionPixelSize(R.dimen.all_apps_tabs_margin_top);
+        } else if (mMaxTranslation > 0) {
+            // Tabs hidden, floating rows present: rows start at paddingTop within header
+            headerContentBottom = getPaddingTop();
+        } else {
+            // Tabs hidden, no floating rows: use same padding as search view
+            return getResources().getDimensionPixelSize(
+                    R.dimen.all_apps_search_bar_bottom_padding);
+        }
+
+        return mMaxTranslation + headerContentBottom + gap;
     }
 
     private boolean canSnapAt(int currentScrollY) {
@@ -353,17 +376,14 @@ public class FloatingHeaderView extends LinearLayout implements
 
         mTabLayout.setTranslationY(0);
 
+        boolean effectivelyHidden = areTabsEffectivelyHidden();
         int clipTop = getPaddingTop() - mTabsAdditionalPaddingTop;
-        if (mTabsHidden) {
+        if (effectivelyHidden) {
             // Add back spacing that is otherwise covered by the tabs.
             clipTop += mTabsAdditionalPaddingTop;
         }
-        if (mTabsHidden || mFloatingRowsCollapsed) {
-            mRVClip.top = clipTop;
-        } else {
-            // Tabs are pinned — clip at the header bottom (below tabs + gap)
-            mRVClip.top = getMaxTranslation();
-        }
+        // RV clip must match the RV padding so items aren't cut off at the top
+        mRVClip.top = getMaxTranslation();
         mHeaderClip.top = clipTop;
         // clipping on a draw might cause additional redraw
         setClipBounds(mHeaderClip);
@@ -388,6 +408,13 @@ public class FloatingHeaderView extends LinearLayout implements
 
         mFloatingRowsCollapsed = collapsed;
         onHeightUpdated();
+        // Always re-setup header when collapsed state changes, because
+        // onHeightUpdated()'s condition may not trigger when mMaxTranslation is 0.
+        ActivityAllAppsContainerView<?> parent =
+                (ActivityAllAppsContainerView<?>) getParent();
+        if (parent != null) {
+            parent.setupHeader();
+        }
     }
 
     public int getClipTop() {
