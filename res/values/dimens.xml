@@ -113,7 +113,7 @@
     <dimen name="all_apps_search_bar_field_height">48dp</dimen>
     <!-- all_apps_search_bar_field_height / 2 -->
     <dimen name="all_apps_search_bar_content_overlap">24dp</dimen>
-    <dimen name="all_apps_search_bar_bottom_padding">30dp</dimen>
+    <dimen name="all_apps_search_bar_bottom_padding">34dp</dimen>
     <!-- Gap between the topmost icon row and the header element above it
          (tabs if visible, or search bar if not). Used in FloatingHeaderView. -->
     <dimen name="all_apps_content_gap">16dp</dimen>
@@ -124,7 +124,7 @@
     <dimen name="all_apps_header_tab_height">48dp</dimen>
     <dimen name="all_apps_tabs_indicator_height">2dp</dimen>
     <dimen name="all_apps_header_top_margin">52dp</dimen>
-    <dimen name="all_apps_header_top_padding">36dp</dimen>
+    <dimen name="all_apps_header_top_padding">32dp</dimen>
     <!-- Additional top padding to add when Floating Searchbar is enabled. -->
     <dimen name="all_apps_additional_top_padding_floating_search">16dp</dimen>
     <dimen name="all_apps_header_bottom_padding">4dp</dimen>
@@ -165,9 +165,9 @@
     <dimen name="work_fab_elevation">6dp</dimen>
     <dimen name="work_fab_icon_size">24dp</dimen>
     <dimen name="work_fab_icon_vertical_margin">16dp</dimen>
-    <dimen name="work_fab_icon_start_margin_expanded">4dp</dimen>
-    <dimen name="work_fab_text_start_margin">8dp</dimen>
-    <dimen name="work_fab_text_end_margin">10dp</dimen>
+    <dimen name="work_fab_icon_start_margin_expanded">16dp</dimen>
+    <dimen name="work_fab_text_start_margin">12dp</dimen>
+    <dimen name="work_fab_text_end_margin">20dp</dimen>
     <dimen name="work_card_padding_horizontal">10dp</dimen>
     <dimen name="work_fab_width">214dp</dimen>
     <dimen name="work_card_button_height">52dp</dimen>

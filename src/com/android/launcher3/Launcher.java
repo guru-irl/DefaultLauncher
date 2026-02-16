@@ -1643,8 +1643,12 @@ public class Launcher extends StatefulActivity<LauncherState>
 
                 if (!isInState(NORMAL)) {
                     // Only change state, if not already the same. This prevents cancelling any
-                    // animations running as part of resume
-                    mStateManager.goToState(NORMAL, mStateManager.shouldAnimateStateChange());
+                    // animations running as part of resume.
+                    // Only animate when already on home (natural gesture); returning from
+                    // another app should transition instantly to avoid a distracting
+                    // drawer-close animation.
+                    mStateManager.goToState(NORMAL,
+                            alreadyOnHome && mStateManager.shouldAnimateStateChange());
                 }
 
                 // Reset the apps view

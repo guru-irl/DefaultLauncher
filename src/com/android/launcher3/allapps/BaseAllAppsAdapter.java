@@ -299,6 +299,17 @@ public abstract class BaseAllAppsAdapter<T extends Context & ActivityContext> ex
                         icon.setVisibility(GONE);
                     }
                 }
+                // Gray out work app icons when work profile is paused
+                WorkProfileManager workManager =
+                        mActivityContext.getAppsView().getWorkManager();
+                if (workManager != null
+                        && workManager.getCurrentState() == STATE_DISABLED
+                        && adapterItem.itemInfo != null
+                        && workManager.getUserMatcher().test(adapterItem.itemInfo.user)) {
+                    icon.setIconDisabled(true);
+                } else {
+                    icon.setIconDisabled(false);
+                }
                 break;
             }
             case VIEW_TYPE_EMPTY_SEARCH: {

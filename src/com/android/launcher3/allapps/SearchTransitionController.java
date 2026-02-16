@@ -85,11 +85,14 @@ public class SearchTransitionController extends RecyclerViewAnimationController 
             headerView.setAlpha(clampToProgress(searchToAzProgress, 0.8f, 1f));
 
             // Account for the additional padding added for the tabs.
-            appsTranslationY +=
+            // Scale by search progress so the offset reaches 0 at animation end (progress=1),
+            // matching the translationY(0) reset in the end callback and avoiding a jump.
+            float searchProgress = 1f - searchToAzProgress;
+            appsTranslationY += (int) (searchProgress * (
                     headerView.getTabsAdditionalPaddingBottom()
                             + mAllAppsContainerView.getResources().getDimensionPixelOffset(
                                     R.dimen.all_apps_tabs_margin_top)
-                            - headerView.getPaddingTop();
+                            - headerView.getPaddingTop()));
         }
 
         View appsContainer = mAllAppsContainerView.getAppsRecyclerViewContainer();
