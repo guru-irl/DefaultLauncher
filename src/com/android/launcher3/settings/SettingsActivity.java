@@ -27,6 +27,7 @@ import static com.android.launcher3.InvariantDeviceProfile.TYPE_TABLET;
 import static com.android.launcher3.states.RotationHelper.ALLOW_ROTATION_PREFERENCE_KEY;
 
 import android.app.Activity;
+import android.app.role.RoleManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -227,6 +228,8 @@ public class SettingsActivity extends AppCompatActivity
     public static class LauncherSettingsFragment extends PreferenceFragmentCompat implements
             SettingsCache.OnChangeListener {
 
+        private static final int REQUEST_CODE_SET_DEFAULT = 1001;
+
         protected boolean mDeveloperOptionsEnabled = false;
 
         private boolean mRestartOnResume = false;
@@ -285,6 +288,21 @@ public class SettingsActivity extends AppCompatActivity
 
             if (getActivity() != null && !TextUtils.isEmpty(getPreferenceScreen().getTitle())) {
                 getActivity().setTitle(getPreferenceScreen().getTitle());
+            }
+
+            // Show "Set as default" banner if not already the default home app
+            RoleManager rm = getContext().getSystemService(RoleManager.class);
+            if (rm != null && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
+                Preference banner = new Preference(getContext());
+                banner.setKey("pref_set_default_banner");
+                banner.setLayoutResource(R.layout.preference_set_default_banner);
+                banner.setOrder(-1);
+                banner.setOnPreferenceClickListener(pref -> {
+                    Intent intent = rm.createRequestRoleIntent(RoleManager.ROLE_HOME);
+                    startActivityForResult(intent, REQUEST_CODE_SET_DEFAULT);
+                    return true;
+                });
+                getPreferenceScreen().addPreference(banner);
             }
         }
 
@@ -426,6 +444,13 @@ public class SettingsActivity extends AppCompatActivity
         @Override
         public void onResume() {
             super.onResume();
+
+            // Remove "Set as default" banner if now the default home app
+            RoleManager rm = getContext().getSystemService(RoleManager.class);
+            Preference banner = findPreference("pref_set_default_banner");
+            if (banner != null && rm != null && rm.isRoleHeld(RoleManager.ROLE_HOME)) {
+                getPreferenceScreen().removePreference(banner);
+            }
 
             if (isAdded() && !mPreferenceHighlighted) {
                 PreferenceHighlighter highlighter = createHighlighter();

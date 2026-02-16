@@ -596,6 +596,14 @@
     <string name="drawer_color_default">Default</string>
     <string name="drawer_tab_color_hint">Enable tabs on the main settings page to see changes</string>
 
+    <!-- Set as default banner -->
+    <string name="set_default_title">Set as default launcher</string>
+    <string name="set_default_subtitle">Tap to set Default Launcher as your home app</string>
+
+    <!-- Debug: restart launcher -->
+    <string name="restart_launcher_title">Restart launcher</string>
+    <string name="restart_launcher_summary">Force stop and restart the launcher process</string>
+
     <!-- Strings for Private Space -->
     <!-- Private space tile label -->
     <string name="private_space_label">Private space</string>

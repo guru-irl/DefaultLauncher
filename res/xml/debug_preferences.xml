@@ -4,6 +4,12 @@
     xmlns:launcher="http://schemas.android.com/apk/res-auto"
     android:title="@string/debug_title">
 
+    <Preference
+        android:key="pref_restart_launcher"
+        android:title="@string/restart_launcher_title"
+        android:summary="@string/restart_launcher_summary"
+        launcher:iconSpaceReserved="false" />
+
     <com.android.launcher3.settings.ColorDebugPreference
         android:key="pref_color_debug"
         android:selectable="false"

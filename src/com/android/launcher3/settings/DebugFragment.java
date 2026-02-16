@@ -21,6 +21,7 @@ package com.android.launcher3.settings;
 import android.os.Bundle;
 import android.view.View;
 
+import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -37,6 +38,14 @@ public class DebugFragment extends PreferenceFragmentCompat {
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         getPreferenceManager().setSharedPreferencesName(LauncherFiles.SHARED_PREFERENCES_KEY);
         setPreferencesFromResource(R.xml.debug_preferences, rootKey);
+
+        Preference restartPref = findPreference("pref_restart_launcher");
+        if (restartPref != null) {
+            restartPref.setOnPreferenceClickListener(pref -> {
+                android.os.Process.killProcess(android.os.Process.myPid());
+                return true;
+            });
+        }
     }
 
     @Override

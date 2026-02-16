@@ -85,12 +85,16 @@ public class CardGroupItemDecoration extends RecyclerView.ItemDecoration {
             int pos = parent.getChildAdapterPosition(child);
             if (pos == RecyclerView.NO_POSITION) continue;
             if (pga.getItem(pos) instanceof PreferenceCategory) continue;
+            if ("no_card".equals(child.getTag())) continue;
 
             boolean isFirst = (pos == 0)
-                    || (pga.getItem(pos - 1) instanceof PreferenceCategory);
+                    || (pga.getItem(pos - 1) instanceof PreferenceCategory)
+                    || isNoCardItem(parent, pos - 1);
             boolean isLast = (pos == totalItems - 1)
                     || (pos + 1 < totalItems
-                        && pga.getItem(pos + 1) instanceof PreferenceCategory);
+                        && pga.getItem(pos + 1) instanceof PreferenceCategory)
+                    || (pos + 1 < totalItems
+                        && isNoCardItem(parent, pos + 1));
 
             float topLeft, topRight, bottomLeft, bottomRight;
             if (isFirst && isLast) {
@@ -139,16 +143,21 @@ public class CardGroupItemDecoration extends RecyclerView.ItemDecoration {
             return;
         }
 
+        if ("no_card".equals(view.getTag())) return;
+
         // All card items get horizontal margins
         outRect.left = mHorizontalMargin;
         outRect.right = mHorizontalMargin;
 
         int totalItems = pga.getItemCount();
         boolean isFirst = (pos == 0)
-                || (pga.getItem(pos - 1) instanceof PreferenceCategory);
+                || (pga.getItem(pos - 1) instanceof PreferenceCategory)
+                || isNoCardItem(parent, pos - 1);
         boolean isLast = (pos == totalItems - 1)
                 || (pos + 1 < totalItems
-                    && pga.getItem(pos + 1) instanceof PreferenceCategory);
+                    && pga.getItem(pos + 1) instanceof PreferenceCategory)
+                || (pos + 1 < totalItems
+                    && isNoCardItem(parent, pos + 1));
 
         // First item in group gets top margin
         if (isFirst) {
@@ -162,5 +171,11 @@ public class CardGroupItemDecoration extends RecyclerView.ItemDecoration {
         if (isLast) {
             outRect.bottom = mGroupBottomMargin;
         }
+    }
+
+    /** Check whether the item at adapter position {@code pos} has the "no_card" tag. */
+    private boolean isNoCardItem(RecyclerView parent, int pos) {
+        RecyclerView.ViewHolder vh = parent.findViewHolderForAdapterPosition(pos);
+        return vh != null && "no_card".equals(vh.itemView.getTag());
     }
 }

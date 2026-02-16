@@ -61,14 +61,14 @@ Both layouts use `com.google.android.material.appbar.MaterialToolbar` (not the l
 
 ### Collapsing Toolbar (API 31+)
 
-The `CollapsingToolbarLayout` displays "Default Launcher" in Dancing Script font:
+The `CollapsingToolbarLayout` displays "Default" in Danfo font:
 
 ```java
 CollapsingToolbarLayout collapsingToolbar = findViewById(R.id.collapsing_toolbar);
 collapsingToolbar.setTitle(getString(R.string.settings_title));
-Typeface dancingScript = getResources().getFont(R.font.dancing_script);
-collapsingToolbar.setCollapsedTitleTypeface(dancingScript);
-collapsingToolbar.setExpandedTitleTypeface(dancingScript);
+Typeface danfo = getResources().getFont(R.font.danfo);
+collapsingToolbar.setCollapsedTitleTypeface(danfo);
+collapsingToolbar.setExpandedTitleTypeface(danfo);
 ```
 
 Key: the font is set via `setCollapsedTitleTypeface()` / `setExpandedTitleTypeface()`, not via text appearance styles or `SpannableString`. `CollapsingTextHelper` (the internal renderer) ignores `TypefaceSpan` and `android:fontFamily` from text appearances -- only the dedicated typeface setters work.
@@ -260,8 +260,8 @@ Settings UI uses M3 Expressive type tokens:
 | Preference title | `TextAppearance.Material3.BodyLarge` | 16sp / 400 weight |
 | Preference summary | (default) `TextAppearance.Material3.BodyMedium` | 14sp / 400 weight |
 | Category header | `TextAppearance.Material3.TitleSmall` | colored with `?attr/colorPrimary` |
-| Toolbar collapsed | `TextAppearance.Material3.TitleLarge` | 20sp, Dancing Script |
-| Toolbar expanded | `TextAppearance.Material3.DisplaySmall` | Dancing Script |
+| Toolbar collapsed | `TextAppearance.Material3.TitleLarge` | 20sp, Danfo |
+| Toolbar expanded | `TextAppearance.Material3.DisplaySmall` | Danfo |
 
 ## Key Files Reference
 

@@ -18,8 +18,10 @@
  */
 package com.android.launcher3.settings;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
@@ -31,9 +33,9 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
+import androidx.core.widget.NestedScrollView;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 
@@ -104,15 +106,15 @@ public class IconSettingsHelper {
         int cardPad = (int) (CARD_PAD_DP * density);
         int previewGap = (int) (PREVIEW_GAP_DP * density);
 
-        // Get real icon size from device profile
-        int previewIconSizePx = InvariantDeviceProfile.INSTANCE.get(ctx)
-                .getDeviceProfile(ctx).iconSizePx;
+        // Get real icon size from device profile (92% for preview)
+        int previewIconSizePx = (int) (InvariantDeviceProfile.INSTANCE.get(ctx)
+                .getDeviceProfile(ctx).iconSizePx * 0.92f);
 
-        int colorPrimary = ctx.getColor(R.color.materialColorPrimary);
-        int colorOnPrimary = ctx.getColor(R.color.materialColorOnSurface);
+        int colorOnSurface = ctx.getColor(R.color.materialColorOnSurface);
         int colorSurfaceVar = ctx.getColor(R.color.materialColorSurfaceContainerHigh);
         int colorSelectedFill = ctx.getColor(R.color.materialColorPrimaryContainer);
         int colorSelectedBorder = ctx.getColor(R.color.materialColorPrimary);
+        int colorOnPrimaryContainer = ctx.getColor(R.color.materialColorOnPrimaryContainer);
 
         BottomSheetDialog sheet = new BottomSheetDialog(ctx);
 
@@ -125,7 +127,7 @@ public class IconSettingsHelper {
         TextView titleView = new TextView(ctx);
         titleView.setText(R.string.icon_pack_title);
         titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
-        titleView.setTextColor(colorOnPrimary);
+        titleView.setTextColor(colorOnSurface);
         titleView.setPadding(
                 (int) (24 * density), (int) (16 * density),
                 (int) (24 * density), (int) (16 * density));
@@ -205,16 +207,18 @@ public class IconSettingsHelper {
             TextView nameView = new TextView(ctx);
             nameView.setText(labels.get(i));
             nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-            nameView.setTextColor(isSelected ? colorPrimary : colorOnPrimary);
-            nameView.setTypeface(null, isSelected
-                    ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+            nameView.setTextColor(isSelected ? colorOnPrimaryContainer : colorOnSurface);
+            if (isSelected) {
+                nameView.setTypeface(Typeface.create(Typeface.DEFAULT, 500, false));
+            }
             labelCol.addView(nameView);
 
             if (isSelected) {
                 TextView badge = new TextView(ctx);
                 badge.setText("\u2713 Selected");
                 badge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-                badge.setTextColor(colorPrimary);
+                badge.setTextColor(colorOnPrimaryContainer);
+                badge.setTypeface(Typeface.create(Typeface.DEFAULT, 500, false));
                 labelCol.addView(badge);
             }
 
@@ -255,46 +259,79 @@ public class IconSettingsHelper {
             itemsContainer.addView(card);
         }
 
-        ScrollView scroll = new ScrollView(ctx);
+        NestedScrollView scroll = new NestedScrollView(ctx);
         scroll.setClipToPadding(false);
         scroll.addView(itemsContainer);
         root.addView(scroll);
 
+        // Populate preview icons from cache (instant) or fall back to async loading
+        List<Integer> uncachedIndices = new ArrayList<>();
+        for (int i = 0; i < pkgs.size(); i++) {
+            List<Drawable> cached = mgr.getCachedPreviews(pkgs.get(i));
+            if (cached != null && !cached.isEmpty()) {
+                populatePreviewRow(previewContainers.get(i), cached,
+                        previewIconSizePx, previewGap, ctx, false);
+            } else {
+                uncachedIndices.add(i);
+            }
+        }
+
         sheet.setContentView(root);
         sheet.show();
 
-        // Phase 2: load preview icons async
-        Handler mainHandler = new Handler(Looper.getMainLooper());
-        Executors.MODEL_EXECUTOR.execute(() -> {
-            mgr.preParseAllPacks();
+        // Phase 2: load any uncached preview icons async
+        if (!uncachedIndices.isEmpty()) {
+            Handler mainHandler = new Handler(Looper.getMainLooper());
+            Executors.MODEL_EXECUTOR.execute(() -> {
+                mgr.preParseAllPacks();
 
-            for (int i = 0; i < packObjects.size(); i++) {
-                IconPack pack = packObjects.get(i);
-                if (pack == null) continue;
-
-                List<Drawable> previews = pack.getPreviewIcons(pm);
-                final int index = i;
-                mainHandler.post(() -> {
-                    LinearLayout container = previewContainers.get(index);
-                    if (container == null || !sheet.isShowing()) return;
-                    if (previews.isEmpty()) return;
-
-                    container.setVisibility(View.VISIBLE);
-                    for (int p = 0; p < previews.size(); p++) {
-                        ImageView iv = new ImageView(ctx);
-                        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                                previewIconSizePx, previewIconSizePx);
-                        if (p > 0) lp.setMarginStart(previewGap);
-                        iv.setLayoutParams(lp);
-                        iv.setImageDrawable(previews.get(p));
-                        iv.setAlpha(0f);
-                        container.addView(iv);
-                        iv.animate().alpha(1f).setDuration(250)
-                                .setStartDelay(p * 50L).start();
+                for (int i : uncachedIndices) {
+                    String pkg = pkgs.get(i);
+                    IconPack pack = packObjects.get(i);
+                    List<Drawable> previews;
+                    if (pack != null) {
+                        previews = pack.getPreviewIcons(pm);
+                    } else {
+                        // Default: load system icons
+                        previews = new ArrayList<>();
+                        for (ComponentName[] category : IconPack.PREVIEW_COMPONENTS) {
+                            for (ComponentName cn : category) {
+                                try {
+                                    Drawable d = pm.getActivityIcon(cn);
+                                    if (d != null) { previews.add(d); break; }
+                                } catch (PackageManager.NameNotFoundException ignored) { }
+                            }
+                        }
                     }
-                });
+                    final List<Drawable> finalPreviews = previews;
+                    final int index = i;
+                    mainHandler.post(() -> {
+                        if (!sheet.isShowing()) return;
+                        populatePreviewRow(previewContainers.get(index), finalPreviews,
+                                previewIconSizePx, previewGap, ctx, true);
+                    });
+                }
+            });
+        }
+    }
+
+    private static void populatePreviewRow(LinearLayout container, List<Drawable> previews,
+            int iconSize, int gap, Context ctx, boolean animate) {
+        if (container == null || previews == null || previews.isEmpty()) return;
+        container.setVisibility(View.VISIBLE);
+        for (int p = 0; p < previews.size(); p++) {
+            ImageView iv = new ImageView(ctx);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(iconSize, iconSize);
+            if (p > 0) lp.setMarginStart(gap);
+            iv.setLayoutParams(lp);
+            iv.setImageDrawable(previews.get(p));
+            if (animate) {
+                iv.setAlpha(0f);
+                iv.animate().alpha(1f).setDuration(250)
+                        .setStartDelay(p * 50L).start();
             }
-        });
+            container.addView(iv);
+        }
     }
 
     /**
@@ -398,7 +435,7 @@ public class IconSettingsHelper {
             itemsContainer.addView(item);
         }
 
-        ScrollView scroll = new ScrollView(ctx);
+        NestedScrollView scroll = new NestedScrollView(ctx);
         scroll.addView(itemsContainer);
         root.addView(scroll);
 

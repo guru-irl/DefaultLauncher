@@ -43,6 +43,7 @@ import com.android.launcher3.R;
 import com.android.launcher3.dagger.LauncherComponentProvider;
 import com.android.launcher3.graphics.ThemeManager;
 import com.android.launcher3.icons.pack.IconPackManager;
+import com.android.launcher3.util.Executors;
 
 /**
  * Fragment for the Home Screen settings sub-page.
@@ -64,6 +65,9 @@ public class HomeScreenFragment extends PreferenceFragmentCompat {
 
         IconPackManager mgr = LauncherComponentProvider.get(getContext())
                 .getIconPackManager();
+
+        // Preload icon pack previews in background
+        Executors.MODEL_EXECUTOR.execute(() -> mgr.preloadAllPreviews());
 
         // Icon pack picker
         Preference iconPackPref = findPreference("pref_icon_pack");

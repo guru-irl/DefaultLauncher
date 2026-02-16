@@ -261,7 +261,7 @@ public class IconPack {
     /**
      * Well-known preview components — 5 categories, each with multiple fallback ComponentNames.
      */
-    private static final ComponentName[][] PREVIEW_COMPONENTS = {
+    public static final ComponentName[][] PREVIEW_COMPONENTS = {
         { // Phone
             new ComponentName("com.google.android.dialer", "com.google.android.dialer.extensions.GoogleDialtactsActivity"),
             new ComponentName("com.android.dialer", "com.android.dialer.DialtactsActivity"),
