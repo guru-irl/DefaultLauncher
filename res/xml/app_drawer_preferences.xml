@@ -73,11 +73,4 @@
 
     </PreferenceCategory>
 
-    <Preference
-        android:key="pref_drawer_colors"
-        android:title="@string/drawer_colors_title"
-        android:summary="@string/drawer_colors_summary"
-        android:fragment="com.android.launcher3.settings.AppDrawerColorsFragment"
-        launcher:iconSpaceReserved="false" />
-
 </androidx.preference.PreferenceScreen>

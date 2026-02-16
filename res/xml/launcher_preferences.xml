@@ -43,6 +43,14 @@
         launcher:iconSpaceReserved="true" />
 
     <Preference
+        android:key="pref_drawer_colors"
+        android:icon="@drawable/ic_settings_colors"
+        android:title="@string/colors_title"
+        android:summary="@string/colors_summary"
+        android:fragment="com.android.launcher3.settings.AppDrawerColorsFragment"
+        launcher:iconSpaceReserved="true" />
+
+    <Preference
         android:key="pref_search"
         android:icon="@drawable/ic_settings_search"
         android:title="@string/search_title"

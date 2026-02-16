@@ -539,7 +539,7 @@
     <string name="home_screen_title">Home Screen</string>
     <string name="home_screen_summary">Icon pack, shape, size</string>
     <string name="app_drawer_title">App Drawer</string>
-    <string name="app_drawer_summary">Icons, labels, layout, colors</string>
+    <string name="app_drawer_summary">Icons, labels, layout</string>
     <string name="debug_title">Debug</string>
     <string name="debug_summary">Theme color swatches</string>
 
@@ -600,11 +600,12 @@
     <string name="icon_size_custom">Custom</string>
     <string name="theme_colors_category">Theme colors</string>
 
-    <!-- App drawer colors settings -->
-    <string name="drawer_colors_title">App Drawer Colors</string>
-    <string name="drawer_colors_summary">Customize drawer colors</string>
-    <string name="drawer_colors_general_category">General</string>
-    <string name="drawer_colors_tabs_category">Tabs</string>
+    <!-- Colors settings -->
+    <string name="colors_title">Colors</string>
+    <string name="colors_summary">Drawer, search, tab colors</string>
+    <string name="colors_drawer_category">App Drawer</string>
+    <string name="colors_search_category">Search</string>
+    <string name="colors_tabs_category">Personal / Work Tabs</string>
     <string name="drawer_bg_color_title">Drawer background</string>
     <string name="drawer_bg_opacity_title">Background opacity</string>
     <string name="drawer_search_bg_color_title">Search bar background</string>
@@ -614,7 +615,7 @@
     <string name="drawer_tab_selected_color_title">Selected tab</string>
     <string name="drawer_tab_unselected_color_title">Unselected tab</string>
     <string name="drawer_color_default">Default</string>
-    <string name="drawer_tab_color_hint">Enable tabs on the main settings page to see changes</string>
+    <string name="drawer_tab_color_hint">Enable tabs in App Drawer settings to see changes</string>
 
     <!-- Set as default banner -->
     <string name="set_default_title">Set as default launcher</string>
