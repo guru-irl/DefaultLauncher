@@ -229,6 +229,9 @@ dependencies {
 
     implementation libs.protobuf.javalite
 
+    // mxparser for calculator (same as Kvaesitso)
+    implementation 'org.mariuszgromada.math:MathParser.org-mXparser:6.1.0'
+
     api libs.lottie
     implementation libs.dagger
     kapt libs.dagger.compiler

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2025 DefaultLauncher Contributors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<HorizontalScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:scrollbars="none"
+    android:fadingEdge="horizontal"
+    android:requiresFadingEdge="horizontal"
+    android:fadingEdgeLength="16dp"
+    android:paddingStart="8dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:clipToPadding="true"
+    android:clipChildren="true">
+
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/filter_chip_group"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingEnd="8dp"
+        app:singleLine="true"
+        app:chipSpacingHorizontal="8dp">
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_all"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="All"
+            android:checked="true"
+            app:chipSurfaceColor="@android:color/transparent"
+            app:checkedIconVisible="true" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_apps"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Apps"
+            app:chipSurfaceColor="@android:color/transparent"
+            app:chipIcon="@drawable/ic_apps"
+            app:chipIconVisible="true"
+            app:checkedIconVisible="false" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_shortcuts"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Shortcuts"
+            app:chipSurfaceColor="@android:color/transparent"
+            app:chipIcon="@drawable/ic_shortcut"
+            app:chipIconVisible="true"
+            app:checkedIconVisible="false" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_contacts"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Contacts"
+            app:chipSurfaceColor="@android:color/transparent"
+            app:chipIcon="@drawable/ic_contact"
+            app:chipIconVisible="true"
+            app:checkedIconVisible="false" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_calendar"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Calendar"
+            app:chipSurfaceColor="@android:color/transparent"
+            app:chipIcon="@drawable/ic_calendar"
+            app:chipIconVisible="true"
+            app:checkedIconVisible="false" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_files"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Files"
+            app:chipSurfaceColor="@android:color/transparent"
+            app:chipIcon="@drawable/ic_file"
+            app:chipIconVisible="true"
+            app:checkedIconVisible="false" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_tools"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tools"
+            app:chipSurfaceColor="@android:color/transparent"
+            app:chipIcon="@drawable/ic_calculate"
+            app:chipIconVisible="true"
+            app:checkedIconVisible="false" />
+
+    </com.google.android.material.chip.ChipGroup>
+</HorizontalScrollView>

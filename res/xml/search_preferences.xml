@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2025 DefaultLauncher Contributors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:launcher="http://schemas.android.com/apk/res-auto">
+
+    <androidx.preference.PreferenceCategory
+        android:key="pref_search_categories"
+        android:title="@string/search_categories_title">
+
+        <androidx.preference.SwitchPreference
+            android:key="pref_search_apps"
+            android:title="@string/search_apps_title"
+            android:defaultValue="true"
+            launcher:iconSpaceReserved="false" />
+
+        <androidx.preference.SwitchPreference
+            android:key="pref_search_shortcuts"
+            android:title="@string/search_shortcuts_title"
+            android:defaultValue="true"
+            launcher:iconSpaceReserved="false" />
+
+        <androidx.preference.SwitchPreference
+            android:key="pref_search_contacts"
+            android:title="@string/search_contacts_title"
+            android:summary="@string/search_contacts_summary"
+            android:defaultValue="false"
+            launcher:iconSpaceReserved="false" />
+
+        <androidx.preference.SwitchPreference
+            android:key="pref_search_calendar"
+            android:title="@string/search_calendar_title"
+            android:summary="@string/search_calendar_summary"
+            android:defaultValue="false"
+            launcher:iconSpaceReserved="false" />
+
+        <androidx.preference.SwitchPreference
+            android:key="pref_search_files"
+            android:title="@string/search_files_title"
+            android:summary="@string/search_files_summary"
+            android:defaultValue="false"
+            launcher:iconSpaceReserved="false" />
+
+        <androidx.preference.SwitchPreference
+            android:key="pref_search_calculator"
+            android:title="@string/search_calculator_title"
+            android:defaultValue="true"
+            launcher:iconSpaceReserved="false" />
+
+        <androidx.preference.SwitchPreference
+            android:key="pref_search_unit_converter"
+            android:title="@string/search_unit_converter_title"
+            android:defaultValue="true"
+            launcher:iconSpaceReserved="false" />
+
+    </androidx.preference.PreferenceCategory>
+
+    <androidx.preference.PreferenceCategory
+        android:key="pref_search_behavior"
+        android:title="@string/search_behavior_title">
+
+        <androidx.preference.Preference
+            android:key="pref_search_web_app"
+            android:title="@string/search_web_app_title"
+            android:summary="@string/search_web_app_summary"
+            launcher:iconSpaceReserved="false" />
+
+    </androidx.preference.PreferenceCategory>
+
+</androidx.preference.PreferenceScreen>

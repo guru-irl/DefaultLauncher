@@ -408,8 +408,10 @@ public class FloatingHeaderView extends LinearLayout implements
 
         mFloatingRowsCollapsed = collapsed;
         onHeightUpdated();
-        // Always re-setup header when collapsed state changes, because
-        // onHeightUpdated()'s condition may not trigger when mMaxTranslation is 0.
+        // In AOSP with predicted apps, onHeightUpdated() triggers setupHeader() because
+        // mMaxTranslation changes. Without floating rows, mMaxTranslation stays 0, so
+        // onHeightUpdated()'s condition doesn't fire. Force setupHeader() to ensure
+        // padding, clip bounds, and scroll position are reset on collapsed state changes.
         ActivityAllAppsContainerView<?> parent =
                 (ActivityAllAppsContainerView<?>) getParent();
         if (parent != null) {

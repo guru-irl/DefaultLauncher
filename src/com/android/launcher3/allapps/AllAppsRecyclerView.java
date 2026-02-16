@@ -168,7 +168,16 @@ public class AllAppsRecyclerView extends FastScrollRecyclerView {
                 requestFocus();
                 mgr.logger().sendToInteractionJankMonitor(
                         LAUNCHER_ALLAPPS_VERTICAL_SWIPE_BEGIN, this);
-                ActivityContext.lookupContext(getContext()).hideKeyboard();
+                // If search bar is focused with empty text, dismiss search on scroll
+                ActivityAllAppsContainerView<?> appsView =
+                        ActivityContext.lookupContext(getContext()).getAppsView();
+                ExtendedEditText editText = appsView.getSearchUiManager().getEditText();
+                if (editText != null && editText.isFocused()
+                        && editText.getText().length() == 0) {
+                    appsView.getSearchUiManager().resetSearch();
+                } else {
+                    ActivityContext.lookupContext(getContext()).hideKeyboard();
+                }
                 break;
             case SCROLL_STATE_IDLE:
                 mgr.logger().sendToInteractionJankMonitor(

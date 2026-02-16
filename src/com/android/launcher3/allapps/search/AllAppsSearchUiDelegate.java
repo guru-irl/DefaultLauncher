@@ -24,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.android.launcher3.R;
 import com.android.launcher3.allapps.ActivityAllAppsContainerView;
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
+import com.android.launcher3.search.UniversalSearchAdapterProvider;
 import com.android.launcher3.views.ActivityContext;
 
 import java.util.List;
@@ -33,6 +34,7 @@ public class AllAppsSearchUiDelegate {
 
     protected final ActivityAllAppsContainerView<?> mAppsView;
     protected final ActivityContext mActivityContext;
+    private UniversalSearchAdapterProvider mSearchAdapterProvider;
 
     public AllAppsSearchUiDelegate(ActivityAllAppsContainerView<?> appsView) {
         mAppsView = appsView;
@@ -81,6 +83,12 @@ public class AllAppsSearchUiDelegate {
 
     /** Creates the adapter provider for the main section. */
     public SearchAdapterProvider<?> createMainAdapterProvider() {
-        return new DefaultSearchAdapterProvider(mActivityContext);
+        mSearchAdapterProvider = new UniversalSearchAdapterProvider(mActivityContext);
+        return mSearchAdapterProvider;
+    }
+
+    /** Returns the universal search adapter provider, if created. */
+    public UniversalSearchAdapterProvider getSearchAdapterProvider() {
+        return mSearchAdapterProvider;
     }
 }

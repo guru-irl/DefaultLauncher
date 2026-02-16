@@ -22,6 +22,8 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.core.util.Consumer;
 
+import com.android.launcher3.ExtendedEditText;
+import com.android.launcher3.views.ActivityContext;
 import com.android.launcher3.views.RecyclerViewFastScroller;
 
 /** A RecyclerView for AllApps Search results. */
@@ -42,6 +44,9 @@ public class SearchRecyclerView extends AllAppsRecyclerView {
     public SearchRecyclerView(Context context, AttributeSet attrs, int defStyleAttr,
             int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
+        // Disable item animator to prevent add/remove animations that cause
+        // items to briefly render with zero height during progressive search updates.
+        setItemAnimator(null);
     }
 
     @Override
@@ -59,5 +64,18 @@ public class SearchRecyclerView extends AllAppsRecyclerView {
     @Override
     public RecyclerViewFastScroller getScrollbar() {
         return null;
+    }
+
+    @Override
+    public void onScrollStateChanged(int state) {
+        super.onScrollStateChanged(state);
+        if (state == SCROLL_STATE_DRAGGING) {
+            ActivityAllAppsContainerView<?> appsView =
+                    ActivityContext.lookupContext(getContext()).getAppsView();
+            ExtendedEditText editText = appsView.getSearchUiManager().getEditText();
+            if (editText != null && editText.getText().length() == 0) {
+                appsView.getSearchUiManager().resetSearch();
+            }
+        }
     }
 }

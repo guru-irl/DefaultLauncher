@@ -543,6 +543,26 @@
     <string name="debug_title">Debug</string>
     <string name="debug_summary">Theme color swatches</string>
 
+    <!-- Search settings -->
+    <string name="search_title">Search</string>
+    <string name="search_summary">Categories, web search app</string>
+    <string name="search_categories_title">Search categories</string>
+    <string name="search_apps_title">Apps</string>
+    <string name="search_shortcuts_title">App shortcuts</string>
+    <string name="search_contacts_title">Contacts</string>
+    <string name="search_contacts_summary">Requires contacts permission</string>
+    <string name="search_calendar_title">Calendar</string>
+    <string name="search_calendar_summary">Requires calendar permission</string>
+    <string name="search_files_title">Files</string>
+    <string name="search_files_summary">Requires file access permission</string>
+    <string name="search_calculator_title">Calculator</string>
+    <string name="search_unit_converter_title">Unit converter</string>
+    <string name="search_behavior_title">Behavior</string>
+    <string name="search_web_app_title">Web search app</string>
+    <string name="search_web_app_summary">Choose which app handles web searches</string>
+    <string name="search_web_app_system_default">System default</string>
+    <string name="search_permission_denied">Permission denied. Enable in system settings.</string>
+
     <!-- Home screen icons category -->
     <string name="home_screen_icons_category">Icons</string>
 
@@ -625,4 +645,6 @@
     <!-- Content description for install app icon -->
     <string name="ps_add_button_content_description">Install apps to Private Space</string>
     <string name="ps_app_content_description">Add files and more to Private Space</string>
+    <!-- Web search FAB label shown above keyboard during all-apps search -->
+    <string name="search_online">Web search</string>
 </resources>

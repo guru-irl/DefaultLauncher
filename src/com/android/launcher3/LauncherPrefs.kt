@@ -336,6 +336,16 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField val DRAWER_TAB_UNSELECTED_COLOR = backedUpItem("pref_drawer_tab_unselected_color", "")
         @JvmField val DRAWER_HIDE_TABS = backedUpItem("pref_drawer_hide_tabs", false)
 
+        // Universal search preferences
+        @JvmField val SEARCH_APPS = backedUpItem("pref_search_apps", true)
+        @JvmField val SEARCH_SHORTCUTS = backedUpItem("pref_search_shortcuts", true)
+        @JvmField val SEARCH_CONTACTS = backedUpItem("pref_search_contacts", false)
+        @JvmField val SEARCH_CALENDAR = backedUpItem("pref_search_calendar", false)
+        @JvmField val SEARCH_FILES = backedUpItem("pref_search_files", false)
+        @JvmField val SEARCH_CALCULATOR = backedUpItem("pref_search_calculator", true)
+        @JvmField val SEARCH_UNIT_CONVERTER = backedUpItem("pref_search_unit_converter", true)
+        @JvmField val SEARCH_WEB_APP = backedUpItem("pref_search_web_app", "default")
+
         @JvmField
         val NON_FIXED_LANDSCAPE_GRID_NAME =
             ConstantItem(

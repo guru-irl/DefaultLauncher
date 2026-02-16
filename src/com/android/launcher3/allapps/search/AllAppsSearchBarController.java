@@ -99,7 +99,9 @@ public class AllAppsSearchBarController
         mQuery = s.toString();
         if (mQuery.isEmpty()) {
             mSearchAlgorithm.cancel(true);
-            mCallback.clearSearchResult();
+            // Show A-Z apps while keeping search bar active (keyboard up, focused).
+            // Search is dismissed by back key (onBackKey) or scrolling away.
+            mCallback.onSearchResult("", null);
         } else {
             mSearchAlgorithm.cancel(false);
             mSearchAlgorithm.doSearch(mQuery, mTextConversions, mCallback);
