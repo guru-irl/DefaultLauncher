@@ -8,6 +8,8 @@ Also added a "Match home screen icons" switch to the App Drawer settings that ma
 
 ## Per-App Override Manager
 
+> **Note:** The `IconOverride` data model was redesigned in [021](021-per-app-render-overrides-and-sentinel-redesign.md) with sentinel constants and enums replacing empty strings. The API below reflects the original design.
+
 ### `PerAppIconOverrideManager.java` (**NEW**)
 
 Singleton managing two JSON maps in SharedPreferences file `"per_app_icon_overrides"`:

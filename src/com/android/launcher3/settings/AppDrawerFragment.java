@@ -18,22 +18,20 @@
  */
 package com.android.launcher3.settings;
 
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.view.View;
 
-import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
-import androidx.preference.SwitchPreference;
+import androidx.preference.SwitchPreferenceCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.shape.ShapeAppearanceModel;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -45,18 +43,16 @@ import com.android.launcher3.R;
 import com.android.launcher3.dagger.LauncherComponentProvider;
 import com.android.launcher3.graphics.ThemeManager;
 import com.android.launcher3.icons.DrawerIconResolver;
+import com.android.launcher3.icons.LauncherIcons;
 import com.android.launcher3.icons.pack.IconPackManager;
+import com.android.launcher3.icons.pack.PerAppIconOverrideManager;
 import com.android.launcher3.util.Executors;
 
 /**
  * Fragment for the App Drawer settings sub-page.
- * Contains: icons (pack/shape/size), labels, layout, and colors sub-page.
+ * Contains: icons (pack/adaptive/shape/size), labels, layout, and colors sub-page.
  */
 public class AppDrawerFragment extends PreferenceFragmentCompat {
-
-    private static final String[] SIZE_PRESETS = {"0.8", "0.863", "0.92", "1.0"};
-    private static final String[] SIZE_LABELS = {"S (80%)", "M (86%)", "L (92%)", "XL (100%)"};
-    private static final long CORNER_ANIM_DURATION = 250L;
 
     private boolean mIconSizeBound = false;
     private int mLastPresetButtonId = View.NO_ID;
@@ -84,8 +80,25 @@ public class AppDrawerFragment extends PreferenceFragmentCompat {
             });
         }
 
-        // Icon shape picker — drawer-specific pref key
+        // Apply adaptive icon shape switch (drawer)
+        SwitchPreferenceCompat adaptivePref = findPreference("pref_apply_adaptive_shape_drawer");
         Preference iconShapePref = findPreference("pref_icon_shape");
+
+        boolean adaptiveOn = LauncherPrefs.get(getContext())
+                .get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
+        if (iconShapePref != null) {
+            iconShapePref.setVisible(adaptiveOn);
+        }
+
+        if (adaptivePref != null) {
+            adaptivePref.setOnPreferenceChangeListener((pref, newValue) -> {
+                boolean on = (boolean) newValue;
+                if (iconShapePref != null) iconShapePref.setVisible(on);
+                return true;
+            });
+        }
+
+        // Icon shape picker — drawer-specific pref key
         if (iconShapePref != null) {
             IconSettingsHelper.updateIconShapeSummary(getContext(), iconShapePref,
                     ThemeManager.PREF_ICON_SHAPE_DRAWER);
@@ -103,29 +116,54 @@ public class AppDrawerFragment extends PreferenceFragmentCompat {
         }
 
         // Match home screen icons switch
-        SwitchPreference matchHomePref = findPreference("pref_drawer_match_home");
+        SwitchPreferenceCompat matchHomePref = findPreference("pref_drawer_match_home");
         boolean isMatching = LauncherPrefs.get(getContext()).get(LauncherPrefs.DRAWER_MATCH_HOME);
         if (iconPackPref != null) iconPackPref.setVisible(!isMatching);
-        Preference iconShapePrefRef = findPreference("pref_icon_shape");
-        if (iconShapePrefRef != null) iconShapePrefRef.setVisible(!isMatching);
+        if (adaptivePref != null) adaptivePref.setVisible(!isMatching);
+        if (iconShapePref != null) iconShapePref.setVisible(!isMatching && adaptiveOn);
         if (iconSizePref != null) iconSizePref.setVisible(!isMatching);
 
         if (matchHomePref != null) {
             matchHomePref.setOnPreferenceChangeListener((pref, newValue) -> {
                 boolean matching = (boolean) newValue;
                 if (iconPackPref != null) iconPackPref.setVisible(!matching);
+                SwitchPreferenceCompat adaptiveRef = findPreference("pref_apply_adaptive_shape_drawer");
+                if (adaptiveRef != null) adaptiveRef.setVisible(!matching);
                 Preference shapePref = findPreference("pref_icon_shape");
-                if (shapePref != null) shapePref.setVisible(!matching);
+                boolean adaptiveIsOn = LauncherPrefs.get(getContext())
+                        .get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
+                if (shapePref != null) shapePref.setVisible(!matching && adaptiveIsOn);
                 Preference sizePref = findPreference("pref_icon_size_scale");
                 if (sizePref != null) sizePref.setVisible(!matching);
 
                 // Invalidate drawer cache and force reload on toggle change.
-                // Don't clear the drawer pack — preserve it so turning
-                // match-home off restores the previous drawer settings.
                 DrawerIconResolver.getInstance().invalidate();
                 getListView().post(() -> {
                     LauncherAppState.INSTANCE.get(getContext()).getModel().forceReload();
                 });
+                return true;
+            });
+        }
+
+        // Reset all custom icons (drawer)
+        Preference resetAllPref = findPreference("pref_reset_all_custom_icons");
+        if (resetAllPref != null) {
+            boolean hasOverrides = PerAppIconOverrideManager.getInstance(getContext())
+                    .hasAnyDrawerOverrides();
+            resetAllPref.setVisible(hasOverrides);
+            resetAllPref.setOnPreferenceClickListener(pref -> {
+                new MaterialAlertDialogBuilder(getContext())
+                        .setMessage(R.string.reset_all_custom_icons_confirm)
+                        .setPositiveButton(android.R.string.ok, (d, w) -> {
+                            PerAppIconOverrideManager.getInstance(getContext())
+                                    .clearAllDrawerOverrides();
+                            pref.setVisible(false);
+                            DrawerIconResolver.getInstance().invalidate();
+                            LauncherAppState.INSTANCE.get(getContext())
+                                    .getModel().forceReload();
+                        })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
                 return true;
             });
         }
@@ -217,93 +255,20 @@ public class AppDrawerFragment extends PreferenceFragmentCompat {
         Preference iconSizePref = findPreference("pref_icon_size_scale");
         if (iconSizePref == null) return;
 
-        MaterialButtonToggleGroup toggleGroup =
-                child.findViewById(R.id.size_toggle_group);
-
         String current = LauncherPrefs.get(getContext())
                 .get(LauncherPrefs.ICON_SIZE_SCALE_DRAWER);
 
-        int[] btnIds = {R.id.btn_size_s, R.id.btn_size_m,
-                R.id.btn_size_l, R.id.btn_size_xl};
-        boolean isPreset = false;
-        for (int j = 0; j < SIZE_PRESETS.length; j++) {
-            if (SIZE_PRESETS[j].equals(current)) {
-                toggleGroup.check(btnIds[j]);
-                mLastPresetButtonId = btnIds[j];
-                isPreset = true;
-                break;
-            }
-        }
-        if (!isPreset) {
-            toggleGroup.check(R.id.btn_size_custom);
-        }
-
-        // Set pill shape on initial selection
-        toggleGroup.post(() -> {
-            for (int i = 0; i < toggleGroup.getChildCount(); i++) {
-                View c = toggleGroup.getChildAt(i);
-                if (c instanceof MaterialButton && ((MaterialButton) c).isChecked()) {
-                    float pill = c.getHeight() / 2f;
-                    if (pill > 0) {
-                        ((MaterialButton) c).setShapeAppearanceModel(
-                                ShapeAppearanceModel.builder()
-                                        .setAllCornerSizes(pill)
-                                        .build());
-                    }
-                }
-            }
-        });
-
-        toggleGroup.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
-            MaterialButton btn = group.findViewById(checkedId);
-            if (btn != null) {
-                animateButtonCorners(btn, isChecked);
-            }
-
-            if (!isChecked) return;
-
-            if (checkedId == R.id.btn_size_custom) {
-                showCustomIconSizeDialog(toggleGroup, iconSizePref);
-                return;
-            }
-
-            mLastPresetButtonId = checkedId;
-
-            if (btn != null) {
-                String value = (String) btn.getTag();
-                LauncherPrefs.get(getContext())
-                        .put(LauncherPrefs.ICON_SIZE_SCALE_DRAWER, value);
-                updateIconSizeSummary(iconSizePref);
-                getListView().post(() ->
-                    InvariantDeviceProfile.INSTANCE.get(getContext())
-                            .onConfigChanged(getContext()));
-            }
-        });
-    }
-
-    private void animateButtonCorners(MaterialButton btn, boolean toPill) {
-        float density = getResources().getDisplayMetrics().density;
-        float innerRadius = 8 * density;
-
-        btn.post(() -> {
-            float pillRadius = btn.getHeight() / 2f;
-            if (pillRadius <= 0) pillRadius = 20 * density;
-
-            float startRadius = toPill ? innerRadius : pillRadius;
-            float endRadius = toPill ? pillRadius : innerRadius;
-
-            ValueAnimator anim = ValueAnimator.ofFloat(startRadius, endRadius);
-            anim.setDuration(CORNER_ANIM_DURATION);
-            anim.setInterpolator(new FastOutSlowInInterpolator());
-            anim.addUpdateListener(a -> {
-                float r = (float) a.getAnimatedValue();
-                btn.setShapeAppearanceModel(
-                        btn.getShapeAppearanceModel().toBuilder()
-                                .setAllCornerSizes(r)
-                                .build());
-            });
-            anim.start();
-        });
+        mLastPresetButtonId = IconSettingsHelper.bindIconSizeToggle(child, current,
+                value -> {
+                    LauncherPrefs.get(getContext())
+                            .put(LauncherPrefs.ICON_SIZE_SCALE_DRAWER, value);
+                    updateIconSizeSummary(iconSizePref);
+                    getListView().post(() ->
+                        InvariantDeviceProfile.INSTANCE.get(getContext())
+                                .onConfigChanged(getContext()));
+                },
+                () -> showCustomIconSizeDialog(
+                        child.findViewById(R.id.size_toggle_group), iconSizePref));
     }
 
     private void showCustomIconSizeDialog(
@@ -366,18 +331,6 @@ public class AppDrawerFragment extends PreferenceFragmentCompat {
 
     private void updateIconSizeSummary(Preference pref) {
         String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_SIZE_SCALE_DRAWER);
-        for (int i = 0; i < SIZE_PRESETS.length; i++) {
-            if (SIZE_PRESETS[i].equals(current)) {
-                pref.setSummary(SIZE_LABELS[i]);
-                return;
-            }
-        }
-        try {
-            float pct = Float.parseFloat(current) * 100f;
-            pref.setSummary(getString(R.string.icon_size_custom)
-                    + " (" + String.format("%.0f%%", pct) + ")");
-        } catch (NumberFormatException e) {
-            pref.setSummary(getString(R.string.icon_size_custom) + " (" + current + ")");
-        }
+        pref.setSummary(IconSettingsHelper.getIconSizeSummary(getContext(), current));
     }
 }

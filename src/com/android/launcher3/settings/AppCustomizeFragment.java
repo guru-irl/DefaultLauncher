@@ -25,6 +25,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -37,15 +38,26 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.SwitchPreferenceCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+
+import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.dagger.LauncherComponentProvider;
+import com.android.launcher3.graphics.ThemeManager;
+import com.android.launcher3.icons.BitmapInfo;
 import com.android.launcher3.icons.DrawerIconResolver;
 import com.android.launcher3.icons.LauncherIcons;
+import com.android.launcher3.icons.PerAppHomeIconResolver;
 import com.android.launcher3.icons.pack.IconPack;
 import com.android.launcher3.icons.pack.IconPackManager;
 import com.android.launcher3.icons.pack.PerAppIconOverrideManager;
@@ -53,23 +65,44 @@ import com.android.launcher3.icons.pack.PerAppIconOverrideManager.IconOverride;
 import com.android.launcher3.util.Executors;
 
 /**
- * Per-app icon customization screen. Shows current home/drawer icon overrides
- * and allows the user to pick a specific icon from any installed pack.
+ * Per-app icon customization screen. Two sections: Home screen and App drawer.
+ * Each section has: icon picker, match global/home toggle, adaptive shape switch,
+ * icon shape picker, icon size toggle, and a reset button.
  */
 public class AppCustomizeFragment extends PreferenceFragmentCompat {
 
     public static final String EXTRA_COMPONENT_NAME = "customize_component_name";
     public static final String EXTRA_APP_LABEL = "customize_app_label";
 
+    // Home section keys
+    private static final String KEY_HOME_CATEGORY = "customize_home_category";
     private static final String KEY_HOME_ICON = "customize_home_icon";
+    private static final String KEY_HOME_MATCH_GLOBAL = "customize_home_match_global";
+    private static final String KEY_HOME_ADAPTIVE = "customize_home_adaptive";
+    private static final String KEY_HOME_SHAPE = "customize_home_shape";
+    private static final String KEY_HOME_SIZE = "customize_home_size";
+    private static final String KEY_HOME_RESET = "customize_home_reset";
+
+    // Drawer section keys
+    private static final String KEY_DRAWER_CATEGORY = "customize_drawer_category";
     private static final String KEY_DRAWER_ICON = "customize_drawer_icon";
-    private static final String KEY_RESET = "customize_reset";
+    private static final String KEY_DRAWER_MATCH_HOME = "customize_drawer_match_home";
+    private static final String KEY_DRAWER_ADAPTIVE = "customize_drawer_adaptive";
+    private static final String KEY_DRAWER_SHAPE = "customize_drawer_shape";
+    private static final String KEY_DRAWER_SIZE = "customize_drawer_size";
+    private static final String KEY_DRAWER_RESET = "customize_drawer_reset";
+
     private static final String KEY_FOOTER = "customize_footer";
 
     private static final Handler sMainHandler = new Handler(Looper.getMainLooper());
 
     private ComponentName mComponentName;
     private String mAppLabel;
+
+    private boolean mHomeSizeBound = false;
+    private boolean mDrawerSizeBound = false;
+    private int mHomeLastPresetId = View.NO_ID;
+    private int mDrawerLastPresetId = View.NO_ID;
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -88,34 +121,139 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
             return;
         }
 
-        // Build preferences programmatically
         setPreferenceScreen(getPreferenceManager().createPreferenceScreen(ctx));
 
-        // Home screen icon
-        Preference homePref = new Preference(ctx);
-        homePref.setKey(KEY_HOME_ICON);
-        homePref.setTitle(R.string.customize_home_icon);
-        homePref.setWidgetLayoutResource(R.layout.preference_icon_widget);
-        homePref.setIconSpaceReserved(false);
-        getPreferenceScreen().addPreference(homePref);
+        PerAppIconOverrideManager overrideMgr = PerAppIconOverrideManager.getInstance(ctx);
+        IconOverride homeOverride = overrideMgr.getHomeOverride(mComponentName);
+        IconOverride drawerOverride = overrideMgr.getDrawerOverride(mComponentName);
 
-        // App drawer icon — always visible; per-app overrides take priority
-        // over the global "match home" setting.
-        Preference drawerPref = new Preference(ctx);
-        drawerPref.setKey(KEY_DRAWER_ICON);
-        drawerPref.setTitle(R.string.customize_drawer_icon);
-        drawerPref.setWidgetLayoutResource(R.layout.preference_icon_widget);
-        drawerPref.setIconSpaceReserved(false);
-        getPreferenceScreen().addPreference(drawerPref);
+        // ── Home screen section ──
+        PreferenceCategory homeCat = new PreferenceCategory(ctx);
+        homeCat.setKey(KEY_HOME_CATEGORY);
+        homeCat.setTitle(R.string.customize_home_category);
+        homeCat.setIconSpaceReserved(false);
+        getPreferenceScreen().addPreference(homeCat);
 
-        // Reset
-        Preference resetPref = new Preference(ctx);
-        resetPref.setKey(KEY_RESET);
-        resetPref.setTitle(R.string.customize_reset);
-        resetPref.setIconSpaceReserved(false);
-        getPreferenceScreen().addPreference(resetPref);
+        // Home icon picker
+        Preference homeIconPref = new Preference(ctx);
+        homeIconPref.setKey(KEY_HOME_ICON);
+        homeIconPref.setTitle(R.string.customize_home_icon);
+        homeIconPref.setWidgetLayoutResource(R.layout.preference_icon_widget);
+        homeIconPref.setIconSpaceReserved(false);
+        homeCat.addPreference(homeIconPref);
 
-        // Component ID footer (sits outside card groups)
+        // Match global shape (home)
+        boolean homeHasRenderOverride = homeOverride != null
+                && homeOverride.hasAnyRenderOverride();
+        SwitchPreferenceCompat homeMatchGlobal = new SwitchPreferenceCompat(ctx);
+        homeMatchGlobal.setKey(KEY_HOME_MATCH_GLOBAL);
+        homeMatchGlobal.setTitle(R.string.customize_match_global_shape);
+        homeMatchGlobal.setChecked(!homeHasRenderOverride);
+        homeMatchGlobal.setIconSpaceReserved(false);
+        homeCat.addPreference(homeMatchGlobal);
+
+        // Apply adaptive shape (home per-app)
+        boolean homeAdaptiveOn = getEffectiveAdaptive(homeOverride, true);
+        SwitchPreferenceCompat homeAdaptivePref = new SwitchPreferenceCompat(ctx);
+        homeAdaptivePref.setKey(KEY_HOME_ADAPTIVE);
+        homeAdaptivePref.setTitle(R.string.apply_adaptive_shape_title);
+        homeAdaptivePref.setSummary(R.string.apply_adaptive_shape_summary);
+        homeAdaptivePref.setChecked(homeAdaptiveOn);
+        homeAdaptivePref.setVisible(!homeMatchGlobal.isChecked());
+        homeAdaptivePref.setIconSpaceReserved(false);
+        homeCat.addPreference(homeAdaptivePref);
+
+        // Icon shape (home per-app)
+        Preference homeShapePref = new Preference(ctx);
+        homeShapePref.setKey(KEY_HOME_SHAPE);
+        homeShapePref.setTitle(R.string.icon_shape_title);
+        homeShapePref.setSummary(getShapeSummary(ctx, homeOverride, true));
+        homeShapePref.setVisible(!homeMatchGlobal.isChecked() && homeAdaptiveOn);
+        homeShapePref.setIconSpaceReserved(false);
+        homeCat.addPreference(homeShapePref);
+
+        // Icon size (home per-app)
+        Preference homeSizePref = new Preference(ctx);
+        homeSizePref.setKey(KEY_HOME_SIZE);
+        homeSizePref.setTitle(R.string.icon_size_title);
+        homeSizePref.setSummary(getSizeSummary(ctx, homeOverride, true));
+        homeSizePref.setLayoutResource(R.layout.preference_icon_size);
+        homeSizePref.setVisible(!homeMatchGlobal.isChecked());
+        homeSizePref.setIconSpaceReserved(false);
+        homeCat.addPreference(homeSizePref);
+
+        // Reset home
+        Preference homeResetPref = new Preference(ctx);
+        homeResetPref.setKey(KEY_HOME_RESET);
+        homeResetPref.setTitle(R.string.customize_reset_home);
+        homeResetPref.setVisible(homeOverride != null);
+        homeResetPref.setIconSpaceReserved(false);
+        homeCat.addPreference(homeResetPref);
+
+        // ── App drawer section ──
+        PreferenceCategory drawerCat = new PreferenceCategory(ctx);
+        drawerCat.setKey(KEY_DRAWER_CATEGORY);
+        drawerCat.setTitle(R.string.customize_drawer_category);
+        drawerCat.setIconSpaceReserved(false);
+        getPreferenceScreen().addPreference(drawerCat);
+
+        // Drawer icon picker
+        Preference drawerIconPref = new Preference(ctx);
+        drawerIconPref.setKey(KEY_DRAWER_ICON);
+        drawerIconPref.setTitle(R.string.customize_drawer_icon);
+        drawerIconPref.setWidgetLayoutResource(R.layout.preference_icon_widget);
+        drawerIconPref.setIconSpaceReserved(false);
+        drawerCat.addPreference(drawerIconPref);
+
+        // Match home shape (drawer)
+        boolean drawerHasRenderOverride = drawerOverride != null
+                && drawerOverride.hasAnyRenderOverride();
+        SwitchPreferenceCompat drawerMatchHome = new SwitchPreferenceCompat(ctx);
+        drawerMatchHome.setKey(KEY_DRAWER_MATCH_HOME);
+        drawerMatchHome.setTitle(R.string.customize_match_home_shape);
+        drawerMatchHome.setChecked(!drawerHasRenderOverride);
+        drawerMatchHome.setIconSpaceReserved(false);
+        drawerCat.addPreference(drawerMatchHome);
+
+        // Apply adaptive shape (drawer per-app)
+        boolean drawerAdaptiveOn = getEffectiveAdaptive(drawerOverride, false);
+        SwitchPreferenceCompat drawerAdaptivePref = new SwitchPreferenceCompat(ctx);
+        drawerAdaptivePref.setKey(KEY_DRAWER_ADAPTIVE);
+        drawerAdaptivePref.setTitle(R.string.apply_adaptive_shape_title);
+        drawerAdaptivePref.setSummary(R.string.apply_adaptive_shape_summary);
+        drawerAdaptivePref.setChecked(drawerAdaptiveOn);
+        drawerAdaptivePref.setVisible(!drawerMatchHome.isChecked());
+        drawerAdaptivePref.setIconSpaceReserved(false);
+        drawerCat.addPreference(drawerAdaptivePref);
+
+        // Icon shape (drawer per-app)
+        Preference drawerShapePref = new Preference(ctx);
+        drawerShapePref.setKey(KEY_DRAWER_SHAPE);
+        drawerShapePref.setTitle(R.string.icon_shape_title);
+        drawerShapePref.setSummary(getShapeSummary(ctx, drawerOverride, false));
+        drawerShapePref.setVisible(!drawerMatchHome.isChecked() && drawerAdaptiveOn);
+        drawerShapePref.setIconSpaceReserved(false);
+        drawerCat.addPreference(drawerShapePref);
+
+        // Icon size (drawer per-app)
+        Preference drawerSizePref = new Preference(ctx);
+        drawerSizePref.setKey(KEY_DRAWER_SIZE);
+        drawerSizePref.setTitle(R.string.icon_size_title);
+        drawerSizePref.setSummary(getSizeSummary(ctx, drawerOverride, false));
+        drawerSizePref.setLayoutResource(R.layout.preference_icon_size);
+        drawerSizePref.setVisible(!drawerMatchHome.isChecked());
+        drawerSizePref.setIconSpaceReserved(false);
+        drawerCat.addPreference(drawerSizePref);
+
+        // Reset drawer
+        Preference drawerResetPref = new Preference(ctx);
+        drawerResetPref.setKey(KEY_DRAWER_RESET);
+        drawerResetPref.setTitle(R.string.customize_reset_drawer);
+        drawerResetPref.setVisible(drawerOverride != null);
+        drawerResetPref.setIconSpaceReserved(false);
+        drawerCat.addPreference(drawerResetPref);
+
+        // ── Footer ──
         Preference footerPref = new Preference(ctx);
         footerPref.setKey(KEY_FOOTER);
         footerPref.setSummary(mComponentName.flattenToShortString());
@@ -123,26 +261,138 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
         footerPref.setIconSpaceReserved(false);
         getPreferenceScreen().addPreference(footerPref);
 
-        // Update summaries
-        updateSummaries();
+        // Update icon summaries
+        updateIconSummaries();
 
-        // Click handlers
-        homePref.setOnPreferenceClickListener(p -> {
+        // ── Click handlers ──
+
+        // Home icon picker
+        homeIconPref.setOnPreferenceClickListener(p -> {
             showPerAppPackFlow(true);
             return true;
         });
 
-        drawerPref.setOnPreferenceClickListener(p -> {
+        // Home match global toggle
+        homeMatchGlobal.setOnPreferenceChangeListener((pref, newValue) -> {
+            boolean matching = (boolean) newValue;
+            if (!matching) {
+                // Initialize override from current global home settings
+                initializeRenderFromGlobal(true);
+                boolean globalAdaptive = LauncherPrefs.get(ctx)
+                        .get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE);
+                homeAdaptivePref.setChecked(globalAdaptive);
+                String globalShape = getGlobalShapeKey(true);
+                homeShapePref.setSummary(IconSettingsHelper.getShapeDisplayName(
+                        ctx, globalShape));
+                String globalSize = LauncherPrefs.get(ctx)
+                        .get(LauncherPrefs.ICON_SIZE_SCALE);
+                homeSizePref.setSummary(
+                        IconSettingsHelper.getIconSizeSummary(ctx, globalSize));
+            } else {
+                clearRenderOverride(true);
+            }
+            homeAdaptivePref.setVisible(!matching);
+            homeShapePref.setVisible(!matching && homeAdaptivePref.isChecked());
+            homeSizePref.setVisible(!matching);
+            mHomeSizeBound = false;
+            updateResetVisibility(true);
+            invalidateCardDecorations();
+            return true;
+        });
+
+        // Home adaptive toggle
+        homeAdaptivePref.setOnPreferenceChangeListener((pref, newValue) -> {
+            boolean on = (boolean) newValue;
+            homeShapePref.setVisible(on);
+            saveRenderOverride(true, on);
+            invalidateCardDecorations();
+            return true;
+        });
+
+        // Home shape picker
+        homeShapePref.setOnPreferenceClickListener(pref -> {
+            showPerAppShapeDialog(true, pref);
+            return true;
+        });
+
+        // Home reset
+        homeResetPref.setOnPreferenceClickListener(pref -> {
+            PerAppIconOverrideManager.getInstance(ctx)
+                    .setHomeOverride(mComponentName, null);
+            homeMatchGlobal.setChecked(true);
+            homeAdaptivePref.setVisible(false);
+            homeShapePref.setVisible(false);
+            homeSizePref.setVisible(false);
+            pref.setVisible(false);
+            applyOverrideChange();
+            updateIconSummaries();
+            refreshAllIconPreviews();
+            invalidateCardDecorations();
+            return true;
+        });
+
+        // Drawer icon picker
+        drawerIconPref.setOnPreferenceClickListener(p -> {
             showPerAppPackFlow(false);
             return true;
         });
 
-        resetPref.setOnPreferenceClickListener(p -> {
-            PerAppIconOverrideManager.getInstance(ctx).clearOverrides(mComponentName);
+        // Drawer match home toggle
+        drawerMatchHome.setOnPreferenceChangeListener((pref, newValue) -> {
+            boolean matching = (boolean) newValue;
+            if (!matching) {
+                // Initialize override from current global drawer settings
+                initializeRenderFromGlobal(false);
+                boolean globalAdaptive = LauncherPrefs.get(ctx)
+                        .get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
+                drawerAdaptivePref.setChecked(globalAdaptive);
+                String globalShape = getGlobalShapeKey(false);
+                drawerShapePref.setSummary(IconSettingsHelper.getShapeDisplayName(
+                        ctx, globalShape));
+                String globalSize = LauncherPrefs.get(ctx)
+                        .get(LauncherPrefs.ICON_SIZE_SCALE_DRAWER);
+                drawerSizePref.setSummary(
+                        IconSettingsHelper.getIconSizeSummary(ctx, globalSize));
+            } else {
+                clearRenderOverride(false);
+            }
+            drawerAdaptivePref.setVisible(!matching);
+            drawerShapePref.setVisible(!matching && drawerAdaptivePref.isChecked());
+            drawerSizePref.setVisible(!matching);
+            mDrawerSizeBound = false;
+            updateResetVisibility(false);
+            invalidateCardDecorations();
+            return true;
+        });
+
+        // Drawer adaptive toggle
+        drawerAdaptivePref.setOnPreferenceChangeListener((pref, newValue) -> {
+            boolean on = (boolean) newValue;
+            drawerShapePref.setVisible(on);
+            saveRenderOverride(false, on);
+            invalidateCardDecorations();
+            return true;
+        });
+
+        // Drawer shape picker
+        drawerShapePref.setOnPreferenceClickListener(pref -> {
+            showPerAppShapeDialog(false, pref);
+            return true;
+        });
+
+        // Drawer reset
+        drawerResetPref.setOnPreferenceClickListener(pref -> {
+            PerAppIconOverrideManager.getInstance(ctx)
+                    .setDrawerOverride(mComponentName, null);
+            drawerMatchHome.setChecked(true);
+            drawerAdaptivePref.setVisible(false);
+            drawerShapePref.setVisible(false);
+            drawerSizePref.setVisible(false);
+            pref.setVisible(false);
             applyOverrideChange();
-            updateSummaries();
+            updateIconSummaries();
             refreshAllIconPreviews();
-            Toast.makeText(ctx, R.string.customize_icon_cleared, Toast.LENGTH_SHORT).show();
+            invalidateCardDecorations();
             return true;
         });
     }
@@ -156,51 +406,415 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
         RecyclerView rv = getListView();
         rv.addItemDecoration(new CardGroupItemDecoration(getContext()));
 
-        // Load icon previews and style footer when views attach
         rv.addOnChildAttachStateChangeListener(
                 new RecyclerView.OnChildAttachStateChangeListener() {
             @Override
             public void onChildViewAttachedToWindow(@NonNull View child) {
+                // Load icon previews
                 ImageView preview = child.findViewById(R.id.app_icon_preview);
                 if (preview != null) {
                     loadIconPreviewForRow(child);
                     return;
                 }
-                // Style the footer row: tag as no_card, style the summary text
+                // Bind icon size toggles
+                if (child.findViewById(R.id.size_toggle_group) != null) {
+                    bindSizeToggleForRow(child);
+                    return;
+                }
+                // Style footer
                 styleFooterIfNeeded(child);
             }
 
             @Override
-            public void onChildViewDetachedFromWindow(@NonNull View view) { }
+            public void onChildViewDetachedFromWindow(@NonNull View view) {
+                view.setTag(null);
+                view.setTag(R.id.app_icon_preview, null);
+            }
         });
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        // Always re-read current state: global pack may have changed,
-        // or user returned from icon picker
-        updateSummaries();
+        updateIconSummaries();
         refreshAllIconPreviews();
     }
 
-    /**
-     * If this row is the component ID footer, tag it as "no_card" so
-     * CardGroupItemDecoration skips it, and restyle the text.
-     */
+    // ── Size toggle binding ──
+
+    private void bindSizeToggleForRow(View child) {
+        RecyclerView rv = getListView();
+        RecyclerView.ViewHolder holder = rv.getChildViewHolder(child);
+        int adapterPos = holder.getBindingAdapterPosition();
+        if (adapterPos == RecyclerView.NO_POSITION) return;
+
+        Preference pref = findPreferenceAtPosition(adapterPos);
+        if (pref == null) return;
+
+        if (KEY_HOME_SIZE.equals(pref.getKey()) && !mHomeSizeBound) {
+            mHomeSizeBound = true;
+            bindIconSizeInline(child, true, pref);
+        } else if (KEY_DRAWER_SIZE.equals(pref.getKey()) && !mDrawerSizeBound) {
+            mDrawerSizeBound = true;
+            bindIconSizeInline(child, false, pref);
+        }
+    }
+
+    private void bindIconSizeInline(View child, boolean isHome, Preference sizePref) {
+        Context ctx = getContext();
+        if (ctx == null) return;
+
+        String currentValue = getEffectiveSize(
+                isHome ? getHomeOverride() : getDrawerOverride(), isHome);
+
+        int lastId = IconSettingsHelper.bindIconSizeToggle(child, currentValue,
+                value -> {
+                    savePerAppSize(isHome, value);
+                    sizePref.setSummary(IconSettingsHelper.getIconSizeSummary(ctx, value));
+                    applyOverrideChange();
+                    refreshAllIconPreviews();
+                },
+                () -> showCustomIconSizeDialog(
+                        child.findViewById(R.id.size_toggle_group),
+                        sizePref, isHome));
+
+        if (isHome) {
+            mHomeLastPresetId = lastId;
+        } else {
+            mDrawerLastPresetId = lastId;
+        }
+    }
+
+    private void showCustomIconSizeDialog(MaterialButtonToggleGroup toggleGroup,
+            Preference sizePref, boolean isHome) {
+        Context ctx = getContext();
+        if (ctx == null) return;
+        float density = ctx.getResources().getDisplayMetrics().density;
+
+        TextInputLayout inputLayout = new TextInputLayout(ctx,
+                null, com.google.android.material.R.attr.textInputOutlinedStyle);
+        inputLayout.setHint("Icon size (50\u2013100%)");
+        int hPad = (int) (24 * density);
+        int tPad = (int) (16 * density);
+        inputLayout.setPadding(hPad, tPad, hPad, 0);
+
+        TextInputEditText editText = new TextInputEditText(inputLayout.getContext());
+        editText.setInputType(InputType.TYPE_CLASS_NUMBER
+                | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        inputLayout.addView(editText);
+
+        String current = getEffectiveSize(
+                isHome ? getHomeOverride() : getDrawerOverride(), isHome);
+        try {
+            float pct = Float.parseFloat(current) * 100f;
+            editText.setText(String.format("%.0f", pct));
+        } catch (NumberFormatException ignored) { }
+
+        int lastPresetId = isHome ? mHomeLastPresetId : mDrawerLastPresetId;
+        Runnable revertSelection = () -> {
+            if (lastPresetId != View.NO_ID) {
+                toggleGroup.check(lastPresetId);
+            } else {
+                toggleGroup.clearChecked();
+            }
+        };
+
+        new MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.icon_size_custom)
+                .setView(inputLayout)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    String text = editText.getText() != null
+                            ? editText.getText().toString().trim() : "";
+                    try {
+                        float pct = Float.parseFloat(text);
+                        pct = Math.max(50f, Math.min(100f, pct));
+                        String value = String.valueOf(pct / 100f);
+                        savePerAppSize(isHome, value);
+                        sizePref.setSummary(
+                                IconSettingsHelper.getIconSizeSummary(ctx, value));
+                        applyOverrideChange();
+                        refreshAllIconPreviews();
+                    } catch (NumberFormatException ignored) {
+                        revertSelection.run();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel,
+                        (dialog, which) -> revertSelection.run())
+                .setOnCancelListener(dialog -> revertSelection.run())
+                .show();
+    }
+
+    // ── Per-app shape picker ──
+
+    private void showPerAppShapeDialog(boolean isHome, Preference shapePref) {
+        IconSettingsHelper.showPerAppShapeDialog(this, mComponentName, isHome,
+                shapeKey -> {
+                    savePerAppShape(isHome, shapeKey);
+                    shapePref.setSummary(IconSettingsHelper.getShapeDisplayName(
+                            getContext(), shapeKey));
+                    applyOverrideChange();
+                    refreshAllIconPreviews();
+                });
+    }
+
+    // ── Render override save/clear ──
+
+    /** Save the current UI state of adaptive + shape + size into the override. */
+    private void saveRenderOverride(boolean isHome, boolean newAdaptiveValue) {
+        Context ctx = getContext();
+        if (ctx == null || mComponentName == null) return;
+
+        SwitchPreferenceCompat matchPref = findPreference(
+                isHome ? KEY_HOME_MATCH_GLOBAL : KEY_DRAWER_MATCH_HOME);
+        if (matchPref != null && matchPref.isChecked()) return;
+
+        PerAppIconOverrideManager mgr = PerAppIconOverrideManager.getInstance(ctx);
+        IconOverride current = isHome
+                ? mgr.getHomeOverride(mComponentName)
+                : mgr.getDrawerOverride(mComponentName);
+
+        String packPkg = current != null ? current.packPackage
+                : IconOverride.PackSource.FOLLOW_GLOBAL.key;
+        String drawable = current != null ? current.drawableName : IconOverride.FOLLOW_GLOBAL;
+        String adaptive = String.valueOf(newAdaptiveValue);
+        String shape = current != null ? current.shapeKey : IconOverride.FOLLOW_GLOBAL;
+        String size = current != null ? current.sizeScale : IconOverride.FOLLOW_GLOBAL;
+
+        IconOverride updated = new IconOverride(packPkg, drawable, shape, size, adaptive);
+        if (isHome) {
+            mgr.setHomeOverride(mComponentName, updated);
+        } else {
+            mgr.setDrawerOverride(mComponentName, updated);
+        }
+
+        Preference resetPref = findPreference(
+                isHome ? KEY_HOME_RESET : KEY_DRAWER_RESET);
+        if (resetPref != null) resetPref.setVisible(true);
+
+        applyOverrideChange();
+        refreshAllIconPreviews();
+    }
+
+    private void savePerAppShape(boolean isHome, String shapeKey) {
+        Context ctx = getContext();
+        if (ctx == null || mComponentName == null) return;
+
+        PerAppIconOverrideManager mgr = PerAppIconOverrideManager.getInstance(ctx);
+        IconOverride current = isHome
+                ? mgr.getHomeOverride(mComponentName)
+                : mgr.getDrawerOverride(mComponentName);
+
+        String packPkg = current != null ? current.packPackage
+                : IconOverride.PackSource.FOLLOW_GLOBAL.key;
+        String drawable = current != null ? current.drawableName : IconOverride.FOLLOW_GLOBAL;
+        String adaptive = current != null ? current.adaptiveShape
+                : IconOverride.AdaptiveOverride.ON.key;
+        String size = current != null ? current.sizeScale : IconOverride.FOLLOW_GLOBAL;
+
+        IconOverride updated = new IconOverride(packPkg, drawable, shapeKey, size, adaptive);
+        if (isHome) {
+            mgr.setHomeOverride(mComponentName, updated);
+        } else {
+            mgr.setDrawerOverride(mComponentName, updated);
+        }
+
+        Preference resetPref = findPreference(
+                isHome ? KEY_HOME_RESET : KEY_DRAWER_RESET);
+        if (resetPref != null) resetPref.setVisible(true);
+    }
+
+    private void savePerAppSize(boolean isHome, String sizeValue) {
+        Context ctx = getContext();
+        if (ctx == null || mComponentName == null) return;
+
+        PerAppIconOverrideManager mgr = PerAppIconOverrideManager.getInstance(ctx);
+        IconOverride current = isHome
+                ? mgr.getHomeOverride(mComponentName)
+                : mgr.getDrawerOverride(mComponentName);
+
+        String packPkg = current != null ? current.packPackage
+                : IconOverride.PackSource.FOLLOW_GLOBAL.key;
+        String drawable = current != null ? current.drawableName : IconOverride.FOLLOW_GLOBAL;
+        String adaptive = current != null ? current.adaptiveShape
+                : IconOverride.AdaptiveOverride.FOLLOW_GLOBAL.key;
+        String shape = current != null ? current.shapeKey : IconOverride.FOLLOW_GLOBAL;
+
+        IconOverride updated = new IconOverride(packPkg, drawable, shape, sizeValue, adaptive);
+        if (isHome) {
+            mgr.setHomeOverride(mComponentName, updated);
+        } else {
+            mgr.setDrawerOverride(mComponentName, updated);
+        }
+
+        Preference resetPref = findPreference(
+                isHome ? KEY_HOME_RESET : KEY_DRAWER_RESET);
+        if (resetPref != null) resetPref.setVisible(true);
+    }
+
+    /** Clear render overrides but preserve the pack/drawable override. */
+    private void clearRenderOverride(boolean isHome) {
+        Context ctx = getContext();
+        if (ctx == null || mComponentName == null) return;
+
+        PerAppIconOverrideManager mgr = PerAppIconOverrideManager.getInstance(ctx);
+        IconOverride current = isHome
+                ? mgr.getHomeOverride(mComponentName)
+                : mgr.getDrawerOverride(mComponentName);
+
+        if (current == null) return;
+
+        if (current.isFollowGlobalPack() && !current.hasSpecificDrawable()) {
+            // No pack override either — remove entirely
+            if (isHome) {
+                mgr.setHomeOverride(mComponentName, null);
+            } else {
+                mgr.setDrawerOverride(mComponentName, null);
+            }
+        } else {
+            IconOverride cleaned = current.withoutRenderOverrides();
+            if (isHome) {
+                mgr.setHomeOverride(mComponentName, cleaned);
+            } else {
+                mgr.setDrawerOverride(mComponentName, cleaned);
+            }
+        }
+
+        applyOverrideChange();
+        refreshAllIconPreviews();
+    }
+
+    // ── Helpers ──
+
+    @Nullable
+    private IconOverride getHomeOverride() {
+        if (mComponentName == null) return null;
+        return PerAppIconOverrideManager.getInstance(getContext())
+                .getHomeOverride(mComponentName);
+    }
+
+    @Nullable
+    private IconOverride getDrawerOverride() {
+        if (mComponentName == null) return null;
+        return PerAppIconOverrideManager.getInstance(getContext())
+                .getDrawerOverride(mComponentName);
+    }
+
+    private boolean getEffectiveAdaptive(@Nullable IconOverride override, boolean isHome) {
+        if (override != null && override.hasAdaptiveOverride()) {
+            Boolean val = override.getAdaptiveShapeBool();
+            return val != null ? val : true;
+        }
+        // Fall back to global setting
+        return LauncherPrefs.get(getContext()).get(
+                isHome ? LauncherPrefs.APPLY_ADAPTIVE_SHAPE
+                       : LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
+    }
+
+    private String getEffectiveSize(@Nullable IconOverride override, boolean isHome) {
+        if (override != null && override.hasSizeOverride()) {
+            return override.sizeScale;
+        }
+        return LauncherPrefs.get(getContext()).get(
+                isHome ? LauncherPrefs.ICON_SIZE_SCALE
+                       : LauncherPrefs.ICON_SIZE_SCALE_DRAWER);
+    }
+
+    private String getShapeSummary(Context ctx, @Nullable IconOverride override,
+            boolean isHome) {
+        if (override != null && override.hasShapeOverride()) {
+            return IconSettingsHelper.getShapeDisplayName(ctx, override.shapeKey).toString();
+        }
+        return ctx.getString(R.string.icon_shape_default);
+    }
+
+    private String getSizeSummary(Context ctx, @Nullable IconOverride override,
+            boolean isHome) {
+        String value = getEffectiveSize(override, isHome);
+        return IconSettingsHelper.getIconSizeSummary(ctx, value);
+    }
+
+    /** Create a per-app override initialized with the current global settings. */
+    private void initializeRenderFromGlobal(boolean isHome) {
+        Context ctx = getContext();
+        if (ctx == null || mComponentName == null) return;
+
+        LauncherPrefs prefs = LauncherPrefs.get(ctx);
+        boolean globalAdaptive = prefs.get(
+                isHome ? LauncherPrefs.APPLY_ADAPTIVE_SHAPE
+                       : LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
+        String globalShape = getGlobalShapeKey(isHome);
+        String globalSize = prefs.get(
+                isHome ? LauncherPrefs.ICON_SIZE_SCALE
+                       : LauncherPrefs.ICON_SIZE_SCALE_DRAWER);
+
+        PerAppIconOverrideManager mgr = PerAppIconOverrideManager.getInstance(ctx);
+        IconOverride current = isHome
+                ? mgr.getHomeOverride(mComponentName)
+                : mgr.getDrawerOverride(mComponentName);
+
+        String packPkg = current != null ? current.packPackage
+                : IconOverride.PackSource.FOLLOW_GLOBAL.key;
+        String drawable = current != null ? current.drawableName : IconOverride.FOLLOW_GLOBAL;
+        String adaptiveStr = globalAdaptive
+                ? IconOverride.AdaptiveOverride.ON.key
+                : IconOverride.AdaptiveOverride.OFF.key;
+
+        IconOverride override = new IconOverride(packPkg, drawable,
+                globalShape, globalSize, adaptiveStr);
+        if (isHome) {
+            mgr.setHomeOverride(mComponentName, override);
+        } else {
+            mgr.setDrawerOverride(mComponentName, override);
+        }
+    }
+
+    private String getGlobalShapeKey(boolean isHome) {
+        Context ctx = getContext();
+        if (ctx == null) return "";
+        return LauncherPrefs.get(ctx).get(
+                isHome ? ThemeManager.PREF_ICON_SHAPE
+                       : ThemeManager.PREF_ICON_SHAPE_DRAWER);
+    }
+
+    @Nullable
+    private Preference findPreferenceAtPosition(int position) {
+        // Walk visible preferences only — the adapter skips invisible ones,
+        // so adapter position N maps to the Nth VISIBLE preference.
+        int count = 0;
+        for (int i = 0; i < getPreferenceScreen().getPreferenceCount(); i++) {
+            Preference pref = getPreferenceScreen().getPreference(i);
+            if (!pref.isVisible()) continue;
+            if (pref instanceof PreferenceCategory) {
+                if (count == position) return pref;
+                count++;
+                PreferenceCategory cat = (PreferenceCategory) pref;
+                for (int j = 0; j < cat.getPreferenceCount(); j++) {
+                    Preference child = cat.getPreference(j);
+                    if (!child.isVisible()) continue;
+                    if (count == position) return child;
+                    count++;
+                }
+            } else {
+                if (count == position) return pref;
+                count++;
+            }
+        }
+        return null;
+    }
+
+    // ── Footer styling ──
+
     private void styleFooterIfNeeded(View row) {
         RecyclerView rv = getListView();
         RecyclerView.ViewHolder holder = rv.getChildViewHolder(row);
         int adapterPos = holder.getBindingAdapterPosition();
         if (adapterPos == RecyclerView.NO_POSITION) return;
 
-        Preference pref = getPreferenceScreen().getPreference(adapterPos);
+        Preference pref = findPreferenceAtPosition(adapterPos);
         if (pref == null || !KEY_FOOTER.equals(pref.getKey())) return;
 
-        // Exclude from card grouping
         row.setTag("no_card");
 
-        // Hide the title row (it's empty) and restyle summary as tiny centered text
         View titleView = row.findViewById(android.R.id.title);
         if (titleView != null) titleView.setVisibility(View.GONE);
 
@@ -214,7 +828,6 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
             float d = getResources().getDisplayMetrics().density;
             int pad16 = (int) (16 * d);
             summaryView.setPaddingRelative(pad16, 0, pad16, 0);
-            // Remove default padding constraints
             ViewGroup.LayoutParams lp = summaryView.getLayoutParams();
             if (lp instanceof ViewGroup.MarginLayoutParams) {
                 ((ViewGroup.MarginLayoutParams) lp).setMargins(0, 0, 0, 0);
@@ -222,9 +835,8 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
         }
     }
 
-    /**
-     * Walk all visible RecyclerView children and reload any icon preview widgets.
-     */
+    // ── Icon previews ──
+
     private void refreshAllIconPreviews() {
         RecyclerView rv = getListView();
         if (rv == null) return;
@@ -238,40 +850,48 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
         });
     }
 
-    /**
-     * Determine which preference a row belongs to by matching the preference key
-     * through the ViewHolder's adapter position, then load the correct icon preview.
-     */
+    private void invalidateCardDecorations() {
+        RecyclerView rv = getListView();
+        if (rv != null) rv.invalidateItemDecorations();
+    }
+
     private void loadIconPreviewForRow(View row) {
         if (mComponentName == null) return;
         Context ctx = getContext();
         if (ctx == null) return;
 
-        RecyclerView rv = getListView();
-        RecyclerView.ViewHolder holder = rv.getChildViewHolder(row);
-        int adapterPos = holder.getBindingAdapterPosition();
-        if (adapterPos == RecyclerView.NO_POSITION) return;
-
-        // Map adapter position to preference key
-        Preference pref = getPreferenceScreen().getPreference(adapterPos);
-        if (pref == null) return;
-        String key = pref.getKey();
-        if (key == null) return;
-
-        boolean isHome;
-        if (KEY_HOME_ICON.equals(key)) {
-            isHome = true;
-        } else if (KEY_DRAWER_ICON.equals(key)) {
-            isHome = false;
-        } else {
-            return; // not an icon preview row (e.g. reset, footer)
-        }
-
         ImageView preview = row.findViewById(R.id.app_icon_preview);
-        ProgressBar loading = row.findViewById(R.id.app_icon_loading);
         if (preview == null) return;
 
-        // Show loading spinner, hide stale preview
+        // Use cached tag first (survives adapter position shifts after visibility changes).
+        // Fall back to adapter position lookup on first bind.
+        boolean isHome;
+        Object isHomeTag = row.getTag(R.id.app_icon_preview);
+        if (isHomeTag instanceof Boolean) {
+            isHome = (Boolean) isHomeTag;
+        } else {
+            RecyclerView rv = getListView();
+            RecyclerView.ViewHolder holder = rv.getChildViewHolder(row);
+            int adapterPos = holder.getBindingAdapterPosition();
+            if (adapterPos == RecyclerView.NO_POSITION) return;
+
+            Preference pref = findPreferenceAtPosition(adapterPos);
+            if (pref == null) return;
+            String key = pref.getKey();
+            if (key == null) return;
+
+            if (KEY_HOME_ICON.equals(key)) {
+                isHome = true;
+            } else if (KEY_DRAWER_ICON.equals(key)) {
+                isHome = false;
+            } else {
+                return;
+            }
+            row.setTag(R.id.app_icon_preview, isHome);
+        }
+
+        ProgressBar loading = row.findViewById(R.id.app_icon_loading);
+
         if (loading != null) loading.setVisibility(View.VISIBLE);
         preview.setVisibility(View.GONE);
 
@@ -292,7 +912,7 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
         });
     }
 
-    private void updateSummaries() {
+    private void updateIconSummaries() {
         Context ctx = getContext();
         if (ctx == null || mComponentName == null) return;
 
@@ -315,7 +935,6 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
     private String getOverrideSummary(Context ctx, IconOverride override,
             IconPackManager packMgr, boolean isHome) {
         if (override == null) {
-            // No override — show the pack that would actually be used
             IconPack effectivePack = getEffectivePack(packMgr, isHome, ctx);
             String packName = effectivePack != null
                     ? effectivePack.label.toString()
@@ -324,6 +943,13 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
         }
         if (override.isSystemDefault()) {
             return ctx.getString(R.string.customize_icon_system_summary);
+        }
+        if (override.isFollowGlobalPack()) {
+            IconPack effectivePack = getEffectivePack(packMgr, isHome, ctx);
+            String packName = effectivePack != null
+                    ? effectivePack.label.toString()
+                    : ctx.getString(R.string.icon_pack_default);
+            return String.format(ctx.getString(R.string.customize_icon_global_summary), packName);
         }
         IconPack pack = packMgr.getPack(override.packPackage);
         String packName = pack != null ? pack.label.toString() : override.packPackage;
@@ -351,8 +977,9 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
                         } else {
                             overrideMgr.setDrawerOverride(mComponentName, null);
                         }
+                        updateResetVisibility(isHome);
                         applyOverrideChange();
-                        updateSummaries();
+                        updateIconSummaries();
                         refreshAllIconPreviews();
                     }
 
@@ -360,14 +987,25 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
                     public void onSystemDefault() {
                         PerAppIconOverrideManager overrideMgr =
                                 PerAppIconOverrideManager.getInstance(ctx);
-                        IconOverride override = new IconOverride("", "");
+                        IconOverride existing = isHome
+                                ? overrideMgr.getHomeOverride(mComponentName)
+                                : overrideMgr.getDrawerOverride(mComponentName);
+                        // Preserve render overrides if any
+                        IconOverride override = existing != null
+                                ? new IconOverride(
+                                        IconOverride.PackSource.SYSTEM_DEFAULT.key,
+                                        IconOverride.FOLLOW_GLOBAL,
+                                        existing.shapeKey, existing.sizeScale,
+                                        existing.adaptiveShape)
+                                : new IconOverride(IconOverride.PackSource.SYSTEM_DEFAULT);
                         if (isHome) {
                             overrideMgr.setHomeOverride(mComponentName, override);
                         } else {
                             overrideMgr.setDrawerOverride(mComponentName, override);
                         }
+                        updateResetVisibility(isHome);
                         applyOverrideChange();
-                        updateSummaries();
+                        updateIconSummaries();
                         refreshAllIconPreviews();
                     }
 
@@ -375,65 +1013,113 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
                     public void onIconSelected(String packPackage, String drawableName) {
                         PerAppIconOverrideManager overrideMgr =
                                 PerAppIconOverrideManager.getInstance(ctx);
-                        IconOverride override = new IconOverride(packPackage, drawableName);
+                        IconOverride existing = isHome
+                                ? overrideMgr.getHomeOverride(mComponentName)
+                                : overrideMgr.getDrawerOverride(mComponentName);
+                        // Preserve render overrides if any
+                        IconOverride override = existing != null
+                                ? new IconOverride(packPackage, drawableName,
+                                        existing.shapeKey, existing.sizeScale,
+                                        existing.adaptiveShape)
+                                : new IconOverride(packPackage, drawableName);
                         if (isHome) {
                             overrideMgr.setHomeOverride(mComponentName, override);
                         } else {
                             overrideMgr.setDrawerOverride(mComponentName, override);
                         }
+                        updateResetVisibility(isHome);
                         applyOverrideChange();
-                        updateSummaries();
+                        updateIconSummaries();
                         refreshAllIconPreviews();
                     }
                 });
     }
 
-    /**
-     * Get the icon pack that would actually be used for this context.
-     * Uses the same methods as the icon resolution pipeline for consistency.
-     */
+    private void updateResetVisibility(boolean isHome) {
+        Preference resetPref = findPreference(
+                isHome ? KEY_HOME_RESET : KEY_DRAWER_RESET);
+        if (resetPref != null) {
+            PerAppIconOverrideManager mgr =
+                    PerAppIconOverrideManager.getInstance(getContext());
+            IconOverride override = isHome
+                    ? mgr.getHomeOverride(mComponentName)
+                    : mgr.getDrawerOverride(mComponentName);
+            resetPref.setVisible(override != null);
+        }
+    }
+
     @Nullable
     private IconPack getEffectivePack(IconPackManager packMgr, boolean isHome, Context ctx) {
         if (isHome) {
             return packMgr.getCurrentPack();
         }
-        // Drawer: if match-home is on, use home pack
         boolean matchHome = LauncherPrefs.get(ctx).get(LauncherPrefs.DRAWER_MATCH_HOME);
         if (matchHome) {
             return packMgr.getCurrentPack();
         }
-        // Mirror actual drawer resolution: if drawer has a distinct pack setting
-        // (even if empty = system default), use it; otherwise use home pack
         if (packMgr.hasDistinctDrawerPack()) {
-            return packMgr.getDrawerPack(); // may be null = system default
+            return packMgr.getDrawerPack();
         }
         return packMgr.getCurrentPack();
     }
 
     private Drawable resolvePreviewIcon(Context ctx, IconOverride override, boolean isHome) {
+        Drawable rawIcon = resolveRawIcon(ctx, override, isHome);
+        if (rawIcon == null) return null;
+
+        InvariantDeviceProfile idp = InvariantDeviceProfile.INSTANCE.get(ctx);
+        ThemeManager.IconState state = ThemeManager.INSTANCE.get(ctx).getIconState();
+        IconOverride effectiveOverride = override != null
+                ? override : new IconOverride(IconOverride.PackSource.FOLLOW_GLOBAL);
+
+        BitmapInfo bitmapInfo;
+        if (isHome) {
+            try (PerAppHomeIconResolver.PerAppIconFactory factory =
+                    new PerAppHomeIconResolver.PerAppIconFactory(
+                            ctx, idp.fillResIconDpi, idp.iconBitmapSize,
+                            effectiveOverride, state)) {
+                bitmapInfo = factory.createBadgedIconBitmap(rawIcon);
+            }
+        } else {
+            try (DrawerIconResolver.PerAppDrawerIconFactory factory =
+                    new DrawerIconResolver.PerAppDrawerIconFactory(
+                            ctx, idp.fillResIconDpi, idp.iconBitmapSize,
+                            effectiveOverride, state)) {
+                bitmapInfo = factory.createBadgedIconBitmap(rawIcon);
+            }
+        }
+        return bitmapInfo.newIcon(ctx);
+    }
+
+    private Drawable resolveRawIcon(Context ctx, IconOverride override, boolean isHome) {
         PackageManager pm = ctx.getPackageManager();
         IconPackManager packMgr = LauncherComponentProvider.get(ctx).getIconPackManager();
 
         if (override != null) {
-            if (override.isSystemDefault()) {
-                try {
-                    return pm.getActivityIcon(mComponentName);
-                } catch (PackageManager.NameNotFoundException e) {
-                    return null;
-                }
-            }
-            IconPack pack = packMgr.getPack(override.packPackage);
-            if (pack != null) {
-                if (override.hasSpecificDrawable()) {
-                    Drawable d = pack.getDrawableForEntry(override.drawableName, pm);
-                    if (d != null) return d;
-                }
-                Drawable d = pack.getIconForComponent(mComponentName, pm);
-                if (d != null) return d;
+            switch (override.getPackSource()) {
+                case SYSTEM_DEFAULT:
+                    try { return pm.getActivityIcon(mComponentName); }
+                    catch (PackageManager.NameNotFoundException e) { return null; }
+
+                case CUSTOM:
+                    IconPack pack = packMgr.getPack(override.packPackage);
+                    if (pack != null) {
+                        if (override.hasSpecificDrawable()) {
+                            Drawable d = pack.getDrawableForEntry(
+                                    override.drawableName, pm);
+                            if (d != null) return d;
+                        }
+                        Drawable d = pack.getIconForComponent(mComponentName, pm);
+                        if (d != null) return d;
+                    }
+                    break;
+
+                case FOLLOW_GLOBAL:
+                    break;
             }
         }
 
-        // No override — use the effective pack for this context
+        // Global pack resolution
         IconPack effectivePack = getEffectivePack(packMgr, isHome, ctx);
         if (effectivePack != null) {
             Drawable d = effectivePack.getIconForComponent(mComponentName, pm);
@@ -453,6 +1139,7 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
         Executors.MODEL_EXECUTOR.execute(() -> {
             app.getIconCache().clearAllIcons();
             DrawerIconResolver.getInstance().invalidate();
+            PerAppHomeIconResolver.getInstance().invalidate();
             LauncherIcons.clearPool(ctx);
             sMainHandler.post(() -> app.getModel().forceReload());
         });

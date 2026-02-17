@@ -19,6 +19,7 @@
 package com.android.launcher3.settings;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -30,7 +31,7 @@ import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceGroupAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.android.launcher3.R;
+import com.android.launcher3.util.Themes;
 
 /**
  * Draws individual rounded-rect backgrounds per preference item, with
@@ -68,7 +69,12 @@ public class CardGroupItemDecoration extends RecyclerView.ItemDecoration {
         mGroupBottomMargin = (int) (4 * density);
 
         mCardPaint.setStyle(Paint.Style.FILL);
-        mCardPaint.setColor(ctx.getColor(R.color.materialColorSurfaceContainer));
+        boolean isDark = (ctx.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        int cardColor = Themes.getAttrColor(ctx, isDark
+                ? com.google.android.material.R.attr.colorSurfaceContainer
+                : com.google.android.material.R.attr.colorSurface);
+        mCardPaint.setColor(cardColor);
     }
 
     @Override

@@ -612,6 +612,7 @@
     <string name="drawer_bg_color_title">Drawer background</string>
     <string name="drawer_bg_opacity_title">Background opacity</string>
     <string name="drawer_search_bg_color_title">Search bar background</string>
+    <string name="drawer_search_bg_opacity_title">Search bar opacity</string>
     <string name="drawer_scrollbar_color_title">Scrollbar</string>
     <string name="drawer_hide_tabs_title">Hide tabs</string>
     <string name="drawer_hide_tabs_summary">Hide personal/work tab bar</string>
@@ -674,4 +675,20 @@
     <string name="icon_picker_choose_icon">Choose an icon</string>
     <string name="icon_picker_suggested">Suggested</string>
     <string name="choose_icon_pack">Choose icon pack</string>
+
+    <!-- Per-app customize sections -->
+    <string name="customize_home_category">Home screen</string>
+    <string name="customize_drawer_category">App drawer</string>
+    <string name="customize_match_global_shape">Match global home screen shape and size</string>
+    <string name="customize_match_home_shape">Match global app drawer shape and size</string>
+    <string name="customize_reset_home">Reset home screen</string>
+    <string name="customize_reset_drawer">Reset app drawer</string>
+
+    <!-- Adaptive shape toggle (global settings) -->
+    <string name="apply_adaptive_shape_title">Apply adaptive icon shape</string>
+    <string name="apply_adaptive_shape_summary">Wrap all icons in a uniform shape</string>
+
+    <!-- Reset all per-app icons (global settings) -->
+    <string name="reset_all_custom_icons">Reset all custom icons</string>
+    <string name="reset_all_custom_icons_confirm">Remove all per-app icon customizations?</string>
 </resources>

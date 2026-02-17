@@ -18,42 +18,43 @@
  */
 package com.android.launcher3.settings;
 
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.view.View;
+import android.widget.Toast;
 
-import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.SwitchPreferenceCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.shape.ShapeAppearanceModel;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import com.android.launcher3.InvariantDeviceProfile;
+import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherFiles;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.dagger.LauncherComponentProvider;
 import com.android.launcher3.graphics.ThemeManager;
+import com.android.launcher3.icons.DrawerIconResolver;
+import com.android.launcher3.icons.LauncherIcons;
+import com.android.launcher3.icons.PerAppHomeIconResolver;
 import com.android.launcher3.icons.pack.IconPackManager;
+import com.android.launcher3.icons.pack.PerAppIconOverrideManager;
 import com.android.launcher3.util.Executors;
 
 /**
  * Fragment for the Home Screen settings sub-page.
- * Contains: icon pack, icon shape, icon size.
+ * Contains: icon pack, adaptive shape switch, icon shape, icon size, reset all custom icons.
  */
 public class HomeScreenFragment extends PreferenceFragmentCompat {
-
-    private static final String[] SIZE_PRESETS = {"0.8", "0.863", "0.92", "1.0"};
-    private static final String[] SIZE_LABELS = {"S (80%)", "M (86%)", "L (92%)", "XL (100%)"};
-    private static final long CORNER_ANIM_DURATION = 250L;
 
     private boolean mIconSizeBound = false;
     private int mLastPresetButtonId = View.NO_ID;
@@ -81,8 +82,24 @@ public class HomeScreenFragment extends PreferenceFragmentCompat {
             });
         }
 
-        // Icon shape picker
+        // Apply adaptive icon shape switch
+        SwitchPreferenceCompat adaptivePref = findPreference("pref_apply_adaptive_shape");
         Preference iconShapePref = findPreference("pref_icon_shape");
+
+        boolean adaptiveOn = LauncherPrefs.get(getContext()).get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE);
+        if (iconShapePref != null) {
+            iconShapePref.setVisible(adaptiveOn);
+        }
+
+        if (adaptivePref != null) {
+            adaptivePref.setOnPreferenceChangeListener((pref, newValue) -> {
+                boolean on = (boolean) newValue;
+                if (iconShapePref != null) iconShapePref.setVisible(on);
+                return true;
+            });
+        }
+
+        // Icon shape picker
         if (iconShapePref != null) {
             IconSettingsHelper.updateIconShapeSummary(getContext(), iconShapePref,
                     ThemeManager.PREF_ICON_SHAPE);
@@ -97,6 +114,35 @@ public class HomeScreenFragment extends PreferenceFragmentCompat {
         Preference iconSizePref = findPreference("pref_icon_size_scale");
         if (iconSizePref != null) {
             updateIconSizeSummary(iconSizePref);
+        }
+
+        // Reset all custom icons
+        Preference resetAllPref = findPreference("pref_reset_all_custom_icons");
+        if (resetAllPref != null) {
+            boolean hasOverrides = PerAppIconOverrideManager.getInstance(getContext())
+                    .hasAnyHomeOverrides();
+            resetAllPref.setVisible(hasOverrides);
+            resetAllPref.setOnPreferenceClickListener(pref -> {
+                new MaterialAlertDialogBuilder(getContext())
+                        .setMessage(R.string.reset_all_custom_icons_confirm)
+                        .setPositiveButton(android.R.string.ok, (d, w) -> {
+                            PerAppIconOverrideManager.getInstance(getContext())
+                                    .clearAllHomeOverrides();
+                            pref.setVisible(false);
+                            // Invalidate caches and reload
+                            LauncherAppState app = LauncherAppState.INSTANCE.get(getContext());
+                            Executors.MODEL_EXECUTOR.execute(() -> {
+                                app.getIconCache().clearAllIcons();
+                                PerAppHomeIconResolver.getInstance().invalidate();
+                                LauncherIcons.clearPool(getContext());
+                                new Handler(Looper.getMainLooper()).post(
+                                        () -> app.getModel().forceReload());
+                            });
+                        })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+                return true;
+            });
         }
     }
 
@@ -143,94 +189,20 @@ public class HomeScreenFragment extends PreferenceFragmentCompat {
         Preference iconSizePref = findPreference("pref_icon_size_scale");
         if (iconSizePref == null) return;
 
-        MaterialButtonToggleGroup toggleGroup =
-                child.findViewById(R.id.size_toggle_group);
-
         String current = LauncherPrefs.get(getContext())
                 .get(LauncherPrefs.ICON_SIZE_SCALE);
 
-        // Pre-select the matching preset button, or select custom star
-        int[] btnIds = {R.id.btn_size_s, R.id.btn_size_m,
-                R.id.btn_size_l, R.id.btn_size_xl};
-        boolean isPreset = false;
-        for (int j = 0; j < SIZE_PRESETS.length; j++) {
-            if (SIZE_PRESETS[j].equals(current)) {
-                toggleGroup.check(btnIds[j]);
-                mLastPresetButtonId = btnIds[j];
-                isPreset = true;
-                break;
-            }
-        }
-        if (!isPreset) {
-            toggleGroup.check(R.id.btn_size_custom);
-        }
-
-        // Set pill shape on initial selection (no animation on first load)
-        toggleGroup.post(() -> {
-            for (int i = 0; i < toggleGroup.getChildCount(); i++) {
-                View c = toggleGroup.getChildAt(i);
-                if (c instanceof MaterialButton && ((MaterialButton) c).isChecked()) {
-                    float pill = c.getHeight() / 2f;
-                    if (pill > 0) {
-                        ((MaterialButton) c).setShapeAppearanceModel(
-                                ShapeAppearanceModel.builder()
-                                        .setAllCornerSizes(pill)
-                                        .build());
-                    }
-                }
-            }
-        });
-
-        toggleGroup.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
-            MaterialButton btn = group.findViewById(checkedId);
-            if (btn != null) {
-                animateButtonCorners(btn, isChecked);
-            }
-
-            if (!isChecked) return;
-
-            if (checkedId == R.id.btn_size_custom) {
-                showCustomIconSizeDialog(toggleGroup, iconSizePref);
-                return;
-            }
-
-            mLastPresetButtonId = checkedId;
-
-            if (btn != null) {
-                String value = (String) btn.getTag();
-                LauncherPrefs.get(getContext())
-                        .put(LauncherPrefs.ICON_SIZE_SCALE, value);
-                updateIconSizeSummary(iconSizePref);
-                getListView().post(() ->
-                    InvariantDeviceProfile.INSTANCE.get(getContext())
-                            .onConfigChanged(getContext()));
-            }
-        });
-    }
-
-    private void animateButtonCorners(MaterialButton btn, boolean toPill) {
-        float density = getResources().getDisplayMetrics().density;
-        float innerRadius = 8 * density;
-
-        btn.post(() -> {
-            float pillRadius = btn.getHeight() / 2f;
-            if (pillRadius <= 0) pillRadius = 20 * density;
-
-            float startRadius = toPill ? innerRadius : pillRadius;
-            float endRadius = toPill ? pillRadius : innerRadius;
-
-            ValueAnimator anim = ValueAnimator.ofFloat(startRadius, endRadius);
-            anim.setDuration(CORNER_ANIM_DURATION);
-            anim.setInterpolator(new FastOutSlowInInterpolator());
-            anim.addUpdateListener(a -> {
-                float r = (float) a.getAnimatedValue();
-                btn.setShapeAppearanceModel(
-                        btn.getShapeAppearanceModel().toBuilder()
-                                .setAllCornerSizes(r)
-                                .build());
-            });
-            anim.start();
-        });
+        mLastPresetButtonId = IconSettingsHelper.bindIconSizeToggle(child, current,
+                value -> {
+                    LauncherPrefs.get(getContext())
+                            .put(LauncherPrefs.ICON_SIZE_SCALE, value);
+                    updateIconSizeSummary(iconSizePref);
+                    getListView().post(() ->
+                        InvariantDeviceProfile.INSTANCE.get(getContext())
+                                .onConfigChanged(getContext()));
+                },
+                () -> showCustomIconSizeDialog(
+                        child.findViewById(R.id.size_toggle_group), iconSizePref));
     }
 
     private void showCustomIconSizeDialog(
@@ -294,18 +266,6 @@ public class HomeScreenFragment extends PreferenceFragmentCompat {
 
     private void updateIconSizeSummary(Preference pref) {
         String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_SIZE_SCALE);
-        for (int i = 0; i < SIZE_PRESETS.length; i++) {
-            if (SIZE_PRESETS[i].equals(current)) {
-                pref.setSummary(SIZE_LABELS[i]);
-                return;
-            }
-        }
-        try {
-            float pct = Float.parseFloat(current) * 100f;
-            pref.setSummary(getString(R.string.icon_size_custom)
-                    + " (" + String.format("%.0f%%", pct) + ")");
-        } catch (NumberFormatException e) {
-            pref.setSummary(getString(R.string.icon_size_custom) + " (" + current + ")");
-        }
+        pref.setSummary(IconSettingsHelper.getIconSizeSummary(getContext(), current));
     }
 }

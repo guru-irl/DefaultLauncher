@@ -34,7 +34,7 @@
         <item name="preferenceFragmentCompatStyle">@style/HomeSettings.FragmentCompatStyle</item>
         <item name="preferenceScreenStyle">@style/HomeSettings.PreferenceScreenStyle</item>
         <item name="preferenceStyle">@style/HomeSettings.PreferenceStyle</item>
-        <item name="switchPreferenceStyle">@style/HomeSettings.SwitchPreferenceStyle</item>
+        <item name="switchPreferenceCompatStyle">@style/HomeSettings.SwitchPreferenceCompatStyle</item>
     </style>
 
     <style name="HomeSettings.CategoryStyle" parent="@style/Preference.Category.Material">
@@ -52,9 +52,10 @@
         <item name="iconSpaceReserved">@bool/home_settings_icon_space_reserved</item>
     </style>
 
-    <style name="HomeSettings.SwitchPreferenceStyle"
-            parent="@style/Preference.SwitchPreference.Material">
+    <style name="HomeSettings.SwitchPreferenceCompatStyle"
+            parent="@style/Preference.SwitchPreferenceCompat.Material">
         <item name="iconSpaceReserved">@bool/home_settings_icon_space_reserved</item>
+        <item name="android:widgetLayout">@layout/preference_widget_material_switch</item>
     </style>
 
     <style name="HomeSettings.PreferenceTitle"

@@ -85,6 +85,7 @@ import com.android.launcher3.folder.FolderIcon;
 import com.android.launcher3.graphics.PreloadIconDrawable;
 import com.android.launcher3.icons.DotRenderer;
 import com.android.launcher3.icons.DrawerIconResolver;
+import com.android.launcher3.icons.PerAppHomeIconResolver;
 import com.android.launcher3.icons.FastBitmapDrawable;
 import com.android.launcher3.icons.IconCache.ItemInfoUpdateReceiver;
 import com.android.launcher3.icons.PlaceHolderIconDrawable;
@@ -608,6 +609,10 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
             FastBitmapDrawable drawerIcon =
                     DrawerIconResolver.getInstance().getDrawerIcon(info, getContext(), flags);
             iconDrawable = drawerIcon != null ? drawerIcon : info.newIcon(getContext(), flags);
+        } else if (mDisplay == DISPLAY_WORKSPACE) {
+            FastBitmapDrawable homeOverride =
+                    PerAppHomeIconResolver.getInstance().getHomeIcon(info, getContext(), flags);
+            iconDrawable = homeOverride != null ? homeOverride : info.newIcon(getContext(), flags);
         } else {
             iconDrawable = info.newIcon(getContext(), flags);
         }

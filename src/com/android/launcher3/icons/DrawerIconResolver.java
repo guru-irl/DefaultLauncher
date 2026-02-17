@@ -45,6 +45,7 @@ import com.android.launcher3.icons.pack.IconPackManager;
 import com.android.launcher3.icons.pack.PerAppIconOverrideManager;
 import com.android.launcher3.icons.pack.PerAppIconOverrideManager.IconOverride;
 import com.android.launcher3.model.data.ItemInfoWithIcon;
+import com.android.launcher3.shapes.IconShapeModel;
 import com.android.launcher3.shapes.ShapesProvider;
 
 /**
@@ -134,12 +135,13 @@ public class DrawerIconResolver {
         Drawable icon = null;
 
         if (perAppOverride != null) {
-            // Resolve per-app override
             if (perAppOverride.isSystemDefault()) {
+                // State B: explicit system default
                 try {
                     icon = pm.getActivityIcon(cn);
                 } catch (PackageManager.NameNotFoundException ignored) { }
-            } else {
+            } else if (perAppOverride.hasPackOverride()) {
+                // State C: specific pack override
                 IconPackManager mgr = LauncherComponentProvider.get(context).getIconPackManager();
                 IconPack overridePack = mgr.getPack(perAppOverride.packPackage);
                 if (overridePack != null) {
@@ -157,6 +159,23 @@ public class DrawerIconResolver {
                         try {
                             Drawable original = pm.getActivityIcon(cn);
                             icon = overridePack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
+                        } catch (PackageManager.NameNotFoundException ignored) { }
+                    }
+                }
+            } else {
+                // State D: render-only (FOLLOW_GLOBAL pack) — use global drawer pack
+                IconPackManager mgr = LauncherComponentProvider.get(context).getIconPackManager();
+                IconPack pack = mgr.hasDistinctDrawerPack()
+                        ? mgr.getDrawerPack() : mgr.getCurrentPack();
+                if (pack != null) {
+                    icon = pack.getCalendarIcon(cn, pm);
+                    if (icon == null) {
+                        icon = pack.getIconForComponent(cn, pm);
+                    }
+                    if (icon == null && pack.hasFallbackMask()) {
+                        try {
+                            Drawable original = pm.getActivityIcon(cn);
+                            icon = pack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
                         } catch (PackageManager.NameNotFoundException ignored) { }
                     }
                 }
@@ -191,13 +210,20 @@ public class DrawerIconResolver {
 
         if (icon == null) return null;
 
-        // Create BitmapInfo using drawer-specific factory
+        // Create BitmapInfo using drawer-specific factory (per-app overrides take priority)
         InvariantDeviceProfile idp = InvariantDeviceProfile.INSTANCE.get(context);
         ThemeManager.IconState state = ThemeManager.INSTANCE.get(context).getIconState();
         BitmapInfo bitmapInfo;
-        try (DrawerIconFactory factory = new DrawerIconFactory(
-                context, idp.fillResIconDpi, idp.iconBitmapSize, state)) {
-            bitmapInfo = factory.createBadgedIconBitmap(icon);
+        if (perAppOverride != null && perAppOverride.hasAnyRenderOverride()) {
+            try (PerAppDrawerIconFactory factory = new PerAppDrawerIconFactory(
+                    context, idp.fillResIconDpi, idp.iconBitmapSize, perAppOverride, state)) {
+                bitmapInfo = factory.createBadgedIconBitmap(icon);
+            }
+        } else {
+            try (DrawerIconFactory factory = new DrawerIconFactory(
+                    context, idp.fillResIconDpi, idp.iconBitmapSize, state)) {
+                bitmapInfo = factory.createBadgedIconBitmap(icon);
+            }
         }
 
         // Only cache when there's no per-app override
@@ -291,6 +317,163 @@ public class DrawerIconResolver {
             }
 
             // BLUR_FACTOR compensation (same logic as LauncherIcons)
+            Rect bounds = drawable.getBounds();
+            int currentSize = bounds.width();
+            int size = mIconBitmapSize;
+            int actualOffset = (size - currentSize) / 2;
+            int desiredOffset = Math.round(size * (1 - mIconSizeScale) / 2f);
+
+            if (desiredOffset < actualOffset) {
+                int compensation = actualOffset - desiredOffset;
+                int newSize = size - desiredOffset * 2;
+
+                canvas.save();
+                canvas.translate(-compensation, -compensation);
+                drawable.setBounds(0, 0, newSize, newSize);
+                Path compensatedPath = getShapePath(drawable, drawable.getBounds());
+
+                canvas.clipPath(compensatedPath);
+                canvas.drawColor(Color.TRANSPARENT);
+                canvas.save();
+                canvas.scale(mIconScale, mIconScale,
+                        canvas.getWidth() / 2f, canvas.getHeight() / 2f);
+                if (drawable.getBackground() != null) drawable.getBackground().draw(canvas);
+                if (drawable.getForeground() != null) drawable.getForeground().draw(canvas);
+                canvas.restore();
+
+                drawable.setBounds(bounds);
+                canvas.restore();
+                return;
+            }
+
+            canvas.clipPath(overridePath);
+            canvas.drawColor(Color.TRANSPARENT);
+            canvas.save();
+            canvas.scale(mIconScale, mIconScale,
+                    canvas.getWidth() / 2f, canvas.getHeight() / 2f);
+            if (drawable.getBackground() != null) drawable.getBackground().draw(canvas);
+            if (drawable.getForeground() != null) drawable.getForeground().draw(canvas);
+            canvas.restore();
+        }
+    }
+
+    /**
+     * Per-app drawer icon factory that reads shape/size/adaptive from the per-app override,
+     * falling back to global drawer values for unset fields.
+     */
+    public static class PerAppDrawerIconFactory extends BaseIconFactory {
+
+        private final float mIconScale;
+        private final float mIconSizeScale;
+        private final boolean mIsNoneShape;
+        private final ShapeDelegate mIconShape;
+
+        public PerAppDrawerIconFactory(Context context, int fillResIconDpi, int iconBitmapSize,
+                IconOverride override, ThemeManager.IconState globalState) {
+            super(context, fillResIconDpi, iconBitmapSize);
+
+            Boolean perAppAdaptive = override.getAdaptiveShapeBool();
+            boolean effectiveAdaptive = perAppAdaptive != null
+                    ? perAppAdaptive : globalState.getApplyAdaptiveShapeDrawer();
+
+            String effectiveShapeKey;
+            if (!effectiveAdaptive) {
+                effectiveShapeKey = ShapesProvider.NONE_KEY;
+            } else if (override.hasShapeOverride()) {
+                effectiveShapeKey = override.shapeKey;
+            } else {
+                effectiveShapeKey = "";
+                for (IconShapeModel shape : ShapesProvider.INSTANCE.getIconShapes()) {
+                    if (shape.getPathString().equals(globalState.getIconMaskDrawer())) {
+                        effectiveShapeKey = shape.getKey();
+                        break;
+                    }
+                }
+            }
+
+            IconShapeModel shapeModel = null;
+            for (IconShapeModel shape : ShapesProvider.INSTANCE.getIconShapes()) {
+                if (shape.getKey().equals(effectiveShapeKey)) {
+                    shapeModel = shape;
+                    break;
+                }
+            }
+
+            if (shapeModel != null) {
+                String maskPath = shapeModel.getPathString();
+                mIconShape = ShapeDelegate.Companion.pickBestShape(maskPath);
+                mIconScale = shapeModel.getIconScale();
+                mIsNoneShape = maskPath.equals(ShapesProvider.NONE_PATH);
+            } else {
+                mIconShape = globalState.getIconShapeDrawer();
+                mIconScale = globalState.getIconScaleDrawer();
+                mIsNoneShape = globalState.getIconMaskDrawer().equals(ShapesProvider.NONE_PATH);
+            }
+
+            if (override.hasSizeOverride()) {
+                float parsed = 1f;
+                try { parsed = Float.parseFloat(override.sizeScale); } catch (NumberFormatException ignored) { }
+                mIconSizeScale = Math.max(0.5f, Math.min(1.0f, parsed));
+            } else {
+                mIconSizeScale = globalState.getIconSizeScaleDrawer();
+            }
+        }
+
+        @Override
+        public Path getShapePath(AdaptiveIconDrawable drawable, Rect iconBounds) {
+            if (!Flags.enableLauncherIconShapes()) return super.getShapePath(drawable, iconBounds);
+            return mIconShape.getPath(iconBounds);
+        }
+
+        @Override
+        public float getIconScale() {
+            if (!Flags.enableLauncherIconShapes()) return super.getIconScale();
+            return mIconScale;
+        }
+
+        @Nullable
+        @Override
+        protected AdaptiveIconDrawable normalizeAndWrapToAdaptiveIcon(
+                @Nullable Drawable icon, @NonNull float[] outScale) {
+            if (icon == null) return null;
+            outScale[0] = mIconSizeScale;
+            return wrapToAdaptiveIcon(icon);
+        }
+
+        @NonNull
+        @Override
+        public AdaptiveIconDrawable wrapToAdaptiveIcon(@NonNull Drawable icon) {
+            mWrapperBackgroundColor = Color.TRANSPARENT;
+            return super.wrapToAdaptiveIcon(icon);
+        }
+
+        @NonNull
+        @Override
+        public BitmapInfo createBadgedIconBitmap(@NonNull Drawable icon,
+                @Nullable IconOptions options) {
+            if (mIsNoneShape && !(icon instanceof AdaptiveIconDrawable)) {
+                android.graphics.Bitmap bitmap = createIconBitmap(icon, mIconSizeScale,
+                        MODE_DEFAULT);
+                int color = ColorExtractor.findDominantColorByHue(bitmap);
+                return BitmapInfo.of(bitmap, color).withFlags(getBitmapFlagOp(options));
+            }
+            return super.createBadgedIconBitmap(icon, options);
+        }
+
+        @Override
+        protected void drawAdaptiveIcon(@NonNull Canvas canvas,
+                @NonNull AdaptiveIconDrawable drawable, @NonNull Path overridePath) {
+            if (!Flags.enableLauncherIconShapes()) {
+                super.drawAdaptiveIcon(canvas, drawable, overridePath);
+                return;
+            }
+            if (mIsNoneShape) {
+                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+                if (drawable.getBackground() != null) drawable.getBackground().draw(canvas);
+                if (drawable.getForeground() != null) drawable.getForeground().draw(canvas);
+                return;
+            }
+
             Rect bounds = drawable.getBounds();
             int currentSize = bounds.width();
             int size = mIconBitmapSize;

@@ -33,7 +33,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
-import androidx.preference.SwitchPreference;
+import androidx.preference.SwitchPreferenceCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.launcher3.LauncherFiles;
@@ -54,9 +54,9 @@ public class SearchFragment extends PreferenceFragmentCompat {
     private static final int REQUEST_READ_CONTACTS = 100;
     private static final int REQUEST_READ_CALENDAR = 101;
 
-    private SwitchPreference mContactsPref;
-    private SwitchPreference mCalendarPref;
-    private SwitchPreference mFilesPref;
+    private SwitchPreferenceCompat mContactsPref;
+    private SwitchPreferenceCompat mCalendarPref;
+    private SwitchPreferenceCompat mFilesPref;
 
     private ActivityResultLauncher<String> mContactsPermLauncher;
     private ActivityResultLauncher<String> mCalendarPermLauncher;

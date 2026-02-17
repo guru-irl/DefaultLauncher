@@ -16,7 +16,7 @@
         <com.android.launcher3.settings.M3SliderPreference
             android:key="pref_drawer_bg_opacity"
             android:title="@string/drawer_bg_opacity_title"
-            android:defaultValue="100"
+            android:defaultValue="95"
             android:max="100"
             launcher:min="0"
             launcher:showSeekBarValue="true"
@@ -36,6 +36,15 @@
         <com.android.launcher3.settings.ColorPickerPreference
             android:key="pref_drawer_search_bg_color"
             android:title="@string/drawer_search_bg_color_title"
+            launcher:iconSpaceReserved="false" />
+
+        <com.android.launcher3.settings.M3SliderPreference
+            android:key="pref_drawer_search_bg_opacity"
+            android:title="@string/drawer_search_bg_opacity_title"
+            android:defaultValue="95"
+            android:max="100"
+            launcher:min="0"
+            launcher:showSeekBarValue="true"
             launcher:iconSpaceReserved="false" />
 
     </PreferenceCategory>

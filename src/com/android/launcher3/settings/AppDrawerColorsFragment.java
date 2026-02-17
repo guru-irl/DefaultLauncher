@@ -31,7 +31,6 @@ import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.LauncherFiles;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
-import com.android.launcher3.util.Themes;
 
 /**
  * Fragment for the App Drawer Colors settings sub-page.
@@ -43,12 +42,12 @@ public class AppDrawerColorsFragment extends PreferenceFragmentCompat {
         getPreferenceManager().setSharedPreferencesName(LauncherFiles.SHARED_PREFERENCES_KEY);
         setPreferencesFromResource(R.xml.drawer_colors_preferences, rootKey);
 
-        // Configure color picker preferences — drawer bg uses theme scrim color as default
-        int scrimDefault = Themes.getAttrColor(getContext(), R.attr.allAppsScrimColor);
+        // Configure color picker preferences — drawer bg default matches allAppsScrimColor
+        int scrimDefault = getContext().getColor(R.color.materialColorSurfaceContainerLow);
         configureColorPickerWithDefault("pref_drawer_bg_color",
                 LauncherPrefs.DRAWER_BG_COLOR, scrimDefault);
         configureColorPicker("pref_drawer_search_bg_color",
-                LauncherPrefs.DRAWER_SEARCH_BG_COLOR, R.color.materialColorSurfaceContainerHigh);
+                LauncherPrefs.DRAWER_SEARCH_BG_COLOR, R.color.materialColorSurfaceContainer);
         configureColorPicker("pref_drawer_scrollbar_color",
                 LauncherPrefs.DRAWER_SCROLLBAR_COLOR, R.color.materialColorPrimary);
         configureColorPicker("pref_drawer_tab_selected_color",
@@ -56,10 +55,19 @@ public class AppDrawerColorsFragment extends PreferenceFragmentCompat {
         configureColorPicker("pref_drawer_tab_unselected_color",
                 LauncherPrefs.DRAWER_TAB_UNSELECTED_COLOR, R.color.materialColorOnSurfaceVariant);
 
-        // Wire opacity slider change to trigger recreation
+        // Wire opacity slider changes to trigger recreation
         Preference opacityPref = findPreference("pref_drawer_bg_opacity");
         if (opacityPref != null) {
             opacityPref.setOnPreferenceChangeListener((pref, newValue) -> {
+                getListView().post(() ->
+                        InvariantDeviceProfile.INSTANCE.get(getContext())
+                                .onConfigChanged(getContext()));
+                return true;
+            });
+        }
+        Preference searchOpacityPref = findPreference("pref_drawer_search_bg_opacity");
+        if (searchOpacityPref != null) {
+            searchOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> {
                 getListView().post(() ->
                         InvariantDeviceProfile.INSTANCE.get(getContext())
                                 .onConfigChanged(getContext()));

@@ -25,6 +25,7 @@ import static com.android.launcher3.views.RecyclerViewFastScroller.FastScrollerL
 
 import android.animation.ObjectAnimator;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
@@ -190,7 +191,11 @@ public class RecyclerViewFastScroller extends View {
         if (customScrollbarColor != 0) {
             mThumbColor = customScrollbarColor;
         }
-        mThumbLetterScrollerColor = context.getColor(R.color.materialColorSurfaceBright);
+        boolean isDark = (context.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        mThumbLetterScrollerColor = isDark
+                ? context.getColor(R.color.materialColorSurfaceBright)
+                : context.getColor(R.color.materialColorSurfaceContainerHighest);
         mThumbPaint = new Paint();
         mThumbPaint.setAntiAlias(true);
         mThumbPaint.setColor(mThumbColor);

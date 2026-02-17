@@ -329,13 +329,16 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
 
         // App drawer color preferences (store Material color resource name; empty = default)
         @JvmField val DRAWER_BG_COLOR = backedUpItem("pref_drawer_bg_color", "")
-        @JvmField val DRAWER_BG_OPACITY = backedUpItem("pref_drawer_bg_opacity", 100)
+        @JvmField val DRAWER_BG_OPACITY = backedUpItem("pref_drawer_bg_opacity", 95)
         @JvmField val DRAWER_SEARCH_BG_COLOR = backedUpItem("pref_drawer_search_bg_color", "")
+        @JvmField val DRAWER_SEARCH_BG_OPACITY = backedUpItem("pref_drawer_search_bg_opacity", 95)
         @JvmField val DRAWER_SCROLLBAR_COLOR = backedUpItem("pref_drawer_scrollbar_color", "")
         @JvmField val DRAWER_TAB_SELECTED_COLOR = backedUpItem("pref_drawer_tab_selected_color", "")
         @JvmField val DRAWER_TAB_UNSELECTED_COLOR = backedUpItem("pref_drawer_tab_unselected_color", "")
         @JvmField val DRAWER_HIDE_TABS = backedUpItem("pref_drawer_hide_tabs", false)
         @JvmField val DRAWER_MATCH_HOME = backedUpItem("pref_drawer_match_home", true)
+        @JvmField val APPLY_ADAPTIVE_SHAPE = backedUpItem("pref_apply_adaptive_shape", true)
+        @JvmField val APPLY_ADAPTIVE_SHAPE_DRAWER = backedUpItem("pref_apply_adaptive_shape_drawer", true)
 
         // Universal search preferences
         @JvmField val SEARCH_APPS = backedUpItem("pref_search_apps", true)
