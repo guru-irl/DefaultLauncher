@@ -21,10 +21,7 @@ import static android.view.View.VISIBLE;
 import static com.android.app.animation.Interpolators.DECELERATE_1_7;
 import static com.android.app.animation.Interpolators.INSTANT;
 import static com.android.app.animation.Interpolators.clampToProgress;
-import static com.android.launcher3.anim.AnimatorListeners.forEndCallback;
-import static com.android.launcher3.anim.AnimatorListeners.forSuccessCallback;
 
-import android.animation.ObjectAnimator;
 import android.animation.TimeInterpolator;
 import android.view.View;
 import android.view.animation.Interpolator;
@@ -59,14 +56,7 @@ public class SearchTransitionController extends RecyclerViewAnimationController 
     @Override
     protected void animateToState(boolean goingToSearch, long duration, Runnable onEndRunnable) {
         super.animateToState(goingToSearch, duration, onEndRunnable);
-        if (!goingToSearch) {
-            mAnimator.addListener(forSuccessCallback(() -> {
-                mAllAppsContainerView.getFloatingHeaderView().setFloatingRowsCollapsed(false);
-                mAllAppsContainerView.getFloatingHeaderView().reset(false /* animate */);
-                mAllAppsContainerView.getAppsRecyclerViewContainer().setTranslationY(0);
-            }));
-        }
-        mAllAppsContainerView.getFloatingHeaderView().setFloatingRowsCollapsed(true);
+        mAllAppsContainerView.getFloatingHeaderView().setFloatingRowsCollapsed(goingToSearch);
         mAllAppsContainerView.getFloatingHeaderView().setVisibility(VISIBLE);
         mAllAppsContainerView.getFloatingHeaderView().maybeSetTabVisibility(VISIBLE);
         mAllAppsContainerView.getAppsRecyclerViewContainer().setVisibility(VISIBLE);
@@ -95,11 +85,14 @@ public class SearchTransitionController extends RecyclerViewAnimationController 
             headerView.setAlpha(clampToProgress(searchToAzProgress, 0.8f, 1f));
 
             // Account for the additional padding added for the tabs.
-            appsTranslationY +=
+            // Scale by search progress so the offset reaches 0 at animation end (progress=1),
+            // matching the translationY(0) reset in the end callback and avoiding a jump.
+            float searchProgress = 1f - searchToAzProgress;
+            appsTranslationY += (int) (searchProgress * (
                     headerView.getTabsAdditionalPaddingBottom()
                             + mAllAppsContainerView.getResources().getDimensionPixelOffset(
                                     R.dimen.all_apps_tabs_margin_top)
-                            - headerView.getPaddingTop();
+                            - headerView.getPaddingTop()));
         }
 
         View appsContainer = mAllAppsContainerView.getAppsRecyclerViewContainer();
@@ -110,11 +103,13 @@ public class SearchTransitionController extends RecyclerViewAnimationController 
     }
 
     /**
-     * Should only animate if the view is not an app icon or if the app row is complete.
+     * Animate all search result items during the transition. The AOSP default skips incomplete
+     * app icon rows so they can blend into the A-Z grid, but our universal search uses a list
+     * layout where all items should fade together.
      */
     @Override
     protected boolean shouldAnimate(View view, boolean hasDecorationInfo, boolean appRowComplete) {
-        return !isAppIcon(view) || appRowComplete;
+        return true;
     }
 
     @Override

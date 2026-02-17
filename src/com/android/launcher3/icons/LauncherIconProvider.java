@@ -40,6 +40,8 @@ import com.android.launcher3.graphics.ShapeDelegate;
 import com.android.launcher3.graphics.ThemeManager;
 import com.android.launcher3.icons.pack.IconPack;
 import com.android.launcher3.icons.pack.IconPackManager;
+import com.android.launcher3.icons.pack.PerAppIconOverrideManager;
+import com.android.launcher3.icons.pack.PerAppIconOverrideManager.IconOverride;
 import com.android.launcher3.util.ApiWrapper;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -96,48 +98,53 @@ public class LauncherIconProvider extends IconProvider {
 
     @Override
     public Drawable getIcon(ComponentInfo info, int iconDpi) {
+        ComponentName cn = new ComponentName(info.packageName, info.name);
+        PackageManager pm = mContext.getPackageManager();
+
+        // Per-app override takes priority over global pack
+        IconOverride override = PerAppIconOverrideManager.getInstance(mContext)
+                .getHomeOverride(cn);
+        if (override != null) {
+            Drawable d = resolveOverride(override, cn, pm, iconDpi,
+                    () -> super.getIcon(info, iconDpi));
+            if (d != null) return d;
+        }
+
+        // Global icon pack
         IconPack pack = mIconPackManager.getCurrentPack();
         if (pack != null) {
-            ComponentName cn = new ComponentName(info.packageName, info.name);
-            PackageManager pm = mContext.getPackageManager();
-
-            // Calendar icon from pack
-            Drawable cal = pack.getCalendarIcon(cn, pm);
-            if (cal != null) return cal;
-
-            // Exact match
-            Drawable icon = pack.getIconForComponent(cn, pm);
-            if (icon != null) return icon;
-
-            // Fallback masking
-            if (pack.hasFallbackMask()) {
-                Drawable original = super.getIcon(info, iconDpi);
-                int iconSize = Math.round(48 * iconDpi / 160f);
-                Drawable masked = pack.applyFallbackMask(original, iconSize);
-                if (masked != null) return masked;
-            }
+            Drawable d = resolveFromPack(pack, cn, pm, iconDpi,
+                    () -> super.getIcon(info, iconDpi));
+            if (d != null) return d;
         }
         return super.getIcon(info, iconDpi);
     }
 
     @Override
     public Drawable getIcon(ApplicationInfo info, int iconDpi) {
+        PackageManager pm = mContext.getPackageManager();
+        Intent launchIntent = pm.getLaunchIntentForPackage(info.packageName);
+        ComponentName cn = (launchIntent != null) ? launchIntent.getComponent() : null;
+
+        // Per-app override takes priority
+        if (cn != null) {
+            IconOverride override = PerAppIconOverrideManager.getInstance(mContext)
+                    .getHomeOverride(cn);
+            if (override != null) {
+                Drawable d = resolveOverride(override, cn, pm, iconDpi,
+                        () -> super.getIcon(info, iconDpi));
+                if (d != null) return d;
+            }
+        }
+
+        // Global icon pack
         IconPack pack = mIconPackManager.getCurrentPack();
         if (pack != null) {
-            PackageManager pm = mContext.getPackageManager();
-            Intent launchIntent = pm.getLaunchIntentForPackage(info.packageName);
-            if (launchIntent != null && launchIntent.getComponent() != null) {
-                ComponentName cn = launchIntent.getComponent();
-
-                Drawable cal = pack.getCalendarIcon(cn, pm);
-                if (cal != null) return cal;
-
-                Drawable icon = pack.getIconForComponent(cn, pm);
-                if (icon != null) return icon;
-            }
-
-            // Fallback masking
-            if (pack.hasFallbackMask()) {
+            if (cn != null) {
+                Drawable d = resolveFromPack(pack, cn, pm, iconDpi,
+                        () -> super.getIcon(info, iconDpi));
+                if (d != null) return d;
+            } else if (pack.hasFallbackMask()) {
                 Drawable original = super.getIcon(info, iconDpi);
                 int iconSize = Math.round(48 * iconDpi / 160f);
                 Drawable masked = pack.applyFallbackMask(original, iconSize);
@@ -155,6 +162,55 @@ public class LauncherIconProvider extends IconProvider {
         if (!packId.isEmpty()) {
             mSystemState += ",iconpack:" + packId;
         }
+        int perAppHash = PerAppIconOverrideManager.getInstance(mContext).getOverridesHash();
+        if (perAppHash != 17) { // 17 is the hash of empty maps
+            mSystemState += ",perapp:" + perAppHash;
+        }
+    }
+
+    /**
+     * Resolve an icon from a per-app override.
+     * Returns the system icon if override is system-default, the specific drawable if set,
+     * or auto-resolves from the override pack.
+     */
+    @Nullable
+    private Drawable resolveOverride(IconOverride override, ComponentName cn,
+            PackageManager pm, int iconDpi, java.util.function.Supplier<Drawable> systemFallback) {
+        if (override.isSystemDefault()) {
+            return systemFallback.get();
+        }
+        // Load from the override pack
+        IconPack overridePack = mIconPackManager.getPack(override.packPackage);
+        if (overridePack == null) return null;
+
+        if (override.hasSpecificDrawable()) {
+            Drawable d = overridePack.getDrawableForEntry(override.drawableName, pm);
+            if (d != null) return d;
+        }
+        // Auto-resolve from the override pack
+        return resolveFromPack(overridePack, cn, pm, iconDpi, systemFallback);
+    }
+
+    /**
+     * Resolve icon from a pack using the standard chain:
+     * calendar -> component match -> fallback mask -> null.
+     */
+    @Nullable
+    private Drawable resolveFromPack(IconPack pack, ComponentName cn,
+            PackageManager pm, int iconDpi, java.util.function.Supplier<Drawable> systemFallback) {
+        Drawable cal = pack.getCalendarIcon(cn, pm);
+        if (cal != null) return cal;
+
+        Drawable icon = pack.getIconForComponent(cn, pm);
+        if (icon != null) return icon;
+
+        if (pack.hasFallbackMask()) {
+            Drawable original = systemFallback.get();
+            int iconSize = Math.round(48 * iconDpi / 160f);
+            Drawable masked = pack.applyFallbackMask(original, iconSize);
+            if (masked != null) return masked;
+        }
+        return null;
     }
 
     @Override

@@ -50,6 +50,8 @@ import com.android.launcher3.icons.DrawerIconResolver;
 import com.android.launcher3.icons.LauncherIcons;
 import com.android.launcher3.icons.pack.IconPack;
 import com.android.launcher3.icons.pack.IconPackManager;
+import com.android.launcher3.icons.pack.PerAppIconOverrideManager;
+import com.android.launcher3.icons.pack.PerAppIconOverrideManager.IconOverride;
 import com.android.launcher3.shapes.IconShapeModel;
 import com.android.launcher3.shapes.ShapesProvider;
 import com.android.launcher3.util.Executors;
@@ -377,6 +379,184 @@ public class IconSettingsHelper {
             IconPack pack = packs.get(current);
             pref.setSummary(pack != null ? pack.label : current);
         }
+    }
+
+    /**
+     * Callback interface for when a per-app pack is selected.
+     */
+    public interface PerAppPackCallback {
+        /** Called when user picks "Follow global setting" (override = null). */
+        void onFollowGlobal();
+        /** Called when user picks "System default". */
+        void onSystemDefault();
+        /** Called when user picks a specific pack (to then browse icons). */
+        void onPackSelected(String packPackage, CharSequence packLabel);
+    }
+
+    /**
+     * Show per-app icon pack selection bottom sheet (Step 1 of the two-step flow).
+     * Lists: Follow global, System default, then each installed pack with a preview
+     * of this app's auto-resolved icon.
+     */
+    public static void showPerAppPackDialog(PreferenceFragmentCompat fragment,
+            ComponentName appCn, IconPackManager mgr, PerAppPackCallback callback) {
+        Context ctx = fragment.getContext();
+        if (ctx == null) return;
+
+        Map<String, IconPack> packs = mgr.getInstalledPacks();
+        PackageManager pm = ctx.getPackageManager();
+        float density = ctx.getResources().getDisplayMetrics().density;
+        int cornerPx = (int) (CARD_CORNER_DP * density);
+        int marginH = (int) (CARD_MARGIN_H_DP * density);
+        int marginV = (int) (CARD_MARGIN_V_DP * density);
+        int cardPad = (int) (CARD_PAD_DP * density);
+
+        int colorOnSurface = ctx.getColor(R.color.materialColorOnSurface);
+        int colorSurfaceVar = ctx.getColor(R.color.materialColorSurfaceContainerHigh);
+
+        BottomSheetDialog sheet = new BottomSheetDialog(ctx);
+
+        LinearLayout root = new LinearLayout(ctx);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(0, 0, 0, (int) (24 * density));
+
+        addSheetHandle(root, ctx, density);
+
+        TextView titleView = new TextView(ctx);
+        titleView.setText(R.string.choose_icon_pack);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        titleView.setTextColor(colorOnSurface);
+        titleView.setPadding(
+                (int) (24 * density), (int) (16 * density),
+                (int) (24 * density), (int) (16 * density));
+        root.addView(titleView);
+
+        LinearLayout items = new LinearLayout(ctx);
+        items.setOrientation(LinearLayout.VERTICAL);
+
+        // "Follow global setting"
+        items.addView(createPerAppCard(ctx, density, cornerPx, marginH, marginV, cardPad,
+                colorSurfaceVar, colorOnSurface,
+                ctx.getString(R.string.customize_follow_global), null, v -> {
+                    sheet.dismiss();
+                    callback.onFollowGlobal();
+                }));
+
+        // "System default"
+        items.addView(createPerAppCard(ctx, density, cornerPx, marginH, marginV, cardPad,
+                colorSurfaceVar, colorOnSurface,
+                ctx.getString(R.string.customize_system_default), null, v -> {
+                    sheet.dismiss();
+                    callback.onSystemDefault();
+                }));
+
+        // Each installed pack
+        int previewSize = (int) (PACK_ICON_SIZE_DP * density);
+        for (Map.Entry<String, IconPack> entry : packs.entrySet()) {
+            String pkg = entry.getKey();
+            IconPack pack = entry.getValue();
+
+            LinearLayout card = createPerAppCard(ctx, density, cornerPx, marginH, marginV,
+                    cardPad, colorSurfaceVar, colorOnSurface,
+                    pack.label.toString(), pack.getPackIcon(pm), v -> {
+                        sheet.dismiss();
+                        callback.onPackSelected(pkg, pack.label);
+                    });
+
+            // Add app preview icon from this pack (async)
+            ImageView preview = new ImageView(ctx);
+            LinearLayout.LayoutParams previewLp = new LinearLayout.LayoutParams(
+                    previewSize, previewSize);
+            previewLp.setMarginStart((int) (8 * density));
+            preview.setLayoutParams(previewLp);
+            preview.setScaleType(ImageView.ScaleType.FIT_CENTER);
+
+            // Find the header row (first child) and add preview to it
+            LinearLayout header = (LinearLayout) card.getChildAt(0);
+            header.addView(preview);
+
+            Executors.MODEL_EXECUTOR.execute(() -> {
+                pack.ensureParsed(pm);
+                Drawable appIcon = pack.getIconForComponent(appCn, pm);
+                if (appIcon == null && pack.hasFallbackMask()) {
+                    try {
+                        Drawable original = pm.getActivityIcon(appCn);
+                        appIcon = pack.applyFallbackMask(original, previewSize);
+                    } catch (PackageManager.NameNotFoundException ignored) { }
+                }
+                final Drawable finalIcon = appIcon;
+                if (finalIcon != null) {
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        if (sheet.isShowing()) {
+                            preview.setImageDrawable(finalIcon);
+                        }
+                    });
+                }
+            });
+
+            items.addView(card);
+        }
+
+        NestedScrollView scroll = new NestedScrollView(ctx);
+        scroll.setClipToPadding(false);
+        scroll.addView(items);
+        root.addView(scroll);
+
+        sheet.setContentView(root);
+        sheet.show();
+    }
+
+    private static LinearLayout createPerAppCard(Context ctx, float density,
+            int cornerPx, int marginH, int marginV, int cardPad,
+            int bgColor, int textColor,
+            String label, Drawable packIcon,
+            View.OnClickListener listener) {
+        LinearLayout card = new LinearLayout(ctx);
+        card.setOrientation(LinearLayout.VERTICAL);
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(cornerPx);
+        bg.setColor(bgColor);
+        card.setBackground(bg);
+        card.setPadding(cardPad, cardPad, cardPad, cardPad);
+
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        cardLp.setMargins(marginH, marginV, marginH, marginV);
+        card.setLayoutParams(cardLp);
+
+        // Ripple
+        TypedValue ripple = new TypedValue();
+        ctx.getTheme().resolveAttribute(
+                android.R.attr.selectableItemBackground, ripple, true);
+        card.setForeground(ctx.getDrawable(ripple.resourceId));
+
+        LinearLayout header = new LinearLayout(ctx);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+
+        if (packIcon != null) {
+            ImageView icon = new ImageView(ctx);
+            int iconPx = (int) (PACK_ICON_SIZE_DP * density);
+            LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(iconPx, iconPx);
+            iconLp.setMarginEnd((int) (12 * density));
+            icon.setLayoutParams(iconLp);
+            icon.setImageDrawable(packIcon);
+            header.addView(icon);
+        }
+
+        TextView name = new TextView(ctx);
+        name.setText(label);
+        name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        name.setTextColor(textColor);
+        name.setLayoutParams(new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        header.addView(name);
+
+        card.addView(header);
+        card.setOnClickListener(listener);
+        return card;
     }
 
     /**

@@ -40,13 +40,23 @@ public class GridsFragment extends PreferenceFragmentCompat {
         getPreferenceManager().setSharedPreferencesName(LauncherFiles.SHARED_PREFERENCES_KEY);
         setPreferencesFromResource(R.xml.grids_preferences, rootKey);
 
-        Preference columnsPref = findPreference("pref_grid_columns");
+        GridPreviewPreference previewPref = findPreference("pref_grid_preview");
+        M3SliderPreference columnsPref = findPreference("pref_grid_columns");
+
         if (columnsPref != null) {
+            // Real-time preview on every slider tick
             columnsPref.setOnPreferenceChangeListener((pref, newValue) -> {
+                if (previewPref != null) {
+                    previewPref.updateColumns((int) newValue);
+                }
+                return true;
+            });
+
+            // Commit grid change only on finger release
+            columnsPref.setOnTrackingStopListener(finalValue -> {
                 getListView().post(() ->
                         InvariantDeviceProfile.INSTANCE.get(getContext())
                                 .onConfigChanged(getContext()));
-                return true;
             });
         }
     }

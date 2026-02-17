@@ -24,12 +24,15 @@ import static com.android.launcher3.icons.IconNormalizer.ICON_VISIBLE_AREA_FACTO
 import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.TypedValue;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
 import android.text.method.TextKeyListener;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup.MarginLayoutParams;
 
@@ -44,6 +47,7 @@ import com.android.launcher3.allapps.AllAppsStore;
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
 import com.android.launcher3.allapps.SearchUiManager;
 import com.android.launcher3.search.SearchCallback;
+import com.android.launcher3.search.UniversalSearchAlgorithm;
 import com.android.launcher3.views.ActivityContext;
 
 import java.util.ArrayList;
@@ -60,6 +64,9 @@ public class AppsSearchContainerLayout extends ExtendedEditText
     private final SpannableStringBuilder mSearchQueryBuilder;
 
     private ActivityAllAppsContainerView<?> mAppsView;
+
+    private Drawable mSearchIcon;
+    private Drawable mClearIcon;
 
     // The amount of pixels to shift down and overlap with the rest of the content.
     private Drawable mOriginalBackground;
@@ -83,16 +90,32 @@ public class AppsSearchContainerLayout extends ExtendedEditText
         mSearchQueryBuilder = new SpannableStringBuilder();
         Selection.setSelection(mSearchQueryBuilder, 0);
 
-        // Use compound drawable for search icon with proper 8dp gap
-        Drawable searchIcon = getContext().getDrawable(R.drawable.ic_allapps_search);
-        if (searchIcon != null) {
-            int iconSize = (int) TypedValue.applyDimension(
-                    TypedValue.COMPLEX_UNIT_DIP, 24, getResources().getDisplayMetrics());
-            searchIcon.setBounds(0, 0, iconSize, iconSize);
-            setCompoundDrawablesRelative(searchIcon, null, null, null);
-            setCompoundDrawablePadding((int) TypedValue.applyDimension(
-                    TypedValue.COMPLEX_UNIT_DIP, 16, getResources().getDisplayMetrics()));
+        // Use compound drawable for search icon with proper 16dp gap
+        int iconSize = (int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, 24, getResources().getDisplayMetrics());
+        mSearchIcon = getContext().getDrawable(R.drawable.ic_allapps_search);
+        if (mSearchIcon != null) {
+            mSearchIcon.setBounds(0, 0, iconSize, iconSize);
         }
+        mClearIcon = getContext().getDrawable(R.drawable.ic_gm_close_24);
+        if (mClearIcon != null) {
+            mClearIcon.setBounds(0, 0, iconSize, iconSize);
+        }
+        setCompoundDrawablesRelative(mSearchIcon, null, null, null);
+        setCompoundDrawablePadding((int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, 16, getResources().getDisplayMetrics()));
+
+        // Show/hide clear button based on text content
+        addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
+            public void afterTextChanged(Editable s) {
+                updateClearButton(s.length() > 0);
+            }
+        });
 
         mContentOverlap =
                 getResources().getDimensionPixelSize(R.dimen.all_apps_search_bar_content_overlap);
@@ -175,7 +198,7 @@ public class AppsSearchContainerLayout extends ExtendedEditText
     public void initializeSearch(ActivityAllAppsContainerView<?> appsView) {
         mAppsView = appsView;
         mSearchBarController.initialize(
-                new DefaultAppSearchAlgorithm(getContext(), true),
+                new UniversalSearchAlgorithm(getContext()),
                 this, mLauncher, this);
     }
 
@@ -210,9 +233,16 @@ public class AppsSearchContainerLayout extends ExtendedEditText
 
     @Override
     public void onSearchResult(String query, ArrayList<AdapterItem> items) {
+        if (query != null && query.isEmpty()) {
+            // Empty query — show A-Z apps while keeping search bar active
+            mAppsView.showAppsWhileSearchActive();
+            mAppsView.updateSearchOnlineFab(null);
+            return;
+        }
         if (items != null) {
             mAppsView.setSearchResults(items);
         }
+        mAppsView.updateSearchOnlineFab(query);
     }
 
     @Override
@@ -240,5 +270,29 @@ public class AppsSearchContainerLayout extends ExtendedEditText
     @Override
     public ExtendedEditText getEditText() {
         return this;
+    }
+
+    private void updateClearButton(boolean hasText) {
+        setCompoundDrawablesRelative(mSearchIcon, null, hasText ? mClearIcon : null, null);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        // Detect tap on the clear (right) compound drawable
+        if (event.getAction() == MotionEvent.ACTION_UP && mClearIcon != null) {
+            Drawable end = getCompoundDrawablesRelative()[2];
+            if (end != null) {
+                int drawableStart = getWidth() - getPaddingEnd() - end.getBounds().width();
+                boolean isRtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
+                boolean tapped = isRtl
+                        ? event.getX() <= getPaddingStart() + end.getBounds().width()
+                        : event.getX() >= drawableStart;
+                if (tapped) {
+                    setText("");
+                    return true;
+                }
+            }
+        }
+        return super.onTouchEvent(event);
     }
 }

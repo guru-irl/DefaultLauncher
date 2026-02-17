@@ -27,6 +27,7 @@ import android.view.View;
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.SwitchPreference;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
@@ -37,11 +38,13 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import com.android.launcher3.InvariantDeviceProfile;
+import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherFiles;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.dagger.LauncherComponentProvider;
 import com.android.launcher3.graphics.ThemeManager;
+import com.android.launcher3.icons.DrawerIconResolver;
 import com.android.launcher3.icons.pack.IconPackManager;
 import com.android.launcher3.util.Executors;
 
@@ -97,6 +100,34 @@ public class AppDrawerFragment extends PreferenceFragmentCompat {
         Preference iconSizePref = findPreference("pref_icon_size_scale");
         if (iconSizePref != null) {
             updateIconSizeSummary(iconSizePref);
+        }
+
+        // Match home screen icons switch
+        SwitchPreference matchHomePref = findPreference("pref_drawer_match_home");
+        boolean isMatching = LauncherPrefs.get(getContext()).get(LauncherPrefs.DRAWER_MATCH_HOME);
+        if (iconPackPref != null) iconPackPref.setVisible(!isMatching);
+        Preference iconShapePrefRef = findPreference("pref_icon_shape");
+        if (iconShapePrefRef != null) iconShapePrefRef.setVisible(!isMatching);
+        if (iconSizePref != null) iconSizePref.setVisible(!isMatching);
+
+        if (matchHomePref != null) {
+            matchHomePref.setOnPreferenceChangeListener((pref, newValue) -> {
+                boolean matching = (boolean) newValue;
+                if (iconPackPref != null) iconPackPref.setVisible(!matching);
+                Preference shapePref = findPreference("pref_icon_shape");
+                if (shapePref != null) shapePref.setVisible(!matching);
+                Preference sizePref = findPreference("pref_icon_size_scale");
+                if (sizePref != null) sizePref.setVisible(!matching);
+
+                // Invalidate drawer cache and force reload on toggle change.
+                // Don't clear the drawer pack — preserve it so turning
+                // match-home off restores the previous drawer settings.
+                DrawerIconResolver.getInstance().invalidate();
+                getListView().post(() -> {
+                    LauncherAppState.INSTANCE.get(getContext()).getModel().forceReload();
+                });
+                return true;
+            });
         }
 
         // Wire up grid-affecting prefs

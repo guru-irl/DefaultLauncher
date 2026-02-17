@@ -17,7 +17,7 @@
     android:id="@+id/work_mode_toggle"
     android:layout_height="@dimen/work_fab_height"
     android:layout_width="wrap_content"
-    android:elevation="@dimen/work_fab_elevation"
+    android:elevation="0dp"
     android:minHeight="@dimen/work_fab_height"
     android:gravity="center_vertical"
     android:background="@drawable/work_mode_fab_background"
@@ -29,7 +29,7 @@
         android:layout_height="@dimen/work_fab_icon_size"
         android:layout_marginVertical="@dimen/work_fab_icon_vertical_margin"
         android:importantForAccessibility="no"
-        android:src="@drawable/ic_corp_off"
+        android:src="@drawable/ic_corp"
         android:layout_marginStart="@dimen/work_fab_icon_start_margin_expanded"
         android:scaleType="center"/>
     <TextView
@@ -37,7 +37,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:maxWidth="@dimen/work_fab_width"
-        android:textColor="@color/materialColorOnPrimary"
+        android:textColor="@color/materialColorOnPrimaryContainer"
         android:textSize="14sp"
         android:includeFontPadding="false"
         android:textDirection="locale"
@@ -45,5 +45,5 @@
         android:layout_marginStart="@dimen/work_fab_text_start_margin"
         android:layout_marginEnd="@dimen/work_fab_text_end_margin"
         android:maxLines="1"
-        style="@style/TextHeadline"/>
+        android:textFontWeight="500" />
 </LinearLayout>

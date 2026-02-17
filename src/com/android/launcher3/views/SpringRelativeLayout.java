@@ -97,6 +97,14 @@ public class SpringRelativeLayout extends RelativeLayout {
         return new ProxyEdgeEffectFactory();
     }
 
+    /**
+     * Creates a spring-bounce edge effect factory that replaces the default stretch
+     * overscroll with M3 Expressive spring physics translationY on the given RecyclerView.
+     */
+    public RecyclerView.EdgeEffectFactory createSpringBounceEdgeEffectFactory(RecyclerView rv) {
+        return new SpringBounceEdgeEffectFactory(rv);
+    }
+
     private class ProxyEdgeEffectFactory extends EdgeEffectFactory {
 
         @NonNull @Override

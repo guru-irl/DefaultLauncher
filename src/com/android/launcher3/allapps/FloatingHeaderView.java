@@ -308,26 +308,16 @@ public class FloatingHeaderView extends LinearLayout implements
                     R.dimen.all_apps_search_bar_bottom_padding);
         }
 
-        int gap = getResources().getDimensionPixelSize(R.dimen.all_apps_content_gap);
-        boolean effectivelyHidden = areTabsEffectivelyHidden();
-
-        // Compute how far the bottom-most header element extends into the RV container
-        // (in RV-local coordinates), then add the uniform gap.
-        int headerContentBottom;
-        if (!effectivelyHidden) {
-            // Tabs visible: tab bottom in RV coords = paddingTop + tabs_marginTop
-            // (the tab height itself is already offset by the RV container's extra margin)
-            headerContentBottom = getPaddingTop()
-                    + getResources().getDimensionPixelSize(R.dimen.all_apps_tabs_margin_top);
-        } else if (mMaxTranslation > 0) {
-            // Tabs hidden, floating rows present: rows start at paddingTop within header
-            headerContentBottom = getPaddingTop();
-        } else {
-            // Tabs hidden, no floating rows: use same padding as search view
+        if (mMaxTranslation == 0) {
+            // No floating rows — use uniform gap for consistent tab/icon spacing,
+            // regardless of whether tabs are visible or hidden.
             return getResources().getDimensionPixelSize(
                     R.dimen.all_apps_search_bar_bottom_padding);
         }
 
+        // Has floating rows — compute based on row height + gap
+        int gap = getResources().getDimensionPixelSize(R.dimen.all_apps_content_gap);
+        int headerContentBottom = getPaddingTop();
         return mMaxTranslation + headerContentBottom + gap;
     }
 
@@ -408,8 +398,10 @@ public class FloatingHeaderView extends LinearLayout implements
 
         mFloatingRowsCollapsed = collapsed;
         onHeightUpdated();
-        // Always re-setup header when collapsed state changes, because
-        // onHeightUpdated()'s condition may not trigger when mMaxTranslation is 0.
+        // In AOSP with predicted apps, onHeightUpdated() triggers setupHeader() because
+        // mMaxTranslation changes. Without floating rows, mMaxTranslation stays 0, so
+        // onHeightUpdated()'s condition doesn't fire. Force setupHeader() to ensure
+        // padding, clip bounds, and scroll position are reset on collapsed state changes.
         ActivityAllAppsContainerView<?> parent =
                 (ActivityAllAppsContainerView<?>) getParent();
         if (parent != null) {

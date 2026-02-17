@@ -16,10 +16,8 @@
 package com.android.launcher3.allapps;
 
 import static com.android.launcher3.LauncherPrefs.WORK_EDU_STEP;
-import static com.android.launcher3.allapps.ActivityAllAppsContainerView.AdapterHolder.MAIN;
 import static com.android.launcher3.allapps.ActivityAllAppsContainerView.AdapterHolder.SEARCH;
 import static com.android.launcher3.allapps.ActivityAllAppsContainerView.AdapterHolder.WORK;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_WORK_DISABLED_CARD;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_WORK_EDU_CARD;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_TURN_OFF_WORK_APPS_TAP;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_HAS_SHORTCUT_PERMISSION;
@@ -32,14 +30,11 @@ import android.os.UserManager;
 import android.util.Log;
 import android.view.View;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.launcher3.Flags;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
-import com.android.launcher3.Utilities;
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
 import com.android.launcher3.logging.StatsLogManager;
 import com.android.launcher3.pm.UserCache;
@@ -50,9 +45,8 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
- * Companion class for {@link ActivityAllAppsContainerView} to manage work tab and personal tab
- * related
- * logic based on {@link UserProfileState}?
+ * Companion class for {@link ActivityAllAppsContainerView} to manage the work profile FAB
+ * and work tab state.
  */
 public class WorkProfileManager extends UserProfileManager
         implements PersonalWorkSlidingTabStrip.OnActivePageChangedListener {
@@ -69,9 +63,7 @@ public class WorkProfileManager extends UserProfileManager
         mWorkProfileMatcher = (user) -> userCache.getUserInfo(user).isWork();
     }
 
-    /**
-     * Posts quite mode enable/disable call for work profile user
-     */
+    /** Posts quiet mode enable/disable call for work profile user. */
     public void setWorkProfileEnabled(boolean enabled) {
         updateCurrentState(STATE_TRANSITION);
         setQuietMode(!enabled, mAllApps.mActivityContext);
@@ -79,22 +71,31 @@ public class WorkProfileManager extends UserProfileManager
 
     @Override
     public void onActivePageChanged(int page) {
-        updateWorkUtilityViews(page);
-    }
-
-    private void updateWorkUtilityViews(int page) {
-        if (mWorkUtilityView != null) {
-            if (page == MAIN || page == SEARCH) {
-                mWorkUtilityView.animateVisibility(false);
-            } else if (page == WORK && getCurrentState() == STATE_ENABLED) {
-                mWorkUtilityView.animateVisibility(true);
-            }
-        }
+        updateWorkFabVisibility(page);
     }
 
     /**
-     * Requests work profile state from {@link AllAppsStore} and updates work profile related views
+     * Show the FAB on the work tab and in no-tabs mode (where work apps are in the
+     * combined list). Hide on the personal tab and during search.
      */
+    private void updateWorkFabVisibility(int page) {
+        if (mWorkUtilityView == null) return;
+        boolean show = false;
+        if (page == WORK) {
+            show = true;
+        } else if (page != SEARCH && !mAllApps.isUsingTabs()) {
+            // No-tabs mode — work apps are in the combined list, show FAB.
+            show = true;
+        }
+        if (show && (getCurrentState() == STATE_ENABLED
+                || getCurrentState() == STATE_DISABLED)) {
+            mWorkUtilityView.animateVisibility(true);
+        } else {
+            mWorkUtilityView.animateVisibility(false);
+        }
+    }
+
+    /** Reads work profile state from the model and updates views. */
     public void reset() {
         int quietModeFlag;
         if (Flags.enablePrivateSpace()) {
@@ -105,7 +106,6 @@ public class WorkProfileManager extends UserProfileManager
         boolean isEnabled = !mAllApps.getAppsStore().hasModelFlag(quietModeFlag);
         updateCurrentState(isEnabled ? STATE_ENABLED : STATE_DISABLED);
         if (mWorkUtilityView != null) {
-            // reset the position of the button and clear IME insets.
             mWorkUtilityView.getImeInsets().setEmpty();
             mWorkUtilityView.updateTranslationY();
         }
@@ -116,19 +116,16 @@ public class WorkProfileManager extends UserProfileManager
         if (getAH() != null) {
             getAH().mAppsList.updateAdapterItems();
         }
-        if (mWorkUtilityView != null) {
-            updateWorkUtilityViews(mAllApps.getCurrentPage());
-        }
-        if (getCurrentState() == STATE_ENABLED) {
+        if (getCurrentState() == STATE_ENABLED || getCurrentState() == STATE_DISABLED) {
             attachWorkUtilityViews();
-        } else if (getCurrentState() == STATE_DISABLED) {
-            detachWorkUtilityViews();
+        }
+        if (mWorkUtilityView != null) {
+            mWorkUtilityView.updateForState(currentState);
+            updateWorkFabVisibility(mAllApps.getCurrentPage());
         }
     }
 
-    /**
-     * Creates and attaches for profile toggle button to {@link ActivityAllAppsContainerView}
-     */
+    /** Creates and attaches the work FAB to the AllApps container. */
     public boolean attachWorkUtilityViews() {
         if (!mAllApps.getAppsStore().hasModelFlag(
                 FLAG_HAS_SHORTCUT_PERMISSION | FLAG_QUIET_MODE_CHANGE_PERMISSION)) {
@@ -142,18 +139,14 @@ public class WorkProfileManager extends UserProfileManager
         if (mWorkUtilityView.getParent() == null) {
             mAllApps.addView(mWorkUtilityView);
         }
-        if (mAllApps.getCurrentPage() != WORK) {
-            mWorkUtilityView.animateVisibility(false);
-        }
         if (getAH() != null) {
             getAH().applyPadding();
         }
         mWorkUtilityView.getWorkFAB().setOnClickListener(this::onWorkFabClicked);
         return true;
     }
-    /**
-     * Removes work profile toggle button from {@link ActivityAllAppsContainerView}
-     */
+
+    /** Removes the work FAB from the AllApps container. */
     public void detachWorkUtilityViews() {
         if (mWorkUtilityView != null && mWorkUtilityView.getParent() == mAllApps) {
             mAllApps.removeView(mWorkUtilityView);
@@ -171,10 +164,10 @@ public class WorkProfileManager extends UserProfileManager
     }
 
     /**
-     * returns whether or not work apps should be visible in work tab.
+     * Always true — when paused, icons are shown grayed-out instead of hidden.
      */
     public boolean shouldShowWorkApps() {
-        return getCurrentState() != WorkProfileManager.STATE_DISABLED;
+        return true;
     }
 
     public boolean hasWorkApps() {
@@ -182,13 +175,11 @@ public class WorkProfileManager extends UserProfileManager
     }
 
     /**
-     * Adds work profile specific adapter items to adapterItems and returns number of items added
+     * Adds work profile specific adapter items.
+     * No disabled card — grayed icons are shown instead when paused.
      */
     public int addWorkItems(ArrayList<AdapterItem> adapterItems) {
-        if (getCurrentState() == WorkProfileManager.STATE_DISABLED) {
-            //add disabled card here.
-            adapterItems.add(new AdapterItem(VIEW_TYPE_WORK_DISABLED_CARD));
-        } else if (getCurrentState() == WorkProfileManager.STATE_ENABLED && !isEduSeen()) {
+        if (getCurrentState() == STATE_ENABLED && !isEduSeen()) {
             adapterItems.add(new AdapterItem(VIEW_TYPE_WORK_EDU_CARD));
         }
         return adapterItems.size();
@@ -198,39 +189,20 @@ public class WorkProfileManager extends UserProfileManager
         return LauncherPrefs.get(mAllApps.getContext()).get(WORK_EDU_STEP) != 0;
     }
 
+    /**
+     * Single click handler for both pause and enable.
+     * STATE_ENABLED → pause (disable), STATE_DISABLED → enable.
+     */
     private void onWorkFabClicked(View view) {
-        if (getCurrentState() == STATE_ENABLED && mWorkUtilityView.isEnabled()) {
-            Log.d(TAG, "Work FAB clicked.");
+        if (mWorkUtilityView == null || !mWorkUtilityView.isEnabled()) return;
+        if (getCurrentState() == STATE_ENABLED) {
+            Log.d(TAG, "Work FAB clicked: pausing.");
             logEvents(LAUNCHER_TURN_OFF_WORK_APPS_TAP);
             setWorkProfileEnabled(false);
+        } else if (getCurrentState() == STATE_DISABLED) {
+            Log.d(TAG, "Work FAB clicked: enabling.");
+            setWorkProfileEnabled(true);
         }
-    }
-
-    public RecyclerView.OnScrollListener newScrollListener() {
-        return new RecyclerView.OnScrollListener() {
-            int totalDelta = 0;
-            @Override
-            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState){
-                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                    totalDelta = 0;
-                }
-            }
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                WorkUtilityView fab = getWorkUtilityView();
-                if (fab == null){
-                    return;
-                }
-                totalDelta = Utilities.boundToRange(totalDelta,
-                        -fab.getScrollThreshold(), fab.getScrollThreshold()) + dy;
-                boolean isScrollAtTop = recyclerView.computeVerticalScrollOffset() == 0;
-                if ((isScrollAtTop || totalDelta < -fab.getScrollThreshold())) {
-                    fab.extend();
-                } else if (totalDelta > fab.getScrollThreshold()) {
-                    fab.shrink();
-                }
-            }
-        };
     }
 
     @Override

@@ -67,7 +67,19 @@ public abstract class BaseAllAppsAdapter<T extends Context & ActivityContext> ex
     public static final int VIEW_TYPE_PRIVATE_SPACE_HEADER = 1 << 6;
     public static final int VIEW_TYPE_PRIVATE_SPACE_SYS_APPS_DIVIDER = 1 << 7;
     public static final int VIEW_TYPE_BOTTOM_VIEW_TO_SCROLL_TO = 1 << 8;
-    public static final int NEXT_ID = 9;
+
+    // Universal search view types
+    public static final int VIEW_TYPE_SEARCH_FILTER_BAR = 1 << 9;
+    public static final int VIEW_TYPE_SEARCH_SECTION_HEADER = 1 << 10;
+    public static final int VIEW_TYPE_SEARCH_SHORTCUT = 1 << 11;
+    public static final int VIEW_TYPE_SEARCH_CONTACT = 1 << 12;
+    public static final int VIEW_TYPE_SEARCH_CALENDAR = 1 << 13;
+    public static final int VIEW_TYPE_SEARCH_FILE = 1 << 14;
+    public static final int VIEW_TYPE_SEARCH_QUICK_ACTION = 1 << 15;
+    public static final int VIEW_TYPE_SEARCH_CALCULATOR = 1 << 16;
+    public static final int VIEW_TYPE_SEARCH_UNIT_CONVERTER = 1 << 17;
+
+    public static final int NEXT_ID = 18;
 
     // Common view type masks
     public static final int VIEW_TYPE_MASK_DIVIDER = VIEW_TYPE_ALL_APPS_DIVIDER;
@@ -286,6 +298,17 @@ public abstract class BaseAllAppsAdapter<T extends Context & ActivityContext> ex
                         adapterItem.decorationInfo = null;
                         icon.setVisibility(GONE);
                     }
+                }
+                // Gray out work app icons when work profile is paused
+                WorkProfileManager workManager =
+                        mActivityContext.getAppsView().getWorkManager();
+                if (workManager != null
+                        && workManager.getCurrentState() == STATE_DISABLED
+                        && adapterItem.itemInfo != null
+                        && workManager.getUserMatcher().test(adapterItem.itemInfo.user)) {
+                    icon.setIconDisabled(true);
+                } else {
+                    icon.setIconDisabled(false);
                 }
                 break;
             }

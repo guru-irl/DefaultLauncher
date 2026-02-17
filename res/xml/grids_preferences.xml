@@ -4,6 +4,11 @@
     xmlns:launcher="http://schemas.android.com/apk/res-auto"
     android:title="@string/grids_title">
 
+    <com.android.launcher3.settings.GridPreviewPreference
+        android:key="pref_grid_preview"
+        android:selectable="false"
+        launcher:iconSpaceReserved="false" />
+
     <com.android.launcher3.settings.M3SliderPreference
         android:key="pref_grid_columns"
         android:title="@string/grid_columns_title"

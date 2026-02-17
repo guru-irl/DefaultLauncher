@@ -42,6 +42,22 @@
         android:fragment="com.android.launcher3.settings.AppDrawerFragment"
         launcher:iconSpaceReserved="true" />
 
+    <Preference
+        android:key="pref_drawer_colors"
+        android:icon="@drawable/ic_settings_colors"
+        android:title="@string/colors_title"
+        android:summary="@string/colors_summary"
+        android:fragment="com.android.launcher3.settings.AppDrawerColorsFragment"
+        launcher:iconSpaceReserved="true" />
+
+    <Preference
+        android:key="pref_search"
+        android:icon="@drawable/ic_settings_search"
+        android:title="@string/search_title"
+        android:summary="@string/search_summary"
+        android:fragment="com.android.launcher3.settings.SearchFragment"
+        launcher:iconSpaceReserved="true" />
+
     <com.android.launcher3.settings.NotificationDotsPreference
         android:key="pref_icon_badging"
         android:icon="@drawable/ic_settings_notifications"

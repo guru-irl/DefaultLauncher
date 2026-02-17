@@ -15,7 +15,6 @@
  */
 package com.android.launcher3.allapps;
 
-import static com.android.launcher3.Flags.enableExpandingPauseWorkButton;
 import static com.android.launcher3.allapps.ActivityAllAppsContainerView.AdapterHolder.MAIN;
 import static com.android.launcher3.allapps.ActivityAllAppsContainerView.AdapterHolder.SEARCH;
 import static com.android.launcher3.allapps.ActivityAllAppsContainerView.AdapterHolder.WORK;
@@ -33,7 +32,10 @@ import static com.android.window.flags.Flags.predictiveBackThreeButtonNav;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
+import android.app.SearchManager;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -59,6 +61,7 @@ import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.WindowInsets;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 
 import androidx.annotation.NonNull;
@@ -68,6 +71,8 @@ import androidx.annotation.VisibleForTesting;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.graphics.ColorUtils;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 
 import com.android.launcher3.allapps.search.AppsSearchContainerLayout;
 import com.android.launcher3.DeviceProfile;
@@ -174,6 +179,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     /** {@code true} when rendered view is in search state instead of the scroll state. */
     private boolean mIsSearching;
     private boolean mRebindAdaptersAfterSearchAnimation;
+    private boolean mKeepKeyboardOnSearchExit;
     private int mNavBarScrimHeight = 0;
     private SearchRecyclerView mSearchRecyclerView;
     protected SearchAdapterProvider<?> mMainAdapterProvider;
@@ -187,6 +193,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private float mBottomSheetBackgroundAlpha = 1f;
     private int mTabsProtectionAlpha;
     @Nullable private AllAppsTransitionController mAllAppsTransitionController;
+    private ExtendedFloatingActionButton mSearchOnlineFab;
+    private String mCurrentSearchQuery;
 
     public ActivityAllAppsContainerView(Context context) {
         this(context, null);
@@ -268,6 +276,12 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mAH.set(SEARCH, new AdapterHolder(SEARCH,
                 new AlphabeticalAppsList<>(mActivityContext, null, null, null)));
 
+        // Wire search apps list to the universal search adapter provider
+        if (mMainAdapterProvider instanceof
+                com.android.launcher3.search.UniversalSearchAdapterProvider universalProvider) {
+            universalProvider.setAppsList(mAH.get(SEARCH).mAppsList);
+        }
+
         getLayoutInflater().inflate(R.layout.all_apps_content, this);
         mHeader = findViewById(R.id.all_apps_header);
         mAdditionalHeaderRows.clear();
@@ -291,6 +305,29 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             mSearchContainer.setFocusedByDefault(true);
         }
         mSearchUiManager = (SearchUiManager) mSearchContainer;
+
+        // Create "Web search" FAB — use the same M3 themed context as search result cards
+        Context materialCtx = new android.view.ContextThemeWrapper(
+                getContext(), R.style.HomeSettings_Theme);
+        materialCtx = com.google.android.material.color.DynamicColors
+                .wrapContextIfAvailable(materialCtx);
+        mSearchOnlineFab = new ExtendedFloatingActionButton(materialCtx);
+        mSearchOnlineFab.setText(R.string.search_online);
+        mSearchOnlineFab.setIconResource(R.drawable.ic_web_search);
+        // M3: use tonal elevation (0dp shadow) — the FAB background color provides elevation cue.
+        // Null the stateListAnimator to prevent the default M3 animator from adding shadow.
+        mSearchOnlineFab.setStateListAnimator(null);
+        mSearchOnlineFab.setElevation(0f);
+        mSearchOnlineFab.setVisibility(GONE);
+        mSearchOnlineFab.setOnClickListener(v -> launchWebSearch());
+        RelativeLayout.LayoutParams fabLp = new RelativeLayout.LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        fabLp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        fabLp.addRule(RelativeLayout.ALIGN_PARENT_END);
+        int fabMargin = (int) (16 * getResources().getDisplayMetrics().density);
+        fabLp.bottomMargin = fabMargin;
+        fabLp.setMarginEnd(fabMargin);
+        addView(mSearchOnlineFab, fabLp);
     }
 
     public List<AllAppsRow> getAdditionalHeaderRows() {
@@ -352,6 +389,63 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         getMainAdapterProvider().clearHighlightedItem();
         animateToSearchState(false);
         rebindAdapters();
+        updateSearchOnlineFab(null);
+    }
+
+    /**
+     * Shows the A-Z app list while keeping the search bar active (keyboard up, focused).
+     * Called when the user backspaces to empty text — the apps list is displayed but
+     * search mode is not fully exited (back key or scroll will dismiss).
+     */
+    public void showAppsWhileSearchActive() {
+        if (mSearchTransitionController.isRunning()) {
+            return;
+        }
+        if (!mIsSearching) {
+            return;
+        }
+        // Keep keyboard and search bar focus — only play the visual transition.
+        mKeepKeyboardOnSearchExit = true;
+        animateToSearchState(false);
+    }
+
+    /**
+     * Shows or hides the "Search online" FAB based on current search state and query text.
+     * Called from AppsSearchContainerLayout when search results change.
+     */
+    public void updateSearchOnlineFab(@Nullable String query) {
+        mCurrentSearchQuery = query;
+        // Show when we have a non-empty query and are in or transitioning to search mode
+        boolean inSearch = isSearching() || mSearchTransitionController.isRunning();
+        boolean show = query != null && !query.isEmpty() && inSearch;
+        if (show && mSearchOnlineFab.getVisibility() != VISIBLE) {
+            mSearchOnlineFab.setVisibility(VISIBLE);
+            mSearchOnlineFab.setScaleX(0f);
+            mSearchOnlineFab.setScaleY(0f);
+            mSearchOnlineFab.animate().scaleX(1f).scaleY(1f).setDuration(200).start();
+        } else if (!show && mSearchOnlineFab.getVisibility() == VISIBLE) {
+            mSearchOnlineFab.animate().scaleX(0f).scaleY(0f).setDuration(150)
+                    .withEndAction(() -> mSearchOnlineFab.setVisibility(GONE)).start();
+        }
+    }
+
+    private void launchWebSearch() {
+        if (mCurrentSearchQuery == null || mCurrentSearchQuery.isEmpty()) return;
+        String webApp = LauncherPrefs.get(getContext()).get(LauncherPrefs.SEARCH_WEB_APP);
+        Intent intent = new Intent(Intent.ACTION_WEB_SEARCH);
+        intent.putExtra(SearchManager.QUERY, mCurrentSearchQuery);
+        if (!"default".equals(webApp)) {
+            try {
+                ComponentName cn = ComponentName.unflattenFromString(webApp);
+                if (cn != null) {
+                    intent.setComponent(cn);
+                }
+            } catch (Exception ignored) {
+                // Fall through to system default
+            }
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(intent);
     }
 
     /**
@@ -412,11 +506,26 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                     if (goingToSearch) {
                         mSearchUiDelegate.onAnimateToSearchStateCompleted();
                     } else {
+                        // Reset animation-applied transforms before re-setup.
+                        // onProgressUpdated() sets translationY/alpha on the apps container
+                        // and header during the search transition, and these are not reset
+                        // by resetChildViewProperties() (which only resets search RV children).
+                        getAppsRecyclerViewContainer().setTranslationY(0);
+                        mHeader.setTranslationY(0);
+                        mHeader.setAlpha(1f);
+
+                        setupHeader();
                         setSearchResults(null);
                         if (mViewPager != null) {
                             mViewPager.setCurrentPage(previousPage);
                         }
-                        onActivePageChanged(previousPage);
+                        if (mKeepKeyboardOnSearchExit) {
+                            // showAppsWhileSearchActive() path: visual transition
+                            // only — keep keyboard up and search bar focused.
+                            mKeepKeyboardOnSearchExit = false;
+                        } else {
+                            onActivePageChanged(previousPage);
+                        }
                     }
                 });
     }
@@ -599,11 +708,6 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             mAH.get(AdapterHolder.MAIN).setup(mainRecyclerView, mPersonalMatcher);
             mAH.get(AdapterHolder.WORK).setup(workRecyclerView, mWorkManager.getItemInfoMatcher());
             workRecyclerView.setId(R.id.apps_list_view_work);
-            if (enableExpandingPauseWorkButton()
-                    || FeatureFlags.ENABLE_EXPANDING_PAUSE_WORK_BUTTON.get()) {
-                mAH.get(AdapterHolder.WORK).mRecyclerView.addOnScrollListener(
-                        mWorkManager.newScrollListener());
-            }
             mViewPager.getPageIndicator().setActiveMarker(AdapterHolder.MAIN);
             findViewById(R.id.tab_personal)
                     .setOnClickListener((View view) -> {
@@ -779,7 +883,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             mWorkManager.reset();
             post(() -> mAH.get(AdapterHolder.WORK).applyPadding());
         } else {
-            mWorkManager.detachWorkUtilityViews();
+            // Don't detach the work FAB — it stays visible even without tabs.
+            mWorkManager.reset();
             mViewPager = null;
         }
 
@@ -815,7 +920,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mAdditionalHeaderRows.forEach(row -> mHeader.onPluginDisconnected(row));
 
         mHeader.setVisibility(View.VISIBLE);
-        boolean tabsHidden = !mUsingTabs;
+        boolean tabsHidden = !mUsingTabs
+                || LauncherPrefs.get(getContext()).get(LauncherPrefs.DRAWER_HIDE_TABS);
         mHeader.setup(
                 mAH.get(AdapterHolder.MAIN).mRecyclerView,
                 mAH.get(AdapterHolder.WORK).mRecyclerView,
@@ -1345,6 +1451,18 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     public WindowInsets dispatchApplyWindowInsets(WindowInsets insets) {
         mNavBarScrimHeight = computeNavBarScrimHeight(insets);
         applyAdapterSideAndBottomPaddings(mActivityContext.getDeviceProfile());
+
+        // Position the search-online FAB above the IME or nav bar
+        if (mSearchOnlineFab != null) {
+            int imeBottom = insets.getInsets(WindowInsets.Type.ime()).bottom;
+            int navBottom = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
+            int fabMargin = (int) (16 * getResources().getDisplayMetrics().density);
+            RelativeLayout.LayoutParams fabLp =
+                    (RelativeLayout.LayoutParams) mSearchOnlineFab.getLayoutParams();
+            fabLp.bottomMargin = Math.max(imeBottom, navBottom) + fabMargin;
+            mSearchOnlineFab.setLayoutParams(fabLp);
+        }
+
         return super.dispatchApplyWindowInsets(insets);
     }
 
@@ -1418,9 +1536,6 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     /** Called in Launcher#bindStringCache() to update the UI when cache is updated. */
     public void updateWorkUI() {
         setDeviceManagementResources();
-        if (mWorkManager.getWorkUtilityView() != null) {
-            mWorkManager.getWorkUtilityView().updateStringFromCache();
-        }
         inflateWorkCardsIfNeeded();
     }
 
@@ -1729,7 +1844,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             mAppsList.updateItemFilter(matcher);
             mRecyclerView = (AllAppsRecyclerView) rv;
             mRecyclerView.bindFastScrollbar(mFastScroller, ALL_APPS_SCROLLER);
-            mRecyclerView.setEdgeEffectFactory(createEdgeEffectFactory());
+            mRecyclerView.setEdgeEffectFactory(createSpringBounceEdgeEffectFactory(mRecyclerView));
             mRecyclerView.setApps(mAppsList);
             mRecyclerView.setLayoutManager(mLayoutManager);
             mRecyclerView.setAdapter(mAdapter);
@@ -1751,7 +1866,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         void applyPadding() {
             if (mRecyclerView != null) {
                 int bottomOffset = 0;
-                if (isWork() && mWorkManager.getWorkUtilityView() != null) {
+                if ((isWork() || !mUsingTabs) && mWorkManager.getWorkUtilityView() != null) {
                     bottomOffset = mInsets.bottom + mWorkManager.getWorkUtilityView().getHeight();
                 } else if (isMain() && mPrivateProfileManager != null) {
                     Optional<AdapterItem> privateSpaceHeaderItem = mAppsList.getAdapterItems()

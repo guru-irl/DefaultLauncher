@@ -20,15 +20,5 @@
     android:orientation="vertical"
     android:layout_alignParentBottom="true"
     android:layout_alignParentEnd="true">
-    <ImageButton
-        android:id="@+id/work_scheduler"
-        android:layout_width="@dimen/work_scheduler_size"
-        android:layout_height="@dimen/work_scheduler_size"
-        android:layout_marginBottom="@dimen/work_scheduler_bottom_margin"
-        android:contentDescription="@string/work_scheduler_button_content_description"
-        android:elevation="@dimen/work_fab_elevation"
-        android:src="@drawable/ic_schedule"
-        android:layout_gravity="end"
-        android:background="@drawable/work_scheduler_background" />
     <include layout="@layout/work_mode_fab" />
 </com.android.launcher3.allapps.WorkUtilityView>

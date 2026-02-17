@@ -8,6 +8,13 @@
         android:title="@string/drawer_icons_category"
         launcher:iconSpaceReserved="false">
 
+        <SwitchPreference
+            android:key="pref_drawer_match_home"
+            android:title="@string/drawer_match_home_title"
+            android:summary="@string/drawer_match_home_summary"
+            android:defaultValue="true"
+            launcher:iconSpaceReserved="false" />
+
         <Preference
             android:key="pref_icon_pack"
             android:title="@string/icon_pack_title"
@@ -72,12 +79,5 @@
             launcher:iconSpaceReserved="false" />
 
     </PreferenceCategory>
-
-    <Preference
-        android:key="pref_drawer_colors"
-        android:title="@string/drawer_colors_title"
-        android:summary="@string/drawer_colors_summary"
-        android:fragment="com.android.launcher3.settings.AppDrawerColorsFragment"
-        launcher:iconSpaceReserved="false" />
 
 </androidx.preference.PreferenceScreen>

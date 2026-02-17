@@ -60,6 +60,7 @@ import static com.android.launcher3.LauncherConstants.TraceEvents.ON_NEW_INTENT_
 import static com.android.launcher3.LauncherConstants.TraceEvents.ON_RESUME_EVT;
 import static com.android.launcher3.LauncherConstants.TraceEvents.ON_START_EVT;
 import static com.android.launcher3.LauncherPrefs.FIXED_LANDSCAPE_MODE;
+import static com.android.launcher3.LauncherPrefs.SEARCH_AUTO_KEYBOARD;
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_DESKTOP;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APPLICATION;
 import static com.android.launcher3.LauncherState.ALL_APPS;
@@ -98,7 +99,9 @@ import static com.android.launcher3.logging.StatsLogManager.StatsLatencyLogger.L
 import static com.android.launcher3.model.ItemInstallQueue.FLAG_ACTIVITY_PAUSED;
 import static com.android.launcher3.model.ItemInstallQueue.FLAG_DRAG_AND_DROP;
 import static com.android.launcher3.popup.SystemShortcut.APP_INFO;
+import static com.android.launcher3.popup.SystemShortcut.CUSTOMIZE_ICON;
 import static com.android.launcher3.popup.SystemShortcut.INSTALL;
+import static com.android.launcher3.popup.SystemShortcut.UNINSTALL_APP_GENERAL;
 import static com.android.launcher3.popup.SystemShortcut.WIDGETS;
 import static com.android.launcher3.states.RotationHelper.REQUEST_LOCK;
 import static com.android.launcher3.states.RotationHelper.REQUEST_NONE;
@@ -170,6 +173,7 @@ import androidx.core.os.BuildCompat;
 import androidx.window.embedding.RuleController;
 
 import com.android.launcher3.DropTarget.DragObject;
+import com.android.launcher3.ExtendedEditText;
 import com.android.launcher3.accessibility.LauncherAccessibilityDelegate;
 import com.android.launcher3.allapps.ActivityAllAppsContainerView;
 import com.android.launcher3.allapps.AllAppsTransitionController;
@@ -1413,6 +1417,21 @@ public class Launcher extends StatefulActivity<LauncherState>
         mWorkspace.getPageIndicator().setShouldAutoHide(true);
         mWorkspace.getPageIndicator().setPaintColor(Themes.getAttrBoolean(
                 this, R.attr.isWorkspaceDarkText) ? Color.BLACK : Color.WHITE);
+
+        // Auto-show keyboard when drawer opens (if pref enabled)
+        mStateManager.addStateListener(new StateManager.StateListener<LauncherState>() {
+            @Override
+            public void onStateTransitionComplete(LauncherState finalState) {
+                if (finalState == ALL_APPS
+                        && LauncherPrefs.get(Launcher.this).get(SEARCH_AUTO_KEYBOARD)) {
+                    ExtendedEditText editText =
+                            mAppsView.getSearchUiManager().getEditText();
+                    if (editText != null) {
+                        editText.showKeyboard();
+                    }
+                }
+            }
+        });
     }
 
     /**
@@ -1643,8 +1662,12 @@ public class Launcher extends StatefulActivity<LauncherState>
 
                 if (!isInState(NORMAL)) {
                     // Only change state, if not already the same. This prevents cancelling any
-                    // animations running as part of resume
-                    mStateManager.goToState(NORMAL, mStateManager.shouldAnimateStateChange());
+                    // animations running as part of resume.
+                    // Only animate when already on home (natural gesture); returning from
+                    // another app should transition instantly to avoid a distracting
+                    // drawer-close animation.
+                    mStateManager.goToState(NORMAL,
+                            alreadyOnHome && mStateManager.shouldAnimateStateChange());
                 }
 
                 // Reset the apps view
@@ -3030,7 +3053,7 @@ public class Launcher extends StatefulActivity<LauncherState>
     }
 
     public Stream<SystemShortcut.Factory> getSupportedShortcuts() {
-        return Stream.of(APP_INFO, WIDGETS, INSTALL);
+        return Stream.of(APP_INFO, WIDGETS, CUSTOMIZE_ICON, UNINSTALL_APP_GENERAL, INSTALL);
     }
 
     /**

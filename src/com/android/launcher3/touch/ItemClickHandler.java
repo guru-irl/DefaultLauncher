@@ -52,6 +52,8 @@ import com.android.launcher3.folder.FolderIcon;
 import com.android.launcher3.logging.InstanceId;
 import com.android.launcher3.logging.InstanceIdSequence;
 import com.android.launcher3.logging.StatsLogManager;
+import com.android.launcher3.allapps.UserProfileManager;
+import com.android.launcher3.allapps.WorkProfileManager;
 import com.android.launcher3.model.data.AppInfo;
 import com.android.launcher3.model.data.AppPairInfo;
 import com.android.launcher3.model.data.FolderInfo;
@@ -103,8 +105,13 @@ public class ItemClickHandler {
             onClickFolderIcon(v);
         } else if (tag instanceof AppPairInfo) {
             onClickAppPairIcon(v);
-        } else if (tag instanceof AppInfo) {
-            startAppShortcutOrInfoActivity(v, (AppInfo) tag, launcher);
+        } else if (tag instanceof AppInfo appInfo) {
+            if (isWorkAppPaused(appInfo, launcher)) {
+                Toast.makeText(v.getContext(), R.string.work_apps_paused_title,
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            startAppShortcutOrInfoActivity(v, appInfo, launcher);
         } else if (tag instanceof LauncherAppWidgetInfo) {
             if (v instanceof PendingAppWidgetHostView) {
                 if (DEBUG) {
@@ -419,6 +426,17 @@ public class ItemClickHandler {
             FloatingIconView.fetchIcon(launcher, v, item, true /* isOpening */);
         }
         launcher.startActivitySafely(v, intent, item);
+    }
+
+    /**
+     * Returns true if the item belongs to a work profile that is currently paused.
+     */
+    private static boolean isWorkAppPaused(ItemInfo item, Launcher launcher) {
+        if (item.user == null) return false;
+        WorkProfileManager wpm = launcher.getAppsView().getWorkManager();
+        if (wpm == null) return false;
+        return wpm.getCurrentState() == UserProfileManager.STATE_DISABLED
+                && wpm.getUserMatcher().test(item.user);
     }
 
     /**

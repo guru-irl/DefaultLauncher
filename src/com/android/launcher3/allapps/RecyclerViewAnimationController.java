@@ -33,6 +33,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Interpolator;
 
+
 import com.android.launcher3.BubbleTextView;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.model.data.ItemInfo;
@@ -204,8 +205,10 @@ public class RecyclerViewAnimationController {
         // Avoid allocating hardware layers for alpha changes.
         child.forceHasOverlappingRendering(false);
         child.setPivotY(0);
-        if (getAnimationProgress() > 0 && getAnimationProgress() < 1) {
-            // Before the child is rendered, apply the animation including it to avoid flicker.
+        if (mAnimator != null) {
+            // Animation is active — apply current state to the new child to avoid flicker.
+            // The original AOSP condition (progress > 0 && < 1) misses boundary values
+            // (e.g. progress=1.0 at enter-search start), causing a one-frame flash.
             onProgressUpdated(getAnimationProgress());
         } else {
             // Apply default states without processing the full layout.

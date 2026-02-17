@@ -150,6 +150,7 @@ Implementation details for each feature are tracked in [`docs/changes/`](docs/ch
 
 - [AOSP Launcher3](https://android.googlesource.com/platform/packages/apps/Launcher3/): the foundation
 - [yuchuangu85/Launcher3](https://github.com/yuchuangu85/Launcher3): Gradle port with prebuilt framework stubs
+- [Kvaesitso](https://github.com/MM2-0/Kvaesitso): inspiration for the universal search system
 
 ## License
 

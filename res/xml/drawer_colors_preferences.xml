@@ -2,10 +2,10 @@
 <androidx.preference.PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:launcher="http://schemas.android.com/apk/res-auto"
-    android:title="@string/drawer_colors_title">
+    android:title="@string/colors_title">
 
     <PreferenceCategory
-        android:title="@string/drawer_colors_general_category"
+        android:title="@string/colors_drawer_category"
         launcher:iconSpaceReserved="false">
 
         <com.android.launcher3.settings.ColorPickerPreference
@@ -23,11 +23,6 @@
             launcher:iconSpaceReserved="false" />
 
         <com.android.launcher3.settings.ColorPickerPreference
-            android:key="pref_drawer_search_bg_color"
-            android:title="@string/drawer_search_bg_color_title"
-            launcher:iconSpaceReserved="false" />
-
-        <com.android.launcher3.settings.ColorPickerPreference
             android:key="pref_drawer_scrollbar_color"
             android:title="@string/drawer_scrollbar_color_title"
             launcher:iconSpaceReserved="false" />
@@ -35,8 +30,19 @@
     </PreferenceCategory>
 
     <PreferenceCategory
+        android:title="@string/colors_search_category"
+        launcher:iconSpaceReserved="false">
+
+        <com.android.launcher3.settings.ColorPickerPreference
+            android:key="pref_drawer_search_bg_color"
+            android:title="@string/drawer_search_bg_color_title"
+            launcher:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
         android:key="category_tabs"
-        android:title="@string/drawer_colors_tabs_category"
+        android:title="@string/colors_tabs_category"
         launcher:iconSpaceReserved="false">
 
         <com.android.launcher3.settings.ColorPickerPreference
