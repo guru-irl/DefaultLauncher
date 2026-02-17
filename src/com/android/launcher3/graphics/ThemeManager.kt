@@ -77,7 +77,8 @@ constructor(
         receiver.registerPkgActions("android", ACTION_OVERLAY_CHANGED)
 
         val keys = (iconControllerFactory.prefKeys + PREF_ICON_SHAPE + LauncherPrefs.ICON_SIZE_SCALE
-            + PREF_ICON_SHAPE_DRAWER + LauncherPrefs.ICON_SIZE_SCALE_DRAWER)
+            + PREF_ICON_SHAPE_DRAWER + LauncherPrefs.ICON_SIZE_SCALE_DRAWER
+            + LauncherPrefs.APPLY_ADAPTIVE_SHAPE + LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER)
 
         val keysArray = keys.toTypedArray()
         val prefKeySet = keys.map { it.sharedPrefKey }
@@ -117,10 +118,21 @@ constructor(
     fun removeChangeListener(listener: ThemeChangeListener) = listeners.remove(listener)
 
     private fun parseIconState(oldState: IconState?): IconState {
-        val shapeModel =
+        // Migrate "none" shape to adaptive-off + clear shape pref
+        migrateNoneShape(PREF_ICON_SHAPE, LauncherPrefs.APPLY_ADAPTIVE_SHAPE)
+        migrateNoneShape(PREF_ICON_SHAPE_DRAWER, LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER)
+
+        val applyAdaptive = prefs.get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE)
+        val applyAdaptiveDrawer = prefs.get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER)
+
+        // Home shape: if adaptive is off, use NONE shape; otherwise use the selected shape
+        val shapeModel = if (!applyAdaptive) {
+            ShapesProvider.iconShapes.firstOrNull { it.key == ShapesProvider.NONE_KEY }
+        } else {
             prefs.get(PREF_ICON_SHAPE).let { shapeOverride ->
                 ShapesProvider.iconShapes.firstOrNull { it.key == shapeOverride }
             }
+        }
         val iconMask =
             when {
                 shapeModel != null -> shapeModel.pathString
@@ -145,10 +157,13 @@ constructor(
             .coerceIn(0.5f, 1.0f)
 
         // Drawer-specific shape/size
-        val drawerShapeModel =
+        val drawerShapeModel = if (!applyAdaptiveDrawer) {
+            ShapesProvider.iconShapes.firstOrNull { it.key == ShapesProvider.NONE_KEY }
+        } else {
             prefs.get(PREF_ICON_SHAPE_DRAWER).let { shapeOverride ->
                 ShapesProvider.iconShapes.firstOrNull { it.key == shapeOverride }
             }
+        }
         val iconMaskDrawer =
             when {
                 drawerShapeModel != null -> drawerShapeModel.pathString
@@ -178,7 +193,19 @@ constructor(
             iconScaleDrawer = drawerShapeModel?.iconScale ?: 1f,
             iconSizeScaleDrawer = iconSizeScaleDrawer,
             iconShapeDrawer = iconShapeDrawer,
+            applyAdaptiveShape = applyAdaptive,
+            applyAdaptiveShapeDrawer = applyAdaptiveDrawer,
         )
+    }
+
+    /** Migrate "none" shape to adaptive-off + clear shape pref (one-time). */
+    private fun migrateNoneShape(shapePref: com.android.launcher3.ConstantItem<String>,
+                                  adaptivePref: com.android.launcher3.ConstantItem<Boolean>) {
+        val currentShape = prefs.get(shapePref)
+        if (currentShape == ShapesProvider.NONE_KEY) {
+            prefs.put(adaptivePref, false)
+            prefs.put(shapePref, "")
+        }
     }
 
     data class IconState(
@@ -196,8 +223,11 @@ constructor(
         val iconScaleDrawer: Float = 1f,
         val iconSizeScaleDrawer: Float = 1f,
         val iconShapeDrawer: ShapeDelegate = iconShape,
+        // Adaptive shape flags
+        val applyAdaptiveShape: Boolean = true,
+        val applyAdaptiveShapeDrawer: Boolean = true,
     ) {
-        fun toUniqueId() = "${iconMask.hashCode()},$themeCode,$iconSizeScale,$nightMode"
+        fun toUniqueId() = "${iconMask.hashCode()},$themeCode,$iconSizeScale,$nightMode,$applyAdaptiveShape,$applyAdaptiveShapeDrawer"
     }
 
     /** Interface for receiving theme change events */

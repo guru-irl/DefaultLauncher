@@ -131,18 +131,27 @@ public class AppsSearchContainerLayout extends ExtendedEditText
         refreshSearchBarColor();
     }
 
-    /** Re-reads custom search bar background color from preferences. */
+    /** Re-reads custom search bar background color and opacity from preferences. */
     public void refreshSearchBarColor() {
-        String searchBgName = LauncherPrefs.get(getContext())
-                .get(LauncherPrefs.DRAWER_SEARCH_BG_COLOR);
+        LauncherPrefs prefs = LauncherPrefs.get(getContext());
+        String searchBgName = prefs.get(LauncherPrefs.DRAWER_SEARCH_BG_COLOR);
+        int opacity = prefs.get(LauncherPrefs.DRAWER_SEARCH_BG_OPACITY);
         int searchBgColor = AllAppsColorResolver.resolveColorByName(getContext(), searchBgName);
-        if (searchBgColor != 0) {
+        if (searchBgColor != 0 || opacity < 100) {
+            // Resolve the base color: custom or default
+            int baseColor = searchBgColor != 0 ? searchBgColor
+                    : getContext().getColor(
+                            com.android.launcher3.R.color.materialColorSurfaceContainer);
+            if (opacity < 100) {
+                baseColor = androidx.core.graphics.ColorUtils.setAlphaComponent(
+                        baseColor, (int) (opacity / 100f * 255));
+            }
             android.graphics.drawable.GradientDrawable searchBg =
                     new android.graphics.drawable.GradientDrawable();
             searchBg.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
             searchBg.setCornerRadius(TypedValue.applyDimension(
                     TypedValue.COMPLEX_UNIT_DIP, 28, getResources().getDisplayMetrics()));
-            searchBg.setColor(searchBgColor);
+            searchBg.setColor(baseColor);
             setBackground(searchBg);
         } else if (mOriginalBackground != null) {
             setBackground(mOriginalBackground);

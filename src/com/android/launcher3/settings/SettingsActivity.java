@@ -31,6 +31,7 @@ import android.app.role.RoleManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
@@ -101,6 +102,23 @@ public class SettingsActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.settings_activity);
 
+        // Set page background: cards-brighter-than-bg pattern needs different tokens per mode
+        // Light: surfaceContainer (darker) vs cards surface (brighter) → ~12 unit diff
+        // Dark: surface (darker) vs cards surfaceContainer (brighter) → ~12 unit diff
+        boolean isDark = (getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        int bgColor = com.android.launcher3.util.Themes.getAttrColor(this, isDark
+                ? com.google.android.material.R.attr.colorSurface
+                : com.google.android.material.R.attr.colorSurfaceContainer);
+        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(bgColor));
+        getWindow().getDecorView().setBackgroundColor(bgColor);
+
+        // Ensure status bar icons are readable against the background
+        androidx.core.view.WindowInsetsControllerCompat insetsController =
+                WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        insetsController.setAppearanceLightStatusBars(!isDark);
+        insetsController.setAppearanceLightNavigationBars(!isDark);
+
         setSupportActionBar(findViewById(R.id.action_bar));
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
@@ -136,6 +154,8 @@ public class SettingsActivity extends AppCompatActivity
                 collapsingToolbar.setLayoutParams(lp);
                 collapsingToolbar.setExpandedTitleGravity(
                         Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
+                collapsingToolbar.setExpandedTitleMarginStart(0);
+                collapsingToolbar.setExpandedTitleMarginEnd(0);
             } else {
                 if (!TextUtils.isEmpty(subTitle)) {
                     getSupportActionBar().setTitle(subTitle);
@@ -158,6 +178,8 @@ public class SettingsActivity extends AppCompatActivity
                 collapsingToolbar.setLayoutParams(lp);
                 collapsingToolbar.setExpandedTitleGravity(
                         Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
+                collapsingToolbar.setExpandedTitleMarginStart(0);
+                collapsingToolbar.setExpandedTitleMarginEnd(0);
             }
             if (intent.hasExtra(EXTRA_FRAGMENT_ROOT_KEY) || intent.hasExtra(EXTRA_FRAGMENT_ARGS)
                     || intent.hasExtra(EXTRA_FRAGMENT_HIGHLIGHT_KEY)) {

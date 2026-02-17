@@ -50,35 +50,61 @@ Each is a JSON object mapping flattened `ComponentName` strings to override obje
 {
   "com.android.chrome/com.google.android.apps.chrome.Main": {
     "pack": "org.niceiconpack.flavors",
-    "drawable": "chrome_alt_2"
+    "drawable": "chrome_alt_2",
+    "shape": "__follow_global__",
+    "size": "__follow_global__",
+    "adaptive": "__follow_global__"
   },
   "com.whatsapp/.Main": {
-    "pack": "",
-    "drawable": ""
+    "pack": "__system_default__",
+    "drawable": "__follow_global__",
+    "shape": "circle",
+    "size": "0.9",
+    "adaptive": "true"
   }
 }
 ```
 
 ### `IconOverride` Data Class
 
+Uses sentinel constants and enums instead of empty strings to disambiguate override states:
+
 ```java
 public static class IconOverride {
-    public final String packPackage;   // icon pack package, "" = system default
-    public final String drawableName;  // specific drawable, "" = auto-resolve
+    public static final String FOLLOW_GLOBAL = "__follow_global__";
 
-    public boolean isSystemDefault()     // packPackage is empty
-    public boolean hasSpecificDrawable() // drawableName is non-empty
+    public enum PackSource { FOLLOW_GLOBAL, SYSTEM_DEFAULT, CUSTOM }
+    public enum AdaptiveOverride { FOLLOW_GLOBAL, ON, OFF }
+
+    public final String packPackage;    // sentinel or real package name
+    public final String drawableName;   // FOLLOW_GLOBAL or specific drawable
+    public final String shapeKey;       // FOLLOW_GLOBAL or shape key
+    public final String sizeScale;      // FOLLOW_GLOBAL or "0.8", "1.0", etc.
+    public final String adaptiveShape;  // AdaptiveOverride key
+
+    public PackSource getPackSource()
+    public AdaptiveOverride getAdaptiveOverride()
+    public boolean isSystemDefault()      // PackSource.SYSTEM_DEFAULT
+    public boolean hasPackOverride()      // PackSource.CUSTOM
+    public boolean isFollowGlobalPack()   // PackSource.FOLLOW_GLOBAL
+    public boolean hasSpecificDrawable()  // drawableName != FOLLOW_GLOBAL
+    public boolean hasShapeOverride()     // shapeKey != FOLLOW_GLOBAL
+    public boolean hasSizeOverride()      // sizeScale != FOLLOW_GLOBAL
+    public boolean hasAdaptiveOverride()  // AdaptiveOverride != FOLLOW_GLOBAL
+    public boolean hasAnyRenderOverride() // shape || size || adaptive
 }
 ```
 
-**Override semantics:**
+**Override states:**
 
-| `packPackage` | `drawableName` | Meaning |
-|---------------|----------------|---------|
-| absent (null) | — | No override: use global pack, auto-resolve |
-| `""` | `""` | Use system default icon (ignore global pack) |
-| `"com.pack"` | `""` | Use this pack, auto-resolve by component name |
-| `"com.pack"` | `"ic_name"` | Use this exact drawable from this pack |
+| State | `packPackage` | `drawableName` | Render fields | Created by |
+|-------|---------------|----------------|---------------|------------|
+| No override | *(null — no entry)* | | | Follow global / reset |
+| System default | `__system_default__` | `__follow_global__` | may have | System default button |
+| Pack override | `"com.pack"` | `__follow_global__` or `"icon_y"` | may have | Icon pack picker |
+| Render-only | `__follow_global__` | `__follow_global__` | has at least one | Match-global OFF |
+
+**Backward compatibility:** `fromJson()` migrates legacy empty strings — empty pack with no other data becomes `SYSTEM_DEFAULT`, empty pack with shape/size/adaptive becomes `FOLLOW_GLOBAL`.
 
 ### Singleton Pattern
 
@@ -111,53 +137,44 @@ Two `HashMap<String, IconOverride>` maps are loaded lazily from JSON on first ac
 
 ## Icon Resolution Pipeline
 
-Per-app overrides are checked **before** the global icon pack in both resolution paths.
+Per-app overrides are checked **before** the global icon pack in both resolution paths. Overrides with per-app render settings (shape/size/adaptive) are resolved through dedicated factories that apply the per-app settings with global fallbacks.
 
-### Home Screen: `LauncherIconProvider.getIcon()`
+### Home Screen
 
-**File:** [`src/.../icons/LauncherIconProvider.java`](../src/com/android/launcher3/icons/LauncherIconProvider.java)
+Two layers of per-app resolution:
 
-The `getIcon(ComponentInfo, int)` method (and its `ApplicationInfo` overload) follows this resolution order:
+**1. Icon cache layer:** `LauncherIconProvider.getIcon()` checks `getHomeOverride()` for pack overrides, resolving the icon from the override pack instead of the global pack. This provides the base icon bitmap stored in the icon cache.
+
+**2. Render layer:** `PerAppHomeIconResolver.getHomeIcon()` checks for per-app overrides and re-renders the icon through `PerAppIconFactory` with per-app shape/size/adaptive settings. Called from `BubbleTextView` at display time for `DISPLAY_WORKSPACE`.
 
 ```
-1. Per-app override check
-   └─ overrideMgr.getHomeOverride(componentName)
-      ├─ isSystemDefault() → super.getIcon() (skip all packs)
-      ├─ hasSpecificDrawable() → pack.getDrawableForEntry(name)
-      └─ pack only → resolveFromPack(overridePack, cn)
-
-2. Global icon pack (existing logic)
-   └─ packMgr.getCurrentPack()
-      ├─ Calendar icon check
-      ├─ Component-mapped icon
-      ├─ Fallback mask
-      └─ System icon
+BubbleTextView (DISPLAY_WORKSPACE)
+└─ PerAppHomeIconResolver.getHomeIcon()
+   ├─ No override → null (use cached icon)
+   └─ Has override → resolveIcon() + PerAppIconFactory
+      ├─ SYSTEM_DEFAULT → pm.getActivityIcon()
+      ├─ CUSTOM → pack resolution (calendar → component → fallback)
+      └─ FOLLOW_GLOBAL → global home pack resolution
+      → PerAppIconFactory(override, globalState)
+         ├─ Effective adaptive = per-app ?? global
+         ├─ Effective shape = per-app ?? global
+         ├─ Effective size = per-app ?? global
+         → FastBitmapDrawable
 ```
-
-The extracted helper `resolveFromPack(IconPack, ComponentName, PackageManager, int, Supplier<Drawable>)` encapsulates the calendar → component → fallback → system chain and is shared between the override path and the global pack path.
-
-**System state hash:**
-
-```java
-public String updateSystemState(String systemState) {
-    return systemState + "," + packId + ",shape:" + shapeKey
-            + ",perapp:" + overrideMgr.getOverridesHash();
-}
-```
-
-This ensures icons with per-app overrides are not served from stale cache entries.
 
 ### App Drawer: `DrawerIconResolver.getDrawerIcon()`
 
 **File:** [`src/.../icons/DrawerIconResolver.java`](../src/com/android/launcher3/icons/DrawerIconResolver.java)
 
 ```
-1. Per-app drawer override check
+1. Per-app drawer override (three-way branch)
    └─ overrideMgr.getDrawerOverride(componentName)
-      ├─ isSystemDefault() → system icon via DrawerIconFactory
-      ├─ hasSpecificDrawable() → pack.getDrawableForEntry(name)
-      └─ pack only → pack.getIconForComponent(cn)
-      → create BitmapInfo via DrawerIconFactory → cache in LRU → return
+      ├─ SYSTEM_DEFAULT → pm.getActivityIcon()
+      ├─ CUSTOM → resolve from specific pack (calendar → component → fallback)
+      └─ FOLLOW_GLOBAL → resolve from global drawer pack
+   → Per-app render override?
+      ├─ Yes → PerAppDrawerIconFactory(override, globalState)
+      └─ No → DrawerIconFactory(globalState)
 
 2. Match-home check
    └─ if DRAWER_MATCH_HOME is true → return null (use home icon)
@@ -244,25 +261,28 @@ A `PreferenceFragmentCompat` launched via `SettingsActivity`'s subpage pattern. 
 
 ### Preferences (Programmatic)
 
-Built in `onCreatePreferences()` rather than from XML:
+Built in `onCreatePreferences()` rather than from XML. Two sections (home + drawer), each with:
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `customize_home_icon` | Preference + icon widget | Home screen icon preview + override summary |
-| `customize_drawer_icon` | Preference + icon widget | Drawer icon preview + override summary |
-| `customize_reset` | Preference | Clears both overrides |
-| `customize_footer` | Preference | Component ID (10sp, centered, 50% alpha, `"no_card"` tag) |
+| `customize_*_icon` | Preference + icon widget | Icon preview with factory-rendered shape |
+| `customize_*_match_global` | SwitchPreferenceCompat | Toggle render override controls |
+| `customize_*_adaptive` | SwitchPreferenceCompat | Apply adaptive icon shape |
+| `customize_*_shape` | Preference | Per-app shape picker |
+| `customize_*_size` | Preference (toggle layout) | Per-app size with inline presets |
+| `customize_*_reset` | Preference | Reset this section's override |
+| `customize_footer` | Preference | Component ID (10sp, centered, `"no_card"` tag) |
 
 ### Icon Preview Loading
 
-Each icon row uses `R.layout.preference_icon_widget` — a `FrameLayout` containing a `ProgressBar` (loading spinner) and an `ImageView` (icon preview).
+Each icon row uses `R.layout.preference_icon_widget`. Previews are loaded via `OnChildAttachStateChangeListener` and use the same factories as production rendering:
 
-Previews are loaded via `OnChildAttachStateChangeListener` on the RecyclerView:
-
-1. Identify which preference the row belongs to via `ViewHolder.getBindingAdapterPosition()` → `getPreferenceScreen().getPreference(pos)`
+1. Identify home/drawer via keyed tag (`row.setTag(R.id.app_icon_preview, isHome)`) or adapter position fallback
 2. Show spinner, hide stale preview
-3. On `MODEL_EXECUTOR`: resolve the correct icon via `resolvePreviewIcon()`
+3. On `MODEL_EXECUTOR`: `resolveRawIcon()` → `PerAppIconFactory`/`PerAppDrawerIconFactory` → `BitmapInfo.newIcon()`
 4. Post to main thread: set drawable, hide spinner
+
+The tag-based approach survives adapter position shifts caused by visibility changes (e.g., after reset hides several prefs). Tags are cleared in `onChildViewDetachedFromWindow` to prevent stale data on recycled views.
 
 ### Effective Pack Resolution
 
@@ -521,16 +541,19 @@ The component ID footer in `AppCustomizeFragment` is styled programmatically:
 | File | Role |
 |------|------|
 | **Data layer** | |
-| `PerAppIconOverrideManager.java` | JSON-backed singleton for per-app overrides (home + drawer) |
-| `IconPack.java` | `getAllIcons()`, `IconCategory`/`IconEntry`, `getDrawableNameForComponent()` |
-| `LauncherPrefs.kt` | `DRAWER_MATCH_HOME` preference |
+| `PerAppIconOverrideManager.java` | JSON-backed singleton with `PackSource`/`AdaptiveOverride` enums |
+| `IconPack.java` | `getAllIcons()`, `IconCategory`/`IconEntry`, `isAdaptivePack()` |
+| `LauncherPrefs.kt` | `DRAWER_MATCH_HOME`, `APPLY_ADAPTIVE_SHAPE`, `APPLY_ADAPTIVE_SHAPE_DRAWER` |
 | **Resolution layer** | |
 | `LauncherIconProvider.java` | Home icon resolution with per-app override check |
-| `DrawerIconResolver.java` | Drawer icon resolution with per-app override + match-home check |
+| `PerAppHomeIconResolver.java` | Per-app home icon rendering with `PerAppIconFactory` |
+| `DrawerIconResolver.java` | Drawer icon resolution with three-way per-app branch + `PerAppDrawerIconFactory` |
+| `BubbleTextView.java` | `DISPLAY_WORKSPACE` per-app icon rendering hook |
+| `ThemeManager.kt` | Adaptive shape toggle, `IconState` with drawer-specific fields |
 | **UI layer** | |
-| `AppCustomizeFragment.java` | Per-app customize preferences screen |
+| `AppCustomizeFragment.java` | Per-app customize with shape/size/adaptive controls |
 | `PerAppIconSheet.java` | Two-page bottom sheet (pack picker + icon grid) |
-| `IconSettingsHelper.java` | `showPerAppPackDialog()` utility (also used standalone) |
+| `IconSettingsHelper.java` | Shared helpers: size toggle, shape picker, `ShapePreviewDrawable` |
 | `IconPickerFragment.java` | Standalone icon picker fragment (kept for reference) |
 | **Entry points** | |
 | `SystemShortcut.java` | `CUSTOMIZE_ICON` + `UNINSTALL_APP_GENERAL` factories |

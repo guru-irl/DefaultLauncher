@@ -8,7 +8,7 @@
         android:title="@string/drawer_icons_category"
         launcher:iconSpaceReserved="false">
 
-        <SwitchPreference
+        <androidx.preference.SwitchPreferenceCompat
             android:key="pref_drawer_match_home"
             android:title="@string/drawer_match_home_title"
             android:summary="@string/drawer_match_home_summary"
@@ -19,6 +19,13 @@
             android:key="pref_icon_pack"
             android:title="@string/icon_pack_title"
             android:summary="@string/icon_pack_default"
+            launcher:iconSpaceReserved="false" />
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:key="pref_apply_adaptive_shape_drawer"
+            android:title="@string/apply_adaptive_shape_title"
+            android:summary="@string/apply_adaptive_shape_summary"
+            android:defaultValue="true"
             launcher:iconSpaceReserved="false" />
 
         <Preference
@@ -32,6 +39,11 @@
             android:title="@string/icon_size_title"
             android:summary="@string/icon_size_default"
             android:layout="@layout/preference_icon_size"
+            launcher:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="pref_reset_all_custom_icons"
+            android:title="@string/reset_all_custom_icons"
             launcher:iconSpaceReserved="false" />
 
     </PreferenceCategory>
@@ -49,7 +61,7 @@
             launcher:showSeekBarValue="true"
             launcher:iconSpaceReserved="false" />
 
-        <SwitchPreference
+        <androidx.preference.SwitchPreferenceCompat
             android:key="pref_enable_two_line_toggle"
             android:title="@string/allapps_twoline_title"
             android:summary="@string/allapps_twoline_summary"
@@ -71,7 +83,7 @@
             launcher:showSeekBarValue="true"
             launcher:iconSpaceReserved="false" />
 
-        <SwitchPreference
+        <androidx.preference.SwitchPreferenceCompat
             android:key="pref_drawer_hide_tabs"
             android:title="@string/drawer_hide_tabs_title"
             android:summary="@string/drawer_hide_tabs_summary"

@@ -188,10 +188,9 @@ public class UniversalSearchAdapterProvider extends SearchAdapterProvider<Activi
         Chip chipFiles = view.findViewById(R.id.chip_files);
         Chip chipTools = view.findViewById(R.id.chip_tools);
 
-        // Set chip background: transparent when unchecked, colorSecondaryContainer when checked.
-        // M3 Filter Chip style handles outline (stroke when unchecked, no stroke when checked).
+        // Set chip background: transparent when unchecked, primaryContainer when checked.
         int checkedColor = MaterialColors.getColor(
-                view, com.google.android.material.R.attr.colorSecondaryContainer,
+                view, com.google.android.material.R.attr.colorPrimaryContainer,
                 Color.TRANSPARENT);
         ColorStateList chipBg = new ColorStateList(
                 new int[][] { { android.R.attr.state_checked }, {} },
