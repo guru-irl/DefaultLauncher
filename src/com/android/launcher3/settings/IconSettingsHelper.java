@@ -99,6 +99,7 @@ public class IconSettingsHelper {
         Context ctx = fragment.getContext();
         if (ctx == null) return;
 
+        mgr.refreshPackList();
         Map<String, IconPack> packs = mgr.getInstalledPacks();
         PackageManager pm = ctx.getPackageManager();
 
@@ -451,6 +452,7 @@ public class IconSettingsHelper {
         Context ctx = fragment.getContext();
         if (ctx == null) return;
 
+        mgr.refreshPackList();
         Map<String, IconPack> packs = mgr.getInstalledPacks();
         PackageManager pm = ctx.getPackageManager();
         float density = ctx.getResources().getDisplayMetrics().density;

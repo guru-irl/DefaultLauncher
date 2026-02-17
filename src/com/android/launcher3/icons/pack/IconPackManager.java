@@ -29,9 +29,13 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.dagger.ApplicationContext;
 import com.android.launcher3.dagger.LauncherAppSingleton;
+import com.android.launcher3.graphics.ThemeManager;
+import com.android.launcher3.icons.DrawerIconResolver;
+import com.android.launcher3.icons.PerAppHomeIconResolver;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -77,6 +81,16 @@ public class IconPackManager {
         filter.addDataScheme("package");
         mContext.registerReceiver(new IconPackReceiver(this), filter,
                 Context.RECEIVER_EXPORTED);
+
+        // Re-render icon pack icons when the theme changes (light↔dark)
+        ThemeManager themeManager = ThemeManager.INSTANCE.get(mContext);
+        themeManager.addChangeListener(() -> {
+            invalidate();
+            DrawerIconResolver.getInstance().invalidate();
+            PerAppHomeIconResolver.getInstance().invalidate();
+            LauncherAppState.INSTANCE.get(mContext).getIconCache().clearAllIcons();
+            LauncherAppState.INSTANCE.get(mContext).getModel().forceReload();
+        });
     }
 
     /** Discover all installed icon packs. Result is cached until invalidated. */
@@ -239,6 +253,11 @@ public class IconPackManager {
     public synchronized List<Drawable> getCachedPreviews(String packageName) {
         if (mPreviewCache == null) return null;
         return mPreviewCache.get(packageName);
+    }
+
+    /** Clear only the installed packs cache so the next getInstalledPacks() re-queries. */
+    public synchronized void refreshPackList() {
+        mInstalledPacks = null;
     }
 
     /** Clear cached state. Call on pack change or pack uninstall. */
