@@ -72,6 +72,8 @@ public class RecyclerViewAnimationController {
     protected final ActivityAllAppsContainerView<?> mAllAppsContainerView;
     protected ObjectAnimator mAnimator = null;
     private float mAnimatorProgress = 1f;
+    /** Set during cancel→restart to skip redundant {@link #resetChildViewProperties()}. */
+    private boolean mImmediateRestart;
 
     public RecyclerViewAnimationController(ActivityAllAppsContainerView<?> allAppsContainerView) {
         mAllAppsContainerView = allAppsContainerView;
@@ -91,6 +93,8 @@ public class RecyclerViewAnimationController {
         boolean appRowComplete = false;
         Integer top = null;
         AllAppsRecyclerView allAppsRecyclerView = getRecyclerView();
+        List<BaseAllAppsAdapter.AdapterItem> adapterItems =
+                allAppsRecyclerView.getApps().getAdapterItems();
 
         for (int i = 0; i < allAppsRecyclerView.getChildCount(); i++) {
             View currentView = allAppsRecyclerView.getChildAt(i);
@@ -101,13 +105,11 @@ public class RecyclerViewAnimationController {
                 top = currentView.getTop();
             }
             int adapterPosition = allAppsRecyclerView.getChildAdapterPosition(currentView);
-            List<BaseAllAppsAdapter.AdapterItem> allAppsAdapters = allAppsRecyclerView.getApps()
-                    .getAdapterItems();
-            if (adapterPosition < 0 || adapterPosition >= allAppsAdapters.size()) {
+            if (adapterPosition < 0 || adapterPosition >= adapterItems.size()) {
                 continue;
             }
             BaseAllAppsAdapter.AdapterItem adapterItemAtPosition =
-                    allAppsAdapters.get(adapterPosition);
+                    adapterItems.get(adapterPosition);
             int spanIndex = getSpanIndex(allAppsRecyclerView, adapterPosition);
             appRowComplete |= appRowHeight > 0 && spanIndex == 0;
 
@@ -142,8 +144,7 @@ public class RecyclerViewAnimationController {
 
                 // Apply background alpha to decorator if possible.
                 setAdjustedAdapterItemDecorationBackgroundAlpha(
-                        allAppsRecyclerView.getApps().getAdapterItems().get(adapterPosition),
-                        numItemsAnimated);
+                        adapterItems.get(adapterPosition), numItemsAnimated);
 
                 // Apply background alpha to view's background (e.g. for Search Edu card).
                 if (background != null) {
@@ -181,7 +182,9 @@ public class RecyclerViewAnimationController {
     protected void animateToState(boolean expand, long duration, Runnable onEndRunnable) {
         float targetProgress = expand ? 0 : 1;
         if (mAnimator != null) {
+            mImmediateRestart = true;
             mAnimator.cancel();
+            mImmediateRestart = false;
         }
         mAnimator = ObjectAnimator.ofFloat(this, PROGRESS, targetProgress);
 
@@ -192,7 +195,9 @@ public class RecyclerViewAnimationController {
 
         mAnimator.addListener(forEndCallback(() -> {
             mAnimator = null;
-            resetChildViewProperties();
+            if (!mImmediateRestart) {
+                resetChildViewProperties();
+            }
         }));
         mAnimator.setDuration(duration).setInterpolator(timeInterpolator);
         mAnimator.addListener(forSuccessCallback(onEndRunnable));

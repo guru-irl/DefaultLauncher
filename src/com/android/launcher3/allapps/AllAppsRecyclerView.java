@@ -71,7 +71,7 @@ public class AllAppsRecyclerView extends FastScrollRecyclerView {
     private static final boolean DEBUG_LATENCY = Utilities.isPropertyEnabled(SEARCH_LOGGING);
 
     /** Fling velocity multiplier for snappier scroll feel. */
-    private static final float FLING_VELOCITY_SCALE = 1.15f;
+    private static final float FLING_VELOCITY_SCALE = 1.3f;
     private Consumer<View> mChildAttachedConsumer;
 
     protected final int mNumAppsPerRow;

@@ -18,9 +18,10 @@ package com.android.launcher3.allapps;
 
 import static android.view.View.VISIBLE;
 
-import static com.android.app.animation.Interpolators.DECELERATE_1_7;
+import static com.android.app.animation.Interpolators.EMPHASIZED;
 import static com.android.app.animation.Interpolators.INSTANT;
 import static com.android.app.animation.Interpolators.clampToProgress;
+import static com.android.launcher3.anim.AnimatorListeners.forEndCallback;
 
 import android.animation.TimeInterpolator;
 import android.view.View;
@@ -32,15 +33,18 @@ import com.android.launcher3.R;
 public class SearchTransitionController extends RecyclerViewAnimationController {
 
     // Interpolator when the user taps the QSB while already in All Apps.
-    private static final Interpolator INTERPOLATOR_WITHIN_ALL_APPS = DECELERATE_1_7;
+    private static final Interpolator INTERPOLATOR_WITHIN_ALL_APPS = EMPHASIZED;
     // Interpolator when the user taps the QSB from home screen, so transition to all apps is
     // happening simultaneously.
     private static final Interpolator INTERPOLATOR_TRANSITIONING_TO_ALL_APPS = INSTANT;
 
     private boolean mSkipNextAnimationWithinAllApps;
+    private final int mTabsMarginTop;
 
     public SearchTransitionController(ActivityAllAppsContainerView<?> allAppsContainerView) {
         super(allAppsContainerView);
+        mTabsMarginTop = allAppsContainerView.getResources()
+                .getDimensionPixelOffset(R.dimen.all_apps_tabs_margin_top);
     }
 
     /**
@@ -56,11 +60,26 @@ public class SearchTransitionController extends RecyclerViewAnimationController 
     @Override
     protected void animateToState(boolean goingToSearch, long duration, Runnable onEndRunnable) {
         super.animateToState(goingToSearch, duration, onEndRunnable);
-        mAllAppsContainerView.getFloatingHeaderView().setFloatingRowsCollapsed(goingToSearch);
-        mAllAppsContainerView.getFloatingHeaderView().setVisibility(VISIBLE);
-        mAllAppsContainerView.getFloatingHeaderView().maybeSetTabVisibility(VISIBLE);
-        mAllAppsContainerView.getAppsRecyclerViewContainer().setVisibility(VISIBLE);
+
+        FloatingHeaderView headerView = mAllAppsContainerView.getFloatingHeaderView();
+        View appsContainer = mAllAppsContainerView.getAppsRecyclerViewContainer();
+
+        headerView.setFloatingRowsCollapsed(true);
+        headerView.setVisibility(VISIBLE);
+        headerView.maybeSetTabVisibility(VISIBLE);
+        appsContainer.setVisibility(VISIBLE);
         getRecyclerView().setVisibility(VISIBLE);
+
+        // GPU-accelerated transforms for views animated with translationY + alpha.
+        // Set AFTER super so the previous animation's end callback doesn't clear them.
+        if (mAnimator != null) {
+            headerView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            appsContainer.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            mAnimator.addListener(forEndCallback(() -> {
+                headerView.setLayerType(View.LAYER_TYPE_NONE, null);
+                appsContainer.setLayerType(View.LAYER_TYPE_NONE, null);
+            }));
+        }
     }
 
     @Override
@@ -90,8 +109,7 @@ public class SearchTransitionController extends RecyclerViewAnimationController 
             float searchProgress = 1f - searchToAzProgress;
             appsTranslationY += (int) (searchProgress * (
                     headerView.getTabsAdditionalPaddingBottom()
-                            + mAllAppsContainerView.getResources().getDimensionPixelOffset(
-                                    R.dimen.all_apps_tabs_margin_top)
+                            + mTabsMarginTop
                             - headerView.getPaddingTop()));
         }
 

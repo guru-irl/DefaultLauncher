@@ -124,6 +124,8 @@ public class ColorPickerPreference extends Preference {
         circle.setShape(GradientDrawable.OVAL);
         circle.setColor(color);
         circle.setSize(dp(24), dp(24));
+        int outlineColor = getContext().getColor(R.color.materialColorOutline);
+        circle.setStroke(dp(1), outlineColor);
         mSwatchView.setBackground(circle);
     }
 

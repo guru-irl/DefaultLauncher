@@ -82,6 +82,8 @@ constructor(
         // Theme changes (also invalidate drawer icon cache for shape/size changes)
         val themeChangeListener = ThemeChangeListener {
             com.android.launcher3.icons.DrawerIconResolver.getInstance().invalidate()
+            com.android.launcher3.icons.PerAppHomeIconResolver.getInstance().invalidate()
+            com.android.launcher3.BubbleTextView.clearDotColorCache()
             refreshAndReloadLauncher()
         }
         themeManager.addChangeListener(themeChangeListener)

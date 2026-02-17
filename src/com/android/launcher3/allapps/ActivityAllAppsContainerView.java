@@ -178,8 +178,11 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
     /** {@code true} when rendered view is in search state instead of the scroll state. */
     private boolean mIsSearching;
+    /** Suppresses {@link #setupHeader()} during search animation to avoid redundant layout passes. */
+    private boolean mSuppressSetupHeader;
     private boolean mRebindAdaptersAfterSearchAnimation;
     private boolean mKeepKeyboardOnSearchExit;
+    private Runnable mPendingSearchExitWork;
     private int mNavBarScrimHeight = 0;
     private SearchRecyclerView mSearchRecyclerView;
     protected SearchAdapterProvider<?> mMainAdapterProvider;
@@ -482,9 +485,20 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     void animateToSearchState(boolean goingToSearch, long durationMs) {
+        // Reset suppression from any previously cancelled animation
+        mSuppressSetupHeader = false;
         if (!mSearchTransitionController.isRunning() && goingToSearch == isSearching()) {
             return;
         }
+        // Cancel any pending deferred work from a previous exit so it doesn't
+        // collide with this animation's first frames and cause jank.
+        if (mPendingSearchExitWork != null) {
+            removeCallbacks(mPendingSearchExitWork);
+            mPendingSearchExitWork = null;
+        }
+        // Suppress setupHeader() during animation — setFloatingRowsCollapsed() triggers it
+        // 2x per call, causing 6+ layout passes on every animation start. Defer to completion.
+        mSuppressSetupHeader = true;
         mFastScroller.setVisibility(goingToSearch ? INVISIBLE : VISIBLE);
         if (goingToSearch) {
             // Fade out the button to pause work apps.
@@ -495,6 +509,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         }
         mSearchTransitionController.animateToState(goingToSearch, durationMs,
                 /* onEndRunnable = */ () -> {
+                    mSuppressSetupHeader = false;
                     mIsSearching = goingToSearch;
                     updateSearchResultsVisibility();
                     int previousPage = getCurrentPage();
@@ -504,28 +519,36 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                     }
 
                     if (goingToSearch) {
+                        setupHeader();
                         mSearchUiDelegate.onAnimateToSearchStateCompleted();
                     } else {
-                        // Reset animation-applied transforms before re-setup.
-                        // onProgressUpdated() sets translationY/alpha on the apps container
-                        // and header during the search transition, and these are not reset
-                        // by resetChildViewProperties() (which only resets search RV children).
+                        // Reset animation-applied transforms immediately so the
+                        // animation-end frame is clean.
                         getAppsRecyclerViewContainer().setTranslationY(0);
                         mHeader.setTranslationY(0);
                         mHeader.setAlpha(1f);
+                        // Uncollapse floating rows + reset header position (matches AOSP)
+                        mHeader.setFloatingRowsCollapsed(false);
+                        mHeader.reset(false);
 
-                        setupHeader();
-                        setSearchResults(null);
-                        if (mViewPager != null) {
-                            mViewPager.setCurrentPage(previousPage);
-                        }
-                        if (mKeepKeyboardOnSearchExit) {
-                            // showAppsWhileSearchActive() path: visual transition
-                            // only — keep keyboard up and search bar focused.
-                            mKeepKeyboardOnSearchExit = false;
-                        } else {
-                            onActivePageChanged(previousPage);
-                        }
+                        // Defer heavy work to next frame so animation-end frame stays clean.
+                        // Track the runnable so it can be cancelled if a new animation starts
+                        // before it runs (rapid back-and-forth).
+                        mPendingSearchExitWork = () -> {
+                            mPendingSearchExitWork = null;
+                            if (mIsSearching) return;
+                            setupHeader();
+                            setSearchResults(null);
+                            if (mViewPager != null) {
+                                mViewPager.setCurrentPage(previousPage);
+                            }
+                            if (mKeepKeyboardOnSearchExit) {
+                                mKeepKeyboardOnSearchExit = false;
+                            } else {
+                                onActivePageChanged(previousPage);
+                            }
+                        };
+                        post(mPendingSearchExitWork);
                     }
                 });
     }
@@ -917,6 +940,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     void setupHeader() {
+        if (mSuppressSetupHeader) return;
         mAdditionalHeaderRows.forEach(row -> mHeader.onPluginDisconnected(row));
 
         mHeader.setVisibility(View.VISIBLE);
@@ -1295,6 +1319,19 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mActivityContext.getStatsLogManager().logger()
                 .withCardinality(mAllAppsStore.getApps().length)
                 .log(LAUNCHER_ALLAPPS_COUNT);
+
+        // Pre-cache drawer icons on background thread so the first scroll is jank-free.
+        final Context ctx = getContext().getApplicationContext();
+        final com.android.launcher3.model.data.AppInfo[] apps = mAllAppsStore.getApps();
+        com.android.launcher3.util.Executors.MODEL_EXECUTOR.execute(() -> {
+            android.content.ComponentName[] components =
+                    new android.content.ComponentName[apps.length];
+            for (int i = 0; i < apps.length; i++) {
+                components[i] = apps[i].getTargetComponent();
+            }
+            com.android.launcher3.icons.DrawerIconResolver.getInstance()
+                    .preCacheIcons(ctx, components);
+        });
     }
 
     @Override
@@ -1849,6 +1886,9 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             mRecyclerView.setLayoutManager(mLayoutManager);
             mRecyclerView.setAdapter(mAdapter);
             mRecyclerView.setHasFixedSize(true);
+            // Cache all rows so scroll direction reversals never trigger rebinding.
+            // Memory cost is ~5KB per item (bitmaps are shared from IconCache).
+            mRecyclerView.setItemViewCacheSize(mAdapter.getItemCount());
             // No animations will occur when changes occur to the items in this RecyclerView.
             mRecyclerView.setItemAnimator(null);
             onInitializeRecyclerView(mRecyclerView);
