@@ -34,6 +34,7 @@ import com.android.app.animation.Interpolators;
 import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.R;
+import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.compat.AccessibilityManagerCompat;
 import com.android.launcher3.dragndrop.DragLayer;
 
@@ -42,8 +43,8 @@ import com.android.launcher3.dragndrop.DragLayer;
  */
 public class Snackbar extends AbstractFloatingView {
 
-    private static final long SHOW_DURATION_MS = 180;
-    private static final long HIDE_DURATION_MS = 180;
+    private static final long SHOW_DURATION_MS = M3Durations.SHORT_4; // 200ms
+    private static final long HIDE_DURATION_MS = M3Durations.SHORT_4; // 200ms
     private static final int TIMEOUT_DURATION_MS = 4000;
 
     private final ActivityContext mActivity;

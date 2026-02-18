@@ -22,7 +22,7 @@
     <style name="BaseLauncherTheme" parent="@android:style/Theme.DeviceDefault.Light">
         <item name="disabledIconAlpha">.54</item>
         <item name="android:colorBackgroundCacheHint">@null</item>
-        <item name="android:colorEdgeEffect">#FF757575</item>
+        <item name="android:colorEdgeEffect">@color/materialColorOutline</item>
         <item name="android:windowActionBar">false</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowNoTitle">true</item>
@@ -38,20 +38,20 @@
     </style>
 
     <style name="LauncherTheme" parent="@style/DynamicColorsBaseLauncherTheme">
-        <item name="android:textColorSecondary">#DE000000</item>
+        <item name="android:textColorSecondary">@color/materialColorOnSurfaceVariant</item>
         <item name="allAppsScrimColor">@color/materialColorSurfaceContainerLow</item>
-        <item name="allAppsScrimColorOverBlur">#33000000</item>
+        <item name="allAppsScrimColorOverBlur">@color/scrim_on_surface_20</item>
         <item name="allappsHeaderProtectionColor">@color/materialColorSurfaceContainerLow</item>
-        <item name="allAppsNavBarScrimColor">#66FFFFFF</item>
+        <item name="allAppsNavBarScrimColor">@color/scrim_surface_container_lowest_40</item>
         <item name="popupColorPrimary">@color/materialColorSurfaceContainer</item>
         <item name="popupColorSecondary">@color/materialColorSurfaceContainerHigh</item>
         <item name="popupColorTertiary">@color/materialColorOutlineVariant</item>
         <item name="popupTextColor">@color/materialColorOnSurface</item>
-        <item name="popupShadeFirst">@color/popup_shade_first_light</item>
-        <item name="popupShadeSecond">@color/popup_shade_second_light</item>
-        <item name="popupShadeThird">@color/popup_shade_third_light</item>
-        <item name="popupNotificationDotColor">@color/popup_notification_dot_light</item>
-        <item name="notificationDotColor">@color/notification_dot_color_light</item>
+        <item name="popupShadeFirst">@color/materialColorSurfaceContainer</item>
+        <item name="popupShadeSecond">@color/materialColorSurfaceContainerHigh</item>
+        <item name="popupShadeThird">@color/materialColorSurfaceContainerHighest</item>
+        <item name="popupNotificationDotColor">@color/materialColorPrimaryContainer</item>
+        <item name="notificationDotColor">@color/materialColorTertiaryContainer</item>
         <item name="isMainColorDark">false</item>
         <item name="isWorkspaceDarkText">false</item>
         <item name="workspaceTextColor">@color/workspace_text_color_light</item>
@@ -62,22 +62,22 @@
         <item name="pageIndicatorDotColor">@color/page_indicator_dot_color_light</item>
         <item name="focusOutlineColor">@color/materialColorSecondaryFixed</item>
         <item name="focusInnerOutlineColor">@color/materialColorOnSecondaryFixedVariant</item>
-        <item name="folderPreviewColor">@color/folder_preview_light</item>
-        <item name="folderBackgroundColor">@color/folder_background_light</item>
-        <item name="folderIconBorderColor">?android:attr/colorPrimary</item>
+        <item name="folderPreviewColor">@color/materialColorPrimaryContainer</item>
+        <item name="folderBackgroundColor">@color/materialColorSurfaceContainerHigh</item>
+        <item name="folderIconBorderColor">@color/materialColorPrimary</item>
         <item name="isFolderDarkText">true</item>
-        <item name="folderTextColor">@color/folder_text_color_light</item>
-        <item name="folderHintTextColor">@color/folder_hint_text_color_light</item>
+        <item name="folderTextColor">@color/materialColorOnSurface</item>
+        <item name="folderHintTextColor">@color/materialColorOnSurfaceVariant</item>
         <item name="appPairSurfaceInFolder">@color/materialColorSurfaceContainerLowest</item>
-        <item name="loadingIconColor">#CCFFFFFF</item>
+        <item name="loadingIconColor">@color/scrim_surface_80</item>
         <item name="iconOnlyShortcutColor">?android:attr/textColorSecondary</item>
-        <item name="eduHalfSheetBGColor">?android:attr/colorAccent</item>
+        <item name="eduHalfSheetBGColor">@color/materialColorPrimary</item>
         <item name="workspaceAccentColor">@color/workspace_accent_color_light</item>
         <item name="workspaceSurfaceColor">@color/workspace_surface_color</item>
         <item name="dropTargetHoverTextColor">@color/drop_target_hover_text_color_light</item>
         <item name="dropTargetHoverButtonColor">@color/drop_target_hover_button_color_light</item>
         <item name="overviewScrimColor">@color/overview_scrim</item>
-        <item name="overviewScrimColorOverBlur">#33000000</item>
+        <item name="overviewScrimColorOverBlur">@color/scrim_on_surface_20</item>
         <item name="preloadIconAccentColor">@color/preload_icon_accent_color_light</item>
         <item name="preloadIconBackgroundColor">@color/preload_icon_background_color_light</item>
         <item name="android:windowTranslucentStatus">false</item>
@@ -104,37 +104,37 @@
         <item name="android:textColorPrimary">@color/text_color_primary_dark</item>
         <item name="android:textColorSecondary">@color/text_color_secondary_dark</item>
         <item name="android:textColorTertiary">@color/text_color_tertiary_dark</item>
-        <item name="android:textColorHint">#A0FFFFFF</item>
-        <item name="android:colorControlHighlight">#19FFFFFF</item>
-        <item name="android:colorPrimary">#FF212121</item>
+        <item name="android:textColorHint">@color/scrim_on_surface_63</item>
+        <item name="android:colorControlHighlight">@color/scrim_on_surface_10</item>
+        <item name="android:colorPrimary">@color/materialColorSurface</item>
         <item name="allAppsScrimColor">@color/materialColorSurfaceContainerLow</item>
-        <item name="allAppsScrimColorOverBlur">#52000000</item>
+        <item name="allAppsScrimColorOverBlur">@color/scrim_on_surface_32</item>
         <item name="allappsHeaderProtectionColor">@color/materialColorSurfaceContainerLow</item>
-        <item name="allAppsNavBarScrimColor">#80000000</item>
+        <item name="allAppsNavBarScrimColor">@color/scrim_on_surface_50</item>
         <item name="popupColorPrimary">@color/materialColorSurfaceContainer</item>
         <item name="popupColorSecondary">@color/materialColorSurfaceContainerHigh</item>
         <item name="popupColorTertiary">@color/materialColorOutlineVariant</item>
         <item name="popupTextColor">@color/materialColorOnSurface</item>
-        <item name="popupNotificationDotColor">@color/popup_notification_dot_dark</item>
-        <item name="popupShadeFirst">@color/popup_shade_first_dark</item>
-        <item name="popupShadeSecond">@color/popup_shade_second_dark</item>
-        <item name="popupShadeThird">@color/popup_shade_third_dark</item>
-        <item name="notificationDotColor">@color/notification_dot_color_dark</item>
+        <item name="popupNotificationDotColor">@color/materialColorPrimaryContainer</item>
+        <item name="popupShadeFirst">@color/materialColorSurfaceContainer</item>
+        <item name="popupShadeSecond">@color/materialColorSurfaceContainerHigh</item>
+        <item name="popupShadeThird">@color/materialColorSurfaceContainerHighest</item>
+        <item name="notificationDotColor">@color/materialColorTertiaryContainer</item>
         <item name="widgetsTheme">@style/WidgetContainerTheme.Dark</item>
         <item name="pageIndicatorDotColor">@color/page_indicator_dot_color_dark</item>
-        <item name="folderPreviewColor">@color/folder_preview_dark</item>
-        <item name="folderBackgroundColor">@color/folder_background_dark</item>
-        <item name="folderIconBorderColor">?android:attr/colorPrimary</item>
+        <item name="folderPreviewColor">@color/materialColorSurfaceContainerHigh</item>
+        <item name="folderBackgroundColor">@color/materialColorSurfaceContainerHigh</item>
+        <item name="folderIconBorderColor">@color/materialColorPrimary</item>
         <item name="isFolderDarkText">false</item>
-        <item name="folderTextColor">@color/folder_text_color_dark</item>
-        <item name="folderHintTextColor">@color/folder_hint_text_color_dark</item>
+        <item name="folderTextColor">@color/materialColorOnSurface</item>
+        <item name="folderHintTextColor">@color/materialColorOnSurfaceVariant</item>
         <item name="appPairSurfaceInFolder">@color/materialColorSurfaceContainerLowest</item>
         <item name="isMainColorDark">true</item>
-        <item name="loadingIconColor">#99FFFFFF</item>
-        <item name="iconOnlyShortcutColor">#B3FFFFFF</item>
-        <item name="eduHalfSheetBGColor">#DD000000</item>
+        <item name="loadingIconColor">@color/scrim_surface_60</item>
+        <item name="iconOnlyShortcutColor">@color/materialColorOnSurfaceVariant</item>
+        <item name="eduHalfSheetBGColor">@color/materialColorSurfaceDim</item>
         <item name="overviewScrimColor">@color/overview_scrim_dark</item>
-        <item name="overviewScrimColorOverBlur">#52000000</item>
+        <item name="overviewScrimColorOverBlur">@color/scrim_on_surface_32</item>
         <item name="preloadIconAccentColor">@color/preload_icon_accent_color_dark</item>
         <item name="preloadIconBackgroundColor">@color/preload_icon_background_color_dark</item>
     </style>
@@ -142,7 +142,7 @@
     <style name="LauncherTheme.Dark.DarkMainColor" parent="@style/LauncherTheme.Dark"/>
 
     <style name="LauncherTheme.Dark.DarkText" parent="@style/LauncherTheme.Dark">
-        <item name="android:colorControlHighlight">#19212121</item>
+        <item name="android:colorControlHighlight">@color/scrim_on_surface_10</item>
         <item name="workspaceTextColor">@color/workspace_text_color_dark</item>
         <item name="workspaceShadowColor">@android:color/transparent</item>
         <item name="workspaceAmbientShadowColor">@android:color/transparent</item>
@@ -190,98 +190,57 @@
 
     <!-- Theme for the widget container. -->
     <style name="WidgetContainerTheme" parent="@android:style/Theme.DeviceDefault.Settings">
-        <item name="android:colorPrimaryDark">#E8EAED</item>
+        <item name="android:colorPrimaryDark">@color/materialColorSurfaceContainerHigh</item>
         <item name="android:textColorSecondary">?android:attr/textColorPrimary</item>
         <item name="android:colorEdgeEffect">?android:attr/textColorSecondary</item>
-        <item name="widgetPickerPrimarySurfaceColor">
-            @color/widget_picker_primary_surface_color_light</item>
-        <item name="widgetPickerSecondarySurfaceColor">
-            @color/widget_picker_secondary_surface_color_light</item>
-        <item name="widgetPickerTitleColor">@color/widget_picker_title_color_light</item>
-        <item name="widgetPickerDescriptionColor">@color/widget_picker_description_color_light</item>
-        <item name="widgetPickerWidgetOptionsMenuColor">@color/widget_picker_menu_options_color_light</item>
-        <item name="widgetPickerHeaderAppTitleColor">
-            @color/widget_picker_header_app_title_color_light</item>
-        <item name="widgetPickerHeaderAppSubtitleColor">
-            @color/widget_picker_header_app_subtitle_color_light</item>
-        <item name="widgetPickerHeaderBackgroundColor">
-            @color/widget_picker_header_background_color_light</item>
-        <item name="widgetPickerSuggestionsIconBackgroundColor">
-            @color/widget_picker_suggestions_icon_background_color_light</item>
-        <item name="widgetPickerSuggestionsIconColor">
-            @color/widget_picker_suggestions_icon_color_light</item>
-        <item name="widgetPickerSearchTextColor">@color/widget_picker_search_text_color_light</item>
-        <item name="widgetPickerTabBackgroundSelected">
-            @color/widget_picker_tab_background_selected_light</item>
-        <item name="widgetPickerTabBackgroundUnselected">
-            @color/widget_picker_tab_background_unselected_light</item>
-        <item name="widgetPickerSelectedTabTextColor">
-            @color/widget_picker_selected_tab_text_color_light</item>
-        <item name="widgetPickerUnselectedTabTextColor">
-            @color/widget_picker_unselected_tab_text_color_light</item>
-        <item name="widgetPickerCollapseHandleColor">
-            @color/widget_picker_collapse_handle_color_light</item>
-        <item name="widgetPickerAddButtonBackgroundColor">
-            @color/widget_picker_add_button_background_color_light</item>
-        <item name="widgetPickerAddButtonTextColor">
-            @color/widget_picker_add_button_text_color_light</item>
-        <item name="widgetPickerExpandButtonBackgroundColor">
-            @color/widget_picker_expand_button_background_color_light
-        </item>
-        <item name="widgetPickerExpandButtonTextColor">
-            @color/widget_picker_expand_button_text_color_light
-        </item>
-        <item name="widgetCellTitleColor">
-            @color/widget_cell_title_color_light</item>
-        <item name="widgetCellSubtitleColor">
-            @color/widget_cell_subtitle_color_light</item>
+        <item name="widgetPickerPrimarySurfaceColor">@color/materialColorSurfaceContainerHigh</item>
+        <item name="widgetPickerSecondarySurfaceColor">@color/materialColorSurfaceContainer</item>
+        <item name="widgetPickerTitleColor">@color/materialColorOnSurface</item>
+        <item name="widgetPickerDescriptionColor">@color/materialColorOnSurfaceVariant</item>
+        <item name="widgetPickerWidgetOptionsMenuColor">@color/materialColorOnSurfaceVariant</item>
+        <item name="widgetPickerHeaderAppTitleColor">@color/materialColorOnSurface</item>
+        <item name="widgetPickerHeaderAppSubtitleColor">@color/materialColorOnSurfaceVariant</item>
+        <item name="widgetPickerHeaderBackgroundColor">@color/materialColorSecondaryContainer</item>
+        <item name="widgetPickerSuggestionsIconBackgroundColor">@color/materialColorSurfaceContainerLowest</item>
+        <item name="widgetPickerSuggestionsIconColor">@color/materialColorPrimary</item>
+        <item name="widgetPickerSearchTextColor">@color/materialColorOnSurfaceVariant</item>
+        <item name="widgetPickerTabBackgroundSelected">@color/materialColorPrimary</item>
+        <item name="widgetPickerTabBackgroundUnselected">@color/materialColorSurfaceContainerHighest</item>
+        <item name="widgetPickerSelectedTabTextColor">@color/materialColorOnPrimary</item>
+        <item name="widgetPickerUnselectedTabTextColor">@color/materialColorOnSurfaceVariant</item>
+        <item name="widgetPickerCollapseHandleColor">@color/materialColorOutline</item>
+        <item name="widgetPickerAddButtonBackgroundColor">@color/materialColorPrimary</item>
+        <item name="widgetPickerAddButtonTextColor">@color/materialColorOnPrimary</item>
+        <item name="widgetPickerExpandButtonBackgroundColor">@color/materialColorSurfaceContainer</item>
+        <item name="widgetPickerExpandButtonTextColor">@color/materialColorOnSurface</item>
+        <item name="widgetCellTitleColor">@color/materialColorOnSurface</item>
+        <item name="widgetCellSubtitleColor">@color/materialColorOnSurfaceVariant</item>
     </style>
     <style name="WidgetContainerTheme.Dark" parent="AppTheme.Dark">
         <item name="android:colorEdgeEffect">?android:attr/textColorSecondary</item>
-        <item name="android:colorPrimaryDark">#616161</item> <!-- Gray 700 -->
-        <item name="widgetPickerPrimarySurfaceColor">
-            @color/widget_picker_primary_surface_color_dark</item>
-        <item name="widgetPickerSecondarySurfaceColor">
-            @color/widget_picker_secondary_surface_color_dark</item>
-        <item name="widgetPickerTitleColor">
-            @color/widget_picker_title_color_dark</item>
-        <item name="widgetPickerDescriptionColor">@color/widget_picker_description_color_dark</item>
-        <item name="widgetPickerWidgetOptionsMenuColor">@color/widget_picker_menu_options_color_dark</item>
-        <item name="widgetPickerHeaderAppTitleColor">
-            @color/widget_picker_header_app_title_color_dark</item>
-        <item name="widgetPickerHeaderAppSubtitleColor">
-            @color/widget_picker_header_app_subtitle_color_dark</item>
-        <item name="widgetPickerHeaderBackgroundColor">
-            @color/widget_picker_header_background_color_dark</item>
-        <item name="widgetPickerSuggestionsIconBackgroundColor">
-            @color/widget_picker_suggestions_icon_background_color_dark</item>
-        <item name="widgetPickerSuggestionsIconColor">
-            @color/widget_picker_suggestions_icon_color_dark</item>
-        <item name="widgetPickerSearchTextColor">@color/widget_picker_search_text_color_dark</item>
-        <item name="widgetPickerTabBackgroundSelected">
-            @color/widget_picker_tab_background_selected_dark</item>
-        <item name="widgetPickerTabBackgroundUnselected">
-            @color/widget_picker_tab_background_unselected_dark</item>
-        <item name="widgetPickerSelectedTabTextColor">
-            @color/widget_picker_selected_tab_text_color_dark</item>
-        <item name="widgetPickerUnselectedTabTextColor">
-            @color/widget_picker_unselected_tab_text_color_dark</item>
-        <item name="widgetPickerCollapseHandleColor">
-            @color/widget_picker_collapse_handle_color_dark</item>
-        <item name="widgetPickerAddButtonBackgroundColor">
-            @color/widget_picker_add_button_background_color_dark</item>
-        <item name="widgetPickerAddButtonTextColor">
-            @color/widget_picker_add_button_text_color_dark</item>
-        <item name="widgetPickerExpandButtonBackgroundColor">
-            @color/widget_picker_expand_button_background_color_dark
-        </item>
-        <item name="widgetPickerExpandButtonTextColor">
-            @color/widget_picker_expand_button_text_color_dark
-        </item>
-        <item name="widgetCellTitleColor">
-            @color/widget_cell_title_color_dark</item>
-        <item name="widgetCellSubtitleColor">
-            @color/widget_cell_subtitle_color_dark</item>
+        <item name="android:colorPrimaryDark">@color/materialColorSurfaceContainerHigh</item>
+        <item name="widgetPickerPrimarySurfaceColor">@color/materialColorSurfaceContainerHigh</item>
+        <item name="widgetPickerSecondarySurfaceColor">@color/materialColorSurfaceContainer</item>
+        <item name="widgetPickerTitleColor">@color/materialColorOnSurface</item>
+        <item name="widgetPickerDescriptionColor">@color/materialColorOnSurfaceVariant</item>
+        <item name="widgetPickerWidgetOptionsMenuColor">@color/materialColorOnSurfaceVariant</item>
+        <item name="widgetPickerHeaderAppTitleColor">@color/materialColorOnSurface</item>
+        <item name="widgetPickerHeaderAppSubtitleColor">@color/materialColorOnSurfaceVariant</item>
+        <item name="widgetPickerHeaderBackgroundColor">@color/materialColorSecondaryContainer</item>
+        <item name="widgetPickerSuggestionsIconBackgroundColor">@color/materialColorSurfaceContainerLowest</item>
+        <item name="widgetPickerSuggestionsIconColor">@color/materialColorPrimary</item>
+        <item name="widgetPickerSearchTextColor">@color/materialColorOnSurfaceVariant</item>
+        <item name="widgetPickerTabBackgroundSelected">@color/materialColorPrimary</item>
+        <item name="widgetPickerTabBackgroundUnselected">@color/materialColorSurfaceContainerHighest</item>
+        <item name="widgetPickerSelectedTabTextColor">@color/materialColorOnPrimary</item>
+        <item name="widgetPickerUnselectedTabTextColor">@color/materialColorOnSurfaceVariant</item>
+        <item name="widgetPickerCollapseHandleColor">@color/materialColorOutline</item>
+        <item name="widgetPickerAddButtonBackgroundColor">@color/materialColorPrimary</item>
+        <item name="widgetPickerAddButtonTextColor">@color/materialColorOnPrimary</item>
+        <item name="widgetPickerExpandButtonBackgroundColor">@color/materialColorSurfaceContainer</item>
+        <item name="widgetPickerExpandButtonTextColor">@color/materialColorOnSurface</item>
+        <item name="widgetCellTitleColor">@color/materialColorOnSurface</item>
+        <item name="widgetCellSubtitleColor">@color/materialColorOnSurfaceVariant</item>
     </style>
 
     <style name="WidgetListHeader.Title" parent="@android:style/TextAppearance.DeviceDefault" >

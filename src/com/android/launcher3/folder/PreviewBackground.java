@@ -37,6 +37,7 @@ import android.graphics.RadialGradient;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.graphics.Shader;
+import android.util.FloatProperty;
 import android.util.Property;
 import android.view.View;
 import android.view.animation.Interpolator;
@@ -46,6 +47,7 @@ import androidx.annotation.VisibleForTesting;
 import com.android.launcher3.CellLayout;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.R;
+import com.android.launcher3.anim.SpringAnimationBuilder;
 import com.android.launcher3.celllayout.DelegatedCellDrawing;
 import com.android.launcher3.graphics.ShapeDelegate;
 import com.android.launcher3.graphics.ThemeManager;
@@ -407,20 +409,25 @@ public class PreviewBackground extends DelegatedCellDrawing {
         return mDrawingDelegate != null;
     }
 
+    private static final FloatProperty<PreviewBackground> SCALE_PROP =
+            new FloatProperty<PreviewBackground>("scale") {
+                @Override public void setValue(PreviewBackground bg, float value) {
+                    bg.mScale = value;
+                    bg.invalidate();
+                }
+                @Override public Float get(PreviewBackground bg) { return bg.mScale; }
+            };
+
     protected void animateScale(boolean isAccepting, boolean isHovered) {
         if (mScaleAnimator != null) {
             mScaleAnimator.cancel();
         }
 
-        final float startScale = mScale;
         final float endScale = isAccepting ? ACCEPT_SCALE_FACTOR : (isHovered ? HOVER_SCALE : 1f);
-        Interpolator interpolator =
-                isAccepting != mIsAccepting ? ACCELERATE_DECELERATE : EMPHASIZED_DECELERATE;
-        int duration = isAccepting != mIsAccepting ? CONSUMPTION_ANIMATION_DURATION
-                : HOVER_ANIMATION_DURATION;
+        boolean acceptStateChanged = isAccepting != mIsAccepting;
         mIsAccepting = isAccepting;
         mIsHovered = isHovered;
-        if (startScale == endScale) {
+        if (mScale == endScale) {
             if (!mIsAccepting) {
                 clearDrawingDelegate();
             }
@@ -428,13 +435,32 @@ public class PreviewBackground extends DelegatedCellDrawing {
             return;
         }
 
+        if (acceptStateChanged) {
+            // Accept state: crisp fixed-duration animation
+            mScaleAnimator = ValueAnimator.ofFloat(0f, 1.0f);
+            final float startScale = mScale;
+            mScaleAnimator.addUpdateListener(animation -> {
+                float prog = animation.getAnimatedFraction();
+                mScale = prog * endScale + (1 - prog) * startScale;
+                invalidate();
+            });
+            mScaleAnimator.setInterpolator(ACCELERATE_DECELERATE);
+            mScaleAnimator.setDuration(CONSUMPTION_ANIMATION_DURATION);
+        } else {
+            // Hover state: spring-based gentle bounce
+            float gentleDamping = mContext.getResources()
+                    .getFloat(R.dimen.m3_bounce_gentle_damping);
+            float gentleStiffness = mContext.getResources()
+                    .getFloat(R.dimen.m3_bounce_gentle_stiffness);
+            mScaleAnimator = new SpringAnimationBuilder(mContext)
+                    .setStartValue(mScale)
+                    .setEndValue(endScale)
+                    .setDampingRatio(gentleDamping)
+                    .setStiffness(gentleStiffness)
+                    .setMinimumVisibleChange(0.002f)
+                    .build(this, SCALE_PROP);
+        }
 
-        mScaleAnimator = ValueAnimator.ofFloat(0f, 1.0f);
-        mScaleAnimator.addUpdateListener(animation -> {
-            float prog = animation.getAnimatedFraction();
-            mScale = prog * endScale + (1 - prog) * startScale;
-            invalidate();
-        });
         mScaleAnimator.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationStart(Animator animation) {
@@ -452,8 +478,6 @@ public class PreviewBackground extends DelegatedCellDrawing {
                 mScaleAnimator = null;
             }
         });
-        mScaleAnimator.setInterpolator(interpolator);
-        mScaleAnimator.setDuration(duration);
         mScaleAnimator.start();
     }
 

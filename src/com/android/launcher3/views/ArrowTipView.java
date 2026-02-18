@@ -46,6 +46,7 @@ import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.R;
 import com.android.launcher3.anim.AnimatorListeners;
+import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.dragndrop.DragLayer;
 import com.android.launcher3.graphics.TriangleShape;
 
@@ -56,9 +57,9 @@ public class ArrowTipView extends AbstractFloatingView {
 
     private static final String TAG = "ArrowTipView";
     private static final long AUTO_CLOSE_TIMEOUT_MILLIS = 10 * 1000;
-    private static final long SHOW_DELAY_MS = 200;
-    private static final long SHOW_DURATION_MS = 300;
-    private static final long HIDE_DURATION_MS = 100;
+    private static final long SHOW_DELAY_MS = M3Durations.SHORT_4; // 200ms
+    private static final long SHOW_DURATION_MS = M3Durations.MEDIUM_2; // 300ms
+    private static final long HIDE_DURATION_MS = M3Durations.SHORT_2; // 100ms
 
     public static final IntProperty<ArrowTipView> TEXT_ALPHA =
             new IntProperty<>("textAlpha") {

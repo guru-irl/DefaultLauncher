@@ -21,7 +21,7 @@
     android:color="?android:attr/colorControlHighlight">
     <item android:id="@android:id/mask">
         <shape android:shape="oval" >
-            <solid android:color="#ffffffff" />
+            <solid android:color="@color/materialColorSurface" />
         </shape>
     </item>
 

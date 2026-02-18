@@ -20,7 +20,7 @@
         <item>
             <shape android:shape="rectangle">
                 <corners
-                    android:radius="50dp"/>
+                    android:radius="@dimen/m3_shape_full"/>
                 <solid android:color="?attr/widgetPickerAddButtonBackgroundColor" />
             </shape>
         </item>

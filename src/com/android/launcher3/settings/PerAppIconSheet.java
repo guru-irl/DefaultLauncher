@@ -25,6 +25,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
+import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
@@ -81,12 +82,6 @@ public class PerAppIconSheet {
         void onIconSelected(String packPackage, String drawableName);
     }
 
-    private static final int CARD_CORNER_DP = 16;
-    private static final int CARD_MARGIN_H_DP = 16;
-    private static final int CARD_MARGIN_V_DP = 6;
-    private static final int CARD_PAD_DP = 16;
-    private static final int PACK_ICON_SIZE_DP = 40;
-
     private static final long EXPAND_DURATION = 350L;
     private static final long FADE_DURATION = 200L;
     private static final long SEARCH_DEBOUNCE_MS = 300;
@@ -101,7 +96,6 @@ public class PerAppIconSheet {
         Context ctx = fragment.getContext();
         if (ctx == null) return;
 
-        float density = ctx.getResources().getDisplayMetrics().density;
         int colorOnSurface = ctx.getColor(R.color.materialColorOnSurface);
         int colorSurfaceVar = ctx.getColor(R.color.materialColorSurfaceContainerHigh);
 
@@ -119,7 +113,7 @@ public class PerAppIconSheet {
         final View[] iconPageRef = {null};
 
         // ---- Page 1: Pack selection ----
-        LinearLayout packPage = buildPackPage(ctx, density, appCn, mgr, sheet, root,
+        LinearLayout packPage = buildPackPage(ctx, appCn, mgr, sheet, root,
                 colorOnSurface, colorSurfaceVar, callback, onIconPage, iconPageRef);
         root.addView(packPage, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -143,40 +137,42 @@ public class PerAppIconSheet {
 
     // ---- Page 1: Pack list ----
 
-    private static LinearLayout buildPackPage(Context ctx, float density,
+    private static LinearLayout buildPackPage(Context ctx,
             ComponentName appCn, IconPackManager mgr,
             BottomSheetDialog sheet, FrameLayout root,
             int colorOnSurface, int colorSurfaceVar,
             Callback callback, boolean[] onIconPage, View[] iconPageRef) {
 
+        Resources res = ctx.getResources();
         Map<String, IconPack> packs = mgr.getInstalledPacks();
         PackageManager pm = ctx.getPackageManager();
-        int cornerPx = (int) (CARD_CORNER_DP * density);
-        int marginH = (int) (CARD_MARGIN_H_DP * density);
-        int marginV = (int) (CARD_MARGIN_V_DP * density);
-        int cardPad = (int) (CARD_PAD_DP * density);
+        int cornerPx = res.getDimensionPixelSize(R.dimen.settings_card_corner_radius);
+        int marginH = res.getDimensionPixelSize(R.dimen.settings_card_margin_horizontal);
+        int marginV = res.getDimensionPixelSize(R.dimen.settings_card_margin_vertical);
+        int cardPad = res.getDimensionPixelSize(R.dimen.settings_card_padding);
 
         LinearLayout packPage = new LinearLayout(ctx);
         packPage.setOrientation(LinearLayout.VERTICAL);
-        packPage.setPadding(0, 0, 0, (int) (24 * density));
+        packPage.setPadding(0, 0, 0,
+                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal));
 
-        IconSettingsHelper.addSheetHandle(packPage, ctx, density);
+        IconSettingsHelper.addSheetHandle(packPage, ctx, res);
 
         // Title
         TextView title = new TextView(ctx);
         title.setText(R.string.choose_icon_pack);
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
         title.setTextColor(colorOnSurface);
-        title.setPadding(
-                (int) (24 * density), (int) (16 * density),
-                (int) (24 * density), (int) (16 * density));
+        int titlePadH = res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal);
+        int titlePadV = res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical);
+        title.setPadding(titlePadH, titlePadV, titlePadH, titlePadV);
         packPage.addView(title);
 
         LinearLayout items = new LinearLayout(ctx);
         items.setOrientation(LinearLayout.VERTICAL);
 
         // "Follow global setting"
-        items.addView(createPackCard(ctx, density, cornerPx, marginH, marginV, cardPad,
+        items.addView(createPackCard(ctx, cornerPx, marginH, marginV, cardPad,
                 colorSurfaceVar, colorOnSurface,
                 ctx.getString(R.string.customize_follow_global), null, v -> {
                     sheet.dismiss();
@@ -184,7 +180,7 @@ public class PerAppIconSheet {
                 }));
 
         // "System default"
-        items.addView(createPackCard(ctx, density, cornerPx, marginH, marginV, cardPad,
+        items.addView(createPackCard(ctx, cornerPx, marginH, marginV, cardPad,
                 colorSurfaceVar, colorOnSurface,
                 ctx.getString(R.string.customize_system_default), null, v -> {
                     sheet.dismiss();
@@ -192,13 +188,13 @@ public class PerAppIconSheet {
                 }));
 
         // Each installed pack
-        int previewSize = (int) (PACK_ICON_SIZE_DP * density);
+        int previewSize = res.getDimensionPixelSize(R.dimen.settings_pack_icon_size);
         for (Map.Entry<String, IconPack> entry : packs.entrySet()) {
             String pkg = entry.getKey();
             IconPack pack = entry.getValue();
 
             // Click set below (needs reference to the card itself)
-            LinearLayout card = createPackCard(ctx, density, cornerPx, marginH, marginV,
+            LinearLayout card = createPackCard(ctx, cornerPx, marginH, marginV,
                     cardPad, colorSurfaceVar, colorOnSurface,
                     pack.label.toString(), pack.getPackIcon(pm), null);
 
@@ -206,7 +202,8 @@ public class PerAppIconSheet {
             ImageView preview = new ImageView(ctx);
             LinearLayout.LayoutParams previewLp =
                     new LinearLayout.LayoutParams(previewSize, previewSize);
-            previewLp.setMarginStart((int) (8 * density));
+            previewLp.setMarginStart(
+                    res.getDimensionPixelSize(R.dimen.settings_item_spacing));
             preview.setLayoutParams(previewLp);
             preview.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
@@ -233,7 +230,7 @@ public class PerAppIconSheet {
             });
 
             card.setOnClickListener(v ->
-                    transitionToIconPicker(ctx, density, root, packPage, card,
+                    transitionToIconPicker(ctx, root, packPage, card,
                             pkg, pack, appCn, mgr, sheet, callback,
                             colorOnSurface, colorSurfaceVar, onIconPage, iconPageRef));
 
@@ -250,14 +247,15 @@ public class PerAppIconSheet {
 
     // ---- Transition: pack card expands → icon picker ----
 
-    private static void transitionToIconPicker(Context ctx, float density,
+    private static void transitionToIconPicker(Context ctx,
             FrameLayout root, LinearLayout packPage, View selectedCard,
             String packPackage, IconPack pack, ComponentName appCn,
             IconPackManager mgr, BottomSheetDialog sheet,
             Callback callback, int colorOnSurface, int colorSurfaceVar,
             boolean[] onIconPage, View[] iconPageRef) {
 
-        int cornerPx = (int) (CARD_CORNER_DP * density);
+        Resources res = ctx.getResources();
+        int cornerPx = res.getDimensionPixelSize(R.dimen.settings_card_corner_radius);
 
         // Get card position relative to root
         int[] cardLoc = new int[2];
@@ -270,7 +268,7 @@ public class PerAppIconSheet {
         int cardHeight = selectedCard.getHeight();
 
         // M3 bottom sheet top corner radius (the overlay morphs card → sheet shape)
-        float sheetCornerPx = 28 * density;
+        float sheetCornerPx = res.getDimension(R.dimen.settings_sheet_corner_radius);
 
         // Create overlay matching the card — use clipToOutline for proper rounding
         View overlay = new View(ctx);
@@ -298,14 +296,14 @@ public class PerAppIconSheet {
         root.addView(overlay);
 
         // Build icon picker page (invisible initially)
-        LinearLayout iconPage = buildIconPickerPage(ctx, density, packPackage, pack,
+        LinearLayout iconPage = buildIconPickerPage(ctx, packPackage, pack,
                 appCn, mgr, sheet, root, packPage, callback,
                 colorOnSurface, colorSurfaceVar, onIconPage);
         iconPage.setAlpha(0f);
         iconPage.setVisibility(View.INVISIBLE);
 
         // Use the screen height for the icon picker so RecyclerView gets room
-        int screenHeight = ctx.getResources().getDisplayMetrics().heightPixels;
+        int screenHeight = res.getDisplayMetrics().heightPixels;
         iconPage.setMinimumHeight((int) (screenHeight * 0.7f));
 
         root.addView(iconPage, new FrameLayout.LayoutParams(
@@ -358,37 +356,41 @@ public class PerAppIconSheet {
 
     // ---- Page 2: Icon picker grid ----
 
-    private static LinearLayout buildIconPickerPage(Context ctx, float density,
+    private static LinearLayout buildIconPickerPage(Context ctx,
             String packPackage, IconPack pack, ComponentName appCn,
             IconPackManager mgr, BottomSheetDialog sheet,
             FrameLayout root, LinearLayout packPage,
             Callback callback, int colorOnSurface, int colorSurfaceVar,
             boolean[] onIconPage) {
 
+        Resources res = ctx.getResources();
         int hintColor = ctx.getColor(R.color.materialColorOnSurfaceVariant);
 
         LinearLayout page = new LinearLayout(ctx);
         page.setOrientation(LinearLayout.VERTICAL);
 
-        IconSettingsHelper.addSheetHandle(page, ctx, density);
+        IconSettingsHelper.addSheetHandle(page, ctx, res);
 
         // Header: back button + title
         LinearLayout header = new LinearLayout(ctx);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setPadding(
-                (int) (16 * density), (int) (8 * density),
-                (int) (24 * density), (int) (8 * density));
+                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical),
+                res.getDimensionPixelSize(R.dimen.settings_item_spacing),
+                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
+                res.getDimensionPixelSize(R.dimen.settings_item_spacing));
 
         // Back button
         ImageView backBtn = new ImageView(ctx);
         backBtn.setImageResource(R.drawable.ic_arrow_back);
         backBtn.setColorFilter(colorOnSurface);
-        int backSize = (int) (32 * density);
-        int backPad = (int) (4 * density);
+        int backSize = res.getDimensionPixelSize(R.dimen.settings_back_button_size);
+        int backPad = res.getDimensionPixelSize(R.dimen.settings_icon_padding);
         LinearLayout.LayoutParams backLp =
                 new LinearLayout.LayoutParams(backSize, backSize);
-        backLp.setMarginEnd((int) (8 * density));
+        backLp.setMarginEnd(
+                res.getDimensionPixelSize(R.dimen.settings_item_spacing));
         backBtn.setLayoutParams(backLp);
         backBtn.setPadding(backPad, backPad, backPad, backPad);
 
@@ -422,23 +424,25 @@ public class PerAppIconSheet {
         searchInput.setHintTextColor(hintColor);
         searchInput.setBackgroundResource(R.drawable.bg_widgets_searchbox);
         searchInput.setGravity(Gravity.CENTER_VERTICAL);
-        int searchPadH = (int) (16 * density);
+        int searchPadH = res.getDimensionPixelSize(R.dimen.settings_search_padding);
         searchInput.setPadding(searchPadH, 0, searchPadH, 0);
-        searchInput.setCompoundDrawablePadding((int) (16 * density));
+        searchInput.setCompoundDrawablePadding(
+                res.getDimensionPixelSize(R.dimen.settings_search_padding));
         searchInput.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
 
         Drawable searchIcon = ctx.getDrawable(R.drawable.ic_allapps_search);
         if (searchIcon != null) {
             searchIcon.setTintList(ColorStateList.valueOf(hintColor));
-            int iconSize = (int) (20 * density);
+            int iconSize = res.getDimensionPixelSize(R.dimen.settings_search_icon_size);
             searchIcon.setBounds(0, 0, iconSize, iconSize);
             searchInput.setCompoundDrawablesRelative(searchIcon, null, null, null);
         }
 
         LinearLayout.LayoutParams searchLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, (int) (56 * density));
-        int searchMarginH = (int) (16 * density);
-        int searchMarginV = (int) (8 * density);
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                res.getDimensionPixelSize(R.dimen.settings_row_min_height));
+        int searchMarginH = res.getDimensionPixelSize(R.dimen.settings_search_padding);
+        int searchMarginV = res.getDimensionPixelSize(R.dimen.settings_item_spacing);
         searchLp.setMargins(searchMarginH, searchMarginV, searchMarginH, searchMarginV);
         searchInput.setLayoutParams(searchLp);
         page.addView(searchInput);
@@ -446,8 +450,9 @@ public class PerAppIconSheet {
         // RecyclerView grid
         RecyclerView rv = new RecyclerView(ctx);
         rv.setClipToPadding(false);
-        int rvPadH = (int) (8 * density);
-        rv.setPadding(rvPadH, 0, rvPadH, (int) (16 * density));
+        int rvPadH = res.getDimensionPixelSize(R.dimen.settings_item_spacing);
+        rv.setPadding(rvPadH, 0, rvPadH,
+                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical));
         rv.setNestedScrollingEnabled(true);
         LinearLayout.LayoutParams rvLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
@@ -456,7 +461,7 @@ public class PerAppIconSheet {
 
         // Set up grid after layout to calculate span count
         rv.post(() -> {
-            int cellSizePx = (int) (64 * density);
+            int cellSizePx = res.getDimensionPixelSize(R.dimen.settings_icon_cell_size);
             int width = rv.getWidth();
             int spanCount = Math.max(4, width / cellSizePx);
 
@@ -661,7 +666,7 @@ public class PerAppIconSheet {
 
     // ---- Pack card builder ----
 
-    private static LinearLayout createPackCard(Context ctx, float density,
+    private static LinearLayout createPackCard(Context ctx,
             int cornerPx, int marginH, int marginV, int cardPad,
             int bgColor, int textColor,
             String label, Drawable packIcon,
@@ -693,11 +698,13 @@ public class PerAppIconSheet {
         header.setGravity(Gravity.CENTER_VERTICAL);
 
         if (packIcon != null) {
+            Resources res = ctx.getResources();
             ImageView icon = new ImageView(ctx);
-            int iconPx = (int) (PACK_ICON_SIZE_DP * density);
+            int iconPx = res.getDimensionPixelSize(R.dimen.settings_pack_icon_size);
             LinearLayout.LayoutParams iconLp =
                     new LinearLayout.LayoutParams(iconPx, iconPx);
-            iconLp.setMarginEnd((int) (12 * density));
+            iconLp.setMarginEnd(
+                    res.getDimensionPixelSize(R.dimen.settings_icon_margin_end));
             icon.setLayoutParams(iconLp);
             icon.setImageDrawable(packIcon);
             header.addView(icon);

@@ -1,22 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Shared dimension constants for the Settings UI. -->
 <resources>
-    <dimen name="settings_card_corner_radius">24dp</dimen>
-    <dimen name="settings_card_small_corner_radius">4dp</dimen>
-    <dimen name="settings_horizontal_margin">16dp</dimen>
-    <dimen name="settings_item_gap">4dp</dimen>
+    <!-- Card / container shapes -->
+    <dimen name="settings_card_corner_radius">@dimen/m3_shape_extra_large</dimen>
+    <dimen name="settings_card_small_corner_radius">@dimen/m3_shape_extra_small</dimen>
+    <dimen name="settings_sheet_corner_radius">@dimen/m3_shape_extra_large</dimen>
+    <dimen name="settings_inner_radius">@dimen/m3_shape_small</dimen>
+    <dimen name="settings_pill_radius">@dimen/m3_shape_extra_large</dimen>
+    <dimen name="settings_handle_corner_radius">@dimen/m3_shape_extra_small</dimen>
+
+    <!-- Card padding & margins -->
     <dimen name="settings_card_padding">16dp</dimen>
-    <dimen name="settings_icon_size">40dp</dimen>
-    <dimen name="settings_swatch_size">24dp</dimen>
+    <dimen name="settings_card_padding_horizontal">24dp</dimen>
+    <dimen name="settings_card_padding_vertical">16dp</dimen>
+    <dimen name="settings_card_margin_horizontal">16dp</dimen>
+    <dimen name="settings_card_margin_vertical">6dp</dimen>
+    <dimen name="settings_horizontal_margin">16dp</dimen>
+    <dimen name="settings_header_padding_horizontal">16dp</dimen>
+    <dimen name="settings_header_padding_vertical">8dp</dimen>
+
+    <!-- Spacing -->
+    <dimen name="settings_item_gap">4dp</dimen>
+    <dimen name="settings_item_spacing">8dp</dimen>
+    <dimen name="settings_preview_gap">8dp</dimen>
     <dimen name="settings_vertical_pad_small">4dp</dimen>
     <dimen name="settings_vertical_pad_medium">8dp</dimen>
     <dimen name="settings_vertical_pad_large">12dp</dimen>
+
+    <!-- Icon & element sizes -->
+    <dimen name="settings_icon_size">40dp</dimen>
+    <dimen name="settings_icon_cell_size">64dp</dimen>
+    <dimen name="settings_pack_icon_size">40dp</dimen>
+    <dimen name="settings_shape_preview_size">36dp</dimen>
+    <dimen name="settings_shape_preview_margin">16dp</dimen>
+    <dimen name="settings_swatch_size">24dp</dimen>
+    <dimen name="settings_back_button_size">32dp</dimen>
+    <dimen name="settings_search_icon_size">20dp</dimen>
+
+    <!-- Icon padding -->
+    <dimen name="settings_icon_padding">4dp</dimen>
+    <dimen name="settings_icon_end_padding">20dp</dimen>
+    <dimen name="settings_icon_margin_end">12dp</dimen>
+
+    <!-- Row / toolbar sizing -->
+    <dimen name="settings_row_min_height">56dp</dimen>
+    <dimen name="settings_toolbar_height_collapsed">140dp</dimen>
+    <dimen name="settings_toolbar_height_expanded">200dp</dimen>
+
+    <!-- Sheet handle -->
+    <dimen name="settings_handle_width">32dp</dimen>
+    <dimen name="settings_handle_height">4dp</dimen>
+    <dimen name="settings_handle_top_margin">12dp</dimen>
+
+    <!-- Search -->
+    <dimen name="settings_search_padding">16dp</dimen>
+
+    <!-- Stroke -->
+    <dimen name="settings_stroke_width">2dp</dimen>
+
+    <!-- Slider -->
     <dimen name="settings_slider_outer_pad_top">16dp</dimen>
     <dimen name="settings_slider_outer_pad_bottom">10dp</dimen>
     <dimen name="settings_slider_track_height">16dp</dimen>
     <dimen name="settings_slider_thumb_width">4dp</dimen>
     <dimen name="settings_slider_thumb_height">28dp</dimen>
     <dimen name="settings_slider_track_offset">8dp</dimen>
+
+    <!-- Dialog & labels -->
     <dimen name="settings_value_label_min_width">24dp</dimen>
     <dimen name="settings_dialog_horizontal_pad">24dp</dimen>
 </resources>

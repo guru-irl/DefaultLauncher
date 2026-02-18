@@ -17,7 +17,7 @@
     <ripple android:color="?android:attr/colorControlHighlight">
         <item>
             <shape android:shape="rectangle">
-                <corners android:radius="50dp" />
+                <corners android:radius="@dimen/m3_shape_full" />
                 <solid android:color="?attr/widgetPickerExpandButtonBackgroundColor" />
             </shape>
         </item>

@@ -41,6 +41,7 @@ import com.android.launcher3.PagedView;
 import com.android.launcher3.R;
 import com.android.launcher3.ShortcutAndWidgetContainer;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.apppairs.AppPairIcon;
 import com.android.launcher3.celllayout.CellLayoutLayoutParams;
 import com.android.launcher3.keyboard.ViewGroupFocusHelper;
@@ -67,7 +68,7 @@ public class FolderPagedView extends PagedView<PageIndicatorDots> implements Cli
 
     private static final String TAG = "FolderPagedView";
 
-    private static final int REORDER_ANIMATION_DURATION = 230;
+    private static final int REORDER_ANIMATION_DURATION = M3Durations.MEDIUM_1;
     private static final int START_VIEW_REORDER_DELAY = 30;
     private static final float VIEW_REORDER_DELAY_FACTOR = 0.9f;
 

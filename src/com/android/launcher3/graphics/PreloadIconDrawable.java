@@ -37,6 +37,7 @@ import androidx.core.graphics.ColorUtils;
 
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.anim.AnimatedFloat;
 import com.android.launcher3.anim.AnimatorListeners;
 import com.android.launcher3.icons.BitmapInfo;
@@ -65,8 +66,8 @@ public class PreloadIconDrawable extends FastBitmapDrawable {
     private static final int DEFAULT_PATH_SIZE = 100;
     private static final int MAX_PAINT_ALPHA = 255;
 
-    private static final long DURATION_SCALE = 500;
-    private static final long SCALE_AND_ALPHA_ANIM_DURATION = 500;
+    private static final long DURATION_SCALE = M3Durations.LONG_2; // 500ms
+    private static final long SCALE_AND_ALPHA_ANIM_DURATION = M3Durations.LONG_2; // 500ms
 
     // The smaller the number, the faster the animation would be.
     // Duration = COMPLETE_ANIM_FRACTION * DURATION_SCALE

@@ -226,4 +226,14 @@
 
     <!-- Used to differentiate between desktop and non-desktop devices. -->
     <bool name="desktop_form_factor">false</bool>
+
+    <!-- M3 Expressive Spring: Snappy (interactive feedback) -->
+    <item name="m3_bounce_snappy_damping" type="dimen" format="float">0.6</item>
+    <item name="m3_bounce_snappy_stiffness" type="dimen" format="float">900</item>
+    <!-- M3 Expressive Spring: Smooth (settling into position) -->
+    <item name="m3_bounce_smooth_damping" type="dimen" format="float">0.8</item>
+    <item name="m3_bounce_smooth_stiffness" type="dimen" format="float">300</item>
+    <!-- M3 Expressive Spring: Gentle (ambient/staggered) -->
+    <item name="m3_bounce_gentle_damping" type="dimen" format="float">0.7</item>
+    <item name="m3_bounce_gentle_stiffness" type="dimen" format="float">150</item>
 </resources>

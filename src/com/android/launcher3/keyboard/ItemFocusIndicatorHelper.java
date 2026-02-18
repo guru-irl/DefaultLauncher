@@ -31,6 +31,7 @@ import android.view.View;
 
 import com.android.launcher3.Flags;
 import com.android.launcher3.R;
+import com.android.launcher3.anim.M3Durations;
 
 /**
  * A helper class to draw background of a focused item.
@@ -39,7 +40,7 @@ import com.android.launcher3.R;
 public abstract class ItemFocusIndicatorHelper<T> implements AnimatorUpdateListener {
 
     private static final float MIN_VISIBLE_ALPHA = 0.2f;
-    private static final long ANIM_DURATION = 150;
+    private static final long ANIM_DURATION = M3Durations.SHORT_3; // 150ms
 
     public static final FloatProperty<ItemFocusIndicatorHelper> ALPHA =
             new FloatProperty<ItemFocusIndicatorHelper>("alpha") {

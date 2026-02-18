@@ -32,6 +32,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
@@ -135,7 +136,7 @@ public class SettingsActivity extends AppCompatActivity
 
         CollapsingToolbarLayout collapsingToolbar = findViewById(R.id.collapsing_toolbar);
 
-        float density = getResources().getDisplayMetrics().density;
+        Resources res = getResources();
 
         if (isSubPage) {
             // Sub-page: back button, sub-page title, collapsing toolbar with regular font
@@ -150,7 +151,7 @@ public class SettingsActivity extends AppCompatActivity
                 collapsingToolbar.setExpandedTitleTypeface(Typeface.DEFAULT);
                 // Sub-pages: 140dp height, centered title
                 ViewGroup.LayoutParams lp = collapsingToolbar.getLayoutParams();
-                lp.height = (int) (140 * density);
+                lp.height = res.getDimensionPixelSize(R.dimen.settings_toolbar_height_collapsed);
                 collapsingToolbar.setLayoutParams(lp);
                 collapsingToolbar.setExpandedTitleGravity(
                         Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
@@ -167,14 +168,14 @@ public class SettingsActivity extends AppCompatActivity
                 collapsingToolbar.setTitle(getString(R.string.settings_title));
                 collapsingToolbar.setExpandedTitleTextAppearance(
                         R.style.HomeSettings_ExpandedToolbarTitle_Main);
-                Typeface danfo = getResources().getFont(R.font.danfo);
+                Typeface danfo = res.getFont(R.font.danfo);
                 if (danfo != null) {
                     collapsingToolbar.setCollapsedTitleTypeface(danfo);
                     collapsingToolbar.setExpandedTitleTypeface(danfo);
                 }
                 // Main page: 200dp height, centered title
                 ViewGroup.LayoutParams lp = collapsingToolbar.getLayoutParams();
-                lp.height = (int) (200 * density);
+                lp.height = res.getDimensionPixelSize(R.dimen.settings_toolbar_height_expanded);
                 collapsingToolbar.setLayoutParams(lp);
                 collapsingToolbar.setExpandedTitleGravity(
                         Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
@@ -410,9 +411,9 @@ public class SettingsActivity extends AppCompatActivity
             // with minWidth=56dp + paddingEnd=8dp → 32dp icon-to-text vs 16dp card-to-icon.
             // Fix: strip minWidth, add 4dp breathing room on all sides, 20dp end
             // to balance: card-to-icon = 16dp(list) + 4dp(icon) = 20dp = icon-to-text.
-            final float density = getResources().getDisplayMetrics().density;
-            final int iconPad = (int) (4 * density);
-            final int endPad = (int) (20 * density);
+            final Resources res = getResources();
+            final int iconPad = res.getDimensionPixelSize(R.dimen.settings_icon_padding);
+            final int endPad = res.getDimensionPixelSize(R.dimen.settings_icon_end_padding);
             rv.addOnChildAttachStateChangeListener(
                     new RecyclerView.OnChildAttachStateChangeListener() {
                 @Override
