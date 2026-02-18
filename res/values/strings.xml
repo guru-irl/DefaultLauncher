@@ -568,6 +568,11 @@
     <!-- Home screen icons category -->
     <string name="home_screen_icons_category">Icons</string>
 
+    <!-- Home screen wallpaper category -->
+    <string name="home_screen_wallpaper_category">Wallpaper</string>
+    <string name="wallpaper_scroll_title">Wallpaper scrolling</string>
+    <string name="wallpaper_scroll_summary">Move wallpaper as you swipe between pages</string>
+
     <!-- Grids sub-page -->
     <string name="grids_title">Grids</string>
     <string name="grids_summary">Column count</string>

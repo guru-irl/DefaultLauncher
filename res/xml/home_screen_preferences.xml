@@ -41,4 +41,17 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory
+        android:title="@string/home_screen_wallpaper_category"
+        launcher:iconSpaceReserved="false">
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:key="pref_wallpaper_scroll"
+            android:title="@string/wallpaper_scroll_title"
+            android:summary="@string/wallpaper_scroll_summary"
+            android:defaultValue="true"
+            launcher:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
 </androidx.preference.PreferenceScreen>

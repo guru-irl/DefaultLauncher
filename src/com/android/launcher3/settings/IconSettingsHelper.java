@@ -60,6 +60,7 @@ import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
+import com.android.launcher3.graphics.ThemeManager;
 import com.android.launcher3.icons.DrawerIconResolver;
 import com.android.launcher3.icons.LauncherIcons;
 import com.android.launcher3.icons.pack.IconPack;
@@ -275,6 +276,12 @@ public class IconSettingsHelper {
 
                 applyIconPack(ctx, prefItem, mgr, () -> {
                     updateIconPackSummary(ctx, pref, prefItem, mgr);
+                    // Refresh adaptive shape switch in the parent fragment
+                    if (fragment instanceof HomeScreenFragment) {
+                        ((HomeScreenFragment) fragment).refreshAdaptiveShapeState();
+                    } else if (fragment instanceof AppDrawerFragment) {
+                        ((AppDrawerFragment) fragment).refreshAdaptiveShapeState();
+                    }
                     sheet.dismiss();
                 });
             });
@@ -377,6 +384,9 @@ public class IconSettingsHelper {
             // Auto-detect adaptive and set drawer adaptive switch
             autoDetectAdaptive(ctx, mgr, true);
 
+            // Force ThemeManager to pick up the new adaptive shape state synchronously
+            // before the model reloads (prevents stale IconState race)
+            ThemeManager.INSTANCE.get(ctx).onConfigurationChanged();
             app.getModel().forceReload();
             if (onComplete != null) onComplete.run();
         } else {
@@ -391,6 +401,9 @@ public class IconSettingsHelper {
                 new Handler(Looper.getMainLooper()).post(() -> {
                     LauncherIcons.clearPool(ctx);
                     DrawerIconResolver.getInstance().invalidate();
+                    // Force ThemeManager to pick up the new adaptive shape state synchronously
+                    // before the model reloads (prevents stale IconState race)
+                    ThemeManager.INSTANCE.get(ctx).onConfigurationChanged();
                     app.getModel().forceReload();
                     if (onComplete != null) onComplete.run();
                 });
@@ -399,18 +412,18 @@ public class IconSettingsHelper {
     }
 
     /**
-     * Auto-detect whether the current pack is adaptive and set the corresponding pref.
-     * Safe to call from the main thread for drawer packs (re-uses cached result).
+     * Auto-detect whether the current pack is adaptive and flip the switch ON if so.
+     * Never forces the switch OFF — the user may want adaptive shapes even for
+     * non-adaptive packs (to force-wrap them).
      */
     private static void autoDetectAdaptive(Context ctx, IconPackManager mgr,
             boolean isDrawer) {
         IconPack pack = isDrawer ? mgr.getDrawerPack() : mgr.getCurrentPack();
-        if (pack != null) {
-            boolean isAdaptive = pack.isAdaptivePack(ctx.getPackageManager());
+        if (pack != null && pack.isAdaptivePack(ctx.getPackageManager())) {
             LauncherPrefs.get(ctx).put(
                     isDrawer ? LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER
                              : LauncherPrefs.APPLY_ADAPTIVE_SHAPE,
-                    isAdaptive);
+                    true);
         }
     }
 

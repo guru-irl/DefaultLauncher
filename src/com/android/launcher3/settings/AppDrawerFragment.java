@@ -333,4 +333,14 @@ public class AppDrawerFragment extends PreferenceFragmentCompat {
         String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_SIZE_SCALE_DRAWER);
         pref.setSummary(IconSettingsHelper.getIconSizeSummary(getContext(), current));
     }
+
+    /** Re-reads the adaptive shape pref and updates the switch + shape visibility. */
+    public void refreshAdaptiveShapeState() {
+        SwitchPreferenceCompat adaptivePref = findPreference("pref_apply_adaptive_shape_drawer");
+        Preference iconShapePref = findPreference("pref_icon_shape");
+        if (adaptivePref == null) return;
+        boolean on = LauncherPrefs.get(getContext()).get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
+        adaptivePref.setChecked(on);
+        if (iconShapePref != null) iconShapePref.setVisible(on);
+    }
 }

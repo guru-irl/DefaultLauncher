@@ -21,6 +21,7 @@ import static com.android.launcher3.views.FloatingIconViewCompanion.setPropertie
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Picture;
+import android.util.Log;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -161,6 +162,9 @@ public class FloatingSurfaceView extends AbstractFloatingView implements
         }
         View icon = mLauncher.getFirstHomeElementForAppClose(null /* StableViewInfo */,
                 mContract.componentName.getPackageName(), mContract.user);
+        Log.d("LauncherAnim", "updateIconLocation: icon=" + (icon != null)
+                + " component=" + mContract.componentName
+                + " user=" + mContract.user);
 
         boolean iconChanged = mIcon != icon;
         if (iconChanged) {
