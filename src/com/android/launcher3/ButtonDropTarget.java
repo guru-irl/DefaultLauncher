@@ -36,6 +36,7 @@ import android.widget.TextView;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.app.animation.Interpolators;
+import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.dragndrop.DragController;
 import com.android.launcher3.dragndrop.DragLayer;
 import com.android.launcher3.dragndrop.DragOptions;
@@ -53,7 +54,7 @@ public abstract class ButtonDropTarget extends TextView
         implements DropTarget, DragController.DragListener, OnClickListener {
 
     private static final int[] sTempCords = new int[2];
-    private static final int DRAG_VIEW_DROP_DURATION = 285;
+    private static final int DRAG_VIEW_DROP_DURATION = M3Durations.MEDIUM_2; // 300ms
     private static final float DRAG_VIEW_HOVER_OVER_OPACITY = 0.65f;
     private static final int MAX_LINES_TEXT_MULTI_LINE = 2;
     private static final int MAX_LINES_TEXT_SINGLE_LINE = 1;

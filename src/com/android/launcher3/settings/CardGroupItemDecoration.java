@@ -20,12 +20,15 @@ package com.android.launcher3.settings;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.view.View;
+
+import com.android.launcher3.R;
 
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceGroupAdapter;
@@ -60,13 +63,13 @@ public class CardGroupItemDecoration extends RecyclerView.ItemDecoration {
     private final RectF mTempRect = new RectF();
 
     public CardGroupItemDecoration(Context ctx) {
-        float density = ctx.getResources().getDisplayMetrics().density;
-        mLargeRadius = 24 * density;
-        mSmallRadius = 4 * density;
-        mHorizontalMargin = (int) (16 * density);
-        mItemGap = (int) (4 * density);
-        mGroupTopMargin = (int) (4 * density);
-        mGroupBottomMargin = (int) (4 * density);
+        Resources res = ctx.getResources();
+        mLargeRadius = res.getDimension(R.dimen.settings_card_corner_radius);
+        mSmallRadius = res.getDimension(R.dimen.settings_card_small_corner_radius);
+        mHorizontalMargin = res.getDimensionPixelSize(R.dimen.settings_horizontal_margin);
+        mItemGap = res.getDimensionPixelSize(R.dimen.settings_item_gap);
+        mGroupTopMargin = res.getDimensionPixelSize(R.dimen.settings_item_gap);
+        mGroupBottomMargin = res.getDimensionPixelSize(R.dimen.settings_item_gap);
 
         mCardPaint.setStyle(Paint.Style.FILL);
         boolean isDark = (ctx.getResources().getConfiguration().uiMode
@@ -93,14 +96,8 @@ public class CardGroupItemDecoration extends RecyclerView.ItemDecoration {
             if (pga.getItem(pos) instanceof PreferenceCategory) continue;
             if ("no_card".equals(child.getTag())) continue;
 
-            boolean isFirst = (pos == 0)
-                    || (pga.getItem(pos - 1) instanceof PreferenceCategory)
-                    || isNoCardItem(parent, pos - 1);
-            boolean isLast = (pos == totalItems - 1)
-                    || (pos + 1 < totalItems
-                        && pga.getItem(pos + 1) instanceof PreferenceCategory)
-                    || (pos + 1 < totalItems
-                        && isNoCardItem(parent, pos + 1));
+            boolean isFirst = isFirstInGroup(pga, parent, pos);
+            boolean isLast = isLastInGroup(pga, parent, pos, totalItems);
 
             float topLeft, topRight, bottomLeft, bottomRight;
             if (isFirst && isLast) {
@@ -156,14 +153,8 @@ public class CardGroupItemDecoration extends RecyclerView.ItemDecoration {
         outRect.right = mHorizontalMargin;
 
         int totalItems = pga.getItemCount();
-        boolean isFirst = (pos == 0)
-                || (pga.getItem(pos - 1) instanceof PreferenceCategory)
-                || isNoCardItem(parent, pos - 1);
-        boolean isLast = (pos == totalItems - 1)
-                || (pos + 1 < totalItems
-                    && pga.getItem(pos + 1) instanceof PreferenceCategory)
-                || (pos + 1 < totalItems
-                    && isNoCardItem(parent, pos + 1));
+        boolean isFirst = isFirstInGroup(pga, parent, pos);
+        boolean isLast = isLastInGroup(pga, parent, pos, totalItems);
 
         // First item in group gets top margin
         if (isFirst) {
@@ -177,6 +168,21 @@ public class CardGroupItemDecoration extends RecyclerView.ItemDecoration {
         if (isLast) {
             outRect.bottom = mGroupBottomMargin;
         }
+    }
+
+    private boolean isFirstInGroup(PreferenceGroupAdapter pga, RecyclerView parent, int pos) {
+        return (pos == 0)
+                || (pga.getItem(pos - 1) instanceof PreferenceCategory)
+                || isNoCardItem(parent, pos - 1);
+    }
+
+    private boolean isLastInGroup(
+            PreferenceGroupAdapter pga, RecyclerView parent, int pos, int totalItems) {
+        return (pos == totalItems - 1)
+                || (pos + 1 < totalItems
+                    && pga.getItem(pos + 1) instanceof PreferenceCategory)
+                || (pos + 1 < totalItems
+                    && isNoCardItem(parent, pos + 1));
     }
 
     /** Check whether the item at adapter position {@code pos} has the "no_card" tag. */

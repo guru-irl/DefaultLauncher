@@ -46,6 +46,7 @@ import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherSettings.Favorites;
+import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.dagger.ApplicationContext;
 import com.android.launcher3.dagger.LauncherAppSingleton;
 import com.android.launcher3.dagger.LauncherBaseAppComponent;
@@ -84,7 +85,7 @@ public class ItemInstallQueue {
     // The set of shortcuts that are pending install
     private static final String APPS_PENDING_INSTALL = "apps_to_install";
 
-    public static final int NEW_SHORTCUT_BOUNCE_DURATION = 450;
+    public static final int NEW_SHORTCUT_BOUNCE_DURATION = M3Durations.LONG_1; // 450ms
     public static final int NEW_SHORTCUT_STAGGER_DELAY = 85;
 
     public static DaggerSingletonObject<ItemInstallQueue> INSTANCE =

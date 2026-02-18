@@ -31,6 +31,7 @@ import android.view.View;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.content.ContextCompat;
 
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.R;
@@ -105,7 +106,10 @@ public class SysUiScrim implements View.OnAttachStateChangeListener {
         mTopMaskBitmap = mHideSysUiScrim ? null : createDitheredAlphaMask(mTopMaskHeight,
                 new int[]{0x3DFFFFFF, 0x0AFFFFFF, 0x00FFFFFF},
                 new float[]{0f, 0.7f, 1f});
-        mTopMaskPaint.setColor(0xFF222222);
+        int onSurfaceColor = ContextCompat.getColor(
+                view.getContext(), R.color.materialColorOnSurface);
+        mTopMaskPaint.setColor(onSurfaceColor);
+        mBottomMaskPaint.setColor(onSurfaceColor);
         mBottomMaskBitmap = mHideSysUiScrim ? null : createDitheredAlphaMask(mBottomMaskHeight,
                 new int[]{0x00FFFFFF, 0x2FFFFFFF},
                 new float[]{0f, 1f});

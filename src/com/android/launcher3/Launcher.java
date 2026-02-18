@@ -115,10 +115,12 @@ import android.animation.Animator;
 import android.animation.AnimatorSet;
 import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
+import android.app.Activity;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.WallpaperManager;
 import android.appwidget.AppWidgetHostView;
 import android.appwidget.AppWidgetManager;
 import android.content.ActivityNotFoundException;
@@ -135,6 +137,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.os.Parcelable;
 import android.os.StrictMode;
 import android.os.SystemClock;
@@ -419,6 +422,9 @@ public class Launcher extends StatefulActivity<LauncherState>
     private final SettingsCache.OnChangeListener mNaturalScrollingChangedListener =
             enabled -> mIsNaturalScrollingEnabled = enabled;
 
+    private ValueAnimator mWallpaperZoomAnimator;
+    private java.lang.reflect.Method mWallpaperZoomMethod;
+
     public static Launcher getLauncher(Context context) {
         return fromContext(context);
     }
@@ -601,6 +607,13 @@ public class Launcher extends StatefulActivity<LauncherState>
             RuleController.getInstance(this).setRules(
                     RuleController.parseRules(this, R.xml.split_configuration));
         }
+
+        // Override the close transition: the closing app fades out + scales down while
+        // the launcher fades in underneath.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE,
+                    R.anim.launcher_home_enter, R.anim.launcher_app_close_exit);
+        }
     }
 
     protected ModelCallbacks createModelCallbacks() {
@@ -716,8 +729,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
         // Always update device profile when multi window mode changed.
         boolean profileChanged = initDeviceProfile(mDeviceProfile.inv);
-        Log.d("WsPadDebug", "onMultiWindowModeChanged: isMultiWindow=" + isInMultiWindowMode
-                + " profileChanged=" + profileChanged);
         if (profileChanged) {
             dispatchDeviceProfileChanged();
             reapplyUi();
@@ -786,7 +797,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         // Load configuration-specific DeviceProfile
         DeviceProfile deviceProfile = idp.getDeviceProfile(this);
         if (mDeviceProfile == deviceProfile) {
-            Log.d("WsPadDebug", "initDeviceProfile: same profile, skipping");
             return false;
         }
 
@@ -796,11 +806,6 @@ public class Launcher extends StatefulActivity<LauncherState>
             mDeviceProfile = mDeviceProfile.getMultiWindowProfile(
                     this, getMultiWindowDisplaySize());
         }
-        Log.d("WsPadDebug", "initDeviceProfile: swapped"
-                + " oldH=" + (oldProfile != null ? oldProfile.heightPx : -1)
-                + " newH=" + mDeviceProfile.heightPx
-                + " wsPadBot=" + mDeviceProfile.workspacePadding.bottom
-                + " isMultiWindow=" + isInMultiWindowMode());
 
         if (FOLDABLE_SINGLE_PAGE.get() && mDeviceProfile.isTwoPanels) {
             mCellPosMapper = new TwoPanelCellPosMapper(mDeviceProfile.inv.numColumns);
@@ -1247,6 +1252,10 @@ public class Launcher extends StatefulActivity<LauncherState>
         mDropTargetBar.animateToVisibility(false);
 
         mAppWidgetHolder.setActivityResumed(false);
+
+        // Zoom wallpaper in when leaving launcher (app opening)
+        cancelWallpaperZoomAnimation();
+        setWallpaperZoom(0.5f);
     }
 
     /**
@@ -1557,6 +1566,9 @@ public class Launcher extends StatefulActivity<LauncherState>
         }
         TraceHelper.INSTANCE.beginSection(ON_NEW_INTENT_EVT);
         super.onNewIntent(intent);
+        Log.d("LauncherAnim", "onNewIntent: action=" + intent.getAction()
+                + " hasGestureContract=" + (intent.getBundleExtra(
+                        GestureNavContract.EXTRA_GESTURE_CONTRACT) != null));
 
         boolean alreadyOnHome = hasWindowFocus() && ((intent.getFlags() &
                 Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT)
@@ -1596,6 +1608,8 @@ public class Launcher extends StatefulActivity<LauncherState>
 
             handleSplitAnimationGoingToHome(LAUNCHER_SPLIT_SELECTION_EXIT_HOME);
             handleGestureContract(intent);
+            // Animate wallpaper zoom-out when returning home
+            animateWallpaperZoomOut();
         } else if (Intent.ACTION_ALL_APPS.equals(intent.getAction())) {
             showAllAppsFromIntent(alreadyOnHome);
         } else if (INTENT_ACTION_ALL_APPS_TOGGLE.equals(intent.getAction())) {
@@ -1660,10 +1674,48 @@ public class Launcher extends StatefulActivity<LauncherState>
      */
     protected void handleGestureContract(Intent intent) {
         GestureNavContract gnc = GestureNavContract.fromIntent(intent);
+        Log.d("LauncherAnim", "handleGestureContract: gnc=" + (gnc != null)
+                + " extras=" + intent.getExtras());
         if (gnc != null) {
             AbstractFloatingView.closeOpenViews(this, false, TYPE_ICON_SURFACE);
             FloatingSurfaceView.show(this, gnc);
         }
+    }
+
+    private void setWallpaperZoom(float zoom) {
+        IBinder token = getWindow().getDecorView().getWindowToken();
+        if (token == null) return;
+        if (mWallpaperZoomMethod == null) {
+            try {
+                mWallpaperZoomMethod = WallpaperManager.class.getMethod(
+                        "setWallpaperZoomOut", IBinder.class, float.class);
+            } catch (NoSuchMethodException e) {
+                Log.w(TAG, "setWallpaperZoomOut not available on this device");
+                return;
+            }
+        }
+        try {
+            mWallpaperZoomMethod.invoke(WallpaperManager.getInstance(this), token, zoom);
+        } catch (Exception e) {
+            Log.w(TAG, "setWallpaperZoomOut failed", e);
+        }
+    }
+
+    private void cancelWallpaperZoomAnimation() {
+        if (mWallpaperZoomAnimator != null) {
+            mWallpaperZoomAnimator.cancel();
+            mWallpaperZoomAnimator = null;
+        }
+    }
+
+    private void animateWallpaperZoomOut() {
+        cancelWallpaperZoomAnimation();
+        mWallpaperZoomAnimator = ValueAnimator.ofFloat(0.5f, 0f);
+        mWallpaperZoomAnimator.setDuration(550);
+        mWallpaperZoomAnimator.setInterpolator(EMPHASIZED);
+        mWallpaperZoomAnimator.addUpdateListener(a ->
+                setWallpaperZoom((float) a.getAnimatedValue()));
+        mWallpaperZoomAnimator.start();
     }
 
     @Override

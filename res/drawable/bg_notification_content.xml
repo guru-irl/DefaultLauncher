@@ -21,7 +21,7 @@
             <gradient
                 android:angle="270"
                 android:endColor="@android:color/transparent"
-                android:startColor="#33000000"
+                android:startColor="@color/scrim_on_surface_20"
                 android:type="linear" />
         </shape>
     </item>

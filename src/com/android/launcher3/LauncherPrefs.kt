@@ -339,6 +339,7 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField val DRAWER_MATCH_HOME = backedUpItem("pref_drawer_match_home", true)
         @JvmField val APPLY_ADAPTIVE_SHAPE = backedUpItem("pref_apply_adaptive_shape", true)
         @JvmField val APPLY_ADAPTIVE_SHAPE_DRAWER = backedUpItem("pref_apply_adaptive_shape_drawer", true)
+        @JvmField val WALLPAPER_SCROLL = backedUpItem("pref_wallpaper_scroll", true)
 
         // Universal search preferences
         @JvmField val SEARCH_APPS = backedUpItem("pref_search_apps", true)

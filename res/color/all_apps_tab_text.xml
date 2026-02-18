@@ -14,6 +14,6 @@
      limitations under the License.
 -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:color="#FFFFFF" android:state_selected="true"/>
-    <item android:color="#1F1F1F"/>
+    <item android:color="@color/materialColorOnPrimary" android:state_selected="true"/>
+    <item android:color="@color/materialColorOnSurface"/>
 </selector>

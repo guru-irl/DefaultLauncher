@@ -20,6 +20,7 @@ package com.android.launcher3.settings;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
@@ -48,6 +49,9 @@ public class M3SliderPreference extends Preference {
     private OnTrackingStopListener mTrackingStopListener;
 
     private static final String TAG_SLIDER = "m3_slider_container";
+    private static final String TAG_SLIDER_WIDGET = "m3_slider_widget";
+    private static final String TAG_SLIDER_TITLE = "m3_slider_title";
+    private static final String TAG_SLIDER_VALUE = "m3_slider_value";
 
     public M3SliderPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -101,9 +105,18 @@ public class M3SliderPreference extends Preference {
 
         ViewGroup root = (ViewGroup) holder.itemView;
 
+        // Reuse cached view hierarchy if present — only update dynamic values
         View existing = root.findViewWithTag(TAG_SLIDER);
         if (existing != null) {
-            root.removeView(existing);
+            Slider slider = existing.findViewWithTag(TAG_SLIDER_WIDGET);
+            if (slider != null) {
+                slider.setValue(Math.max(mMin, Math.min(mMax, mValue)));
+            }
+            TextView titleView = existing.findViewWithTag(TAG_SLIDER_TITLE);
+            if (titleView != null) titleView.setText(getTitle());
+            TextView valueView = existing.findViewWithTag(TAG_SLIDER_VALUE);
+            if (valueView != null) valueView.setText(String.valueOf((int) mValue));
+            return;
         }
 
         for (int i = 0; i < root.getChildCount(); i++) {
@@ -112,7 +125,7 @@ public class M3SliderPreference extends Preference {
         root.setMinimumHeight(0);
 
         Context ctx = getContext();
-        float density = ctx.getResources().getDisplayMetrics().density;
+        Resources res = ctx.getResources();
 
         // Root already has 16dp horizontal padding from listPreferredItemPaddingStart/End.
 
@@ -121,13 +134,16 @@ public class M3SliderPreference extends Preference {
         outer.setOrientation(LinearLayout.VERTICAL);
         outer.setClipChildren(false);
         outer.setClipToPadding(false);
-        outer.setPadding(0, (int) (16 * density), 0, (int) (10 * density));
+        outer.setPadding(0,
+                res.getDimensionPixelSize(R.dimen.settings_slider_outer_pad_top), 0,
+                res.getDimensionPixelSize(R.dimen.settings_slider_outer_pad_bottom));
         outer.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         // Title
         TextView titleView = new TextView(ctx);
+        titleView.setTag(TAG_SLIDER_TITLE);
         titleView.setText(getTitle());
         android.util.TypedValue tv = new android.util.TypedValue();
         ctx.getTheme().resolveAttribute(android.R.attr.textAppearanceListItem, tv, true);
@@ -147,19 +163,24 @@ public class M3SliderPreference extends Preference {
         LinearLayout.LayoutParams sliderRowParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        sliderRowParams.topMargin = (int) (8 * density);
+        sliderRowParams.topMargin = res.getDimensionPixelSize(
+                R.dimen.settings_vertical_pad_medium);
         sliderRow.setLayoutParams(sliderRowParams);
 
         // Slider — use native thumb sizing to preserve built-in animations
         Slider slider = new Slider(ctx);
+        slider.setTag(TAG_SLIDER_WIDGET);
         slider.setValueFrom(mMin);
         slider.setValueTo(mMax);
         slider.setStepSize(mStepSize);
         slider.setValue(Math.max(mMin, Math.min(mMax, mValue)));
         slider.setTickVisible(true);
-        slider.setTrackHeight((int) (16 * density));
-        slider.setThumbWidth((int) (4 * density));
-        slider.setThumbHeight((int) (28 * density));
+        slider.setTrackHeight(res.getDimensionPixelSize(
+                R.dimen.settings_slider_track_height));
+        slider.setThumbWidth(res.getDimensionPixelSize(
+                R.dimen.settings_slider_thumb_width));
+        slider.setThumbHeight(res.getDimensionPixelSize(
+                R.dimen.settings_slider_thumb_height));
         slider.setThumbTintList(ColorStateList.valueOf(
                 ctx.getColor(R.color.materialColorPrimary)));
         slider.setThumbElevation(0f);
@@ -168,7 +189,8 @@ public class M3SliderPreference extends Preference {
 
         LinearLayout.LayoutParams sliderParams = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        int trackOffset = (int) (8 * density);
+        int trackOffset = res.getDimensionPixelSize(
+                R.dimen.settings_slider_track_offset);
         sliderParams.setMarginStart(-trackOffset);
         sliderParams.setMarginEnd(0);
         slider.setLayoutParams(sliderParams);
@@ -178,16 +200,19 @@ public class M3SliderPreference extends Preference {
         TextView valueText = null;
         if (mShowValue) {
             valueText = new TextView(ctx);
+            valueText.setTag(TAG_SLIDER_VALUE);
             valueText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
             valueText.setTypeface(Typeface.DEFAULT_BOLD);
             valueText.setTextColor(ctx.getColor(R.color.materialColorOnSurface));
             valueText.setText(String.valueOf((int) mValue));
-            valueText.setMinWidth((int) (24 * density));
+            valueText.setMinWidth(res.getDimensionPixelSize(
+                    R.dimen.settings_value_label_min_width));
             valueText.setGravity(android.view.Gravity.CENTER);
             LinearLayout.LayoutParams valParams = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT);
-            valParams.setMarginStart((int) (4 * density));
+            valParams.setMarginStart(res.getDimensionPixelSize(
+                    R.dimen.settings_vertical_pad_small));
             valueText.setLayoutParams(valParams);
             sliderRow.addView(valueText);
         }

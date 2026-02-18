@@ -19,6 +19,7 @@
 package com.android.launcher3.settings;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -274,13 +275,13 @@ public class AppDrawerFragment extends PreferenceFragmentCompat {
     private void showCustomIconSizeDialog(
             MaterialButtonToggleGroup toggleGroup, Preference iconSizePref) {
         Context ctx = getContext();
-        float density = ctx.getResources().getDisplayMetrics().density;
+        Resources res = ctx.getResources();
 
         TextInputLayout inputLayout = new TextInputLayout(ctx,
                 null, com.google.android.material.R.attr.textInputOutlinedStyle);
         inputLayout.setHint("Icon size (50\u2013100%)");
-        int hPad = (int) (24 * density);
-        int tPad = (int) (16 * density);
+        int hPad = res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal);
+        int tPad = res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical);
         inputLayout.setPadding(hPad, tPad, hPad, 0);
 
         TextInputEditText editText = new TextInputEditText(inputLayout.getContext());
@@ -332,5 +333,15 @@ public class AppDrawerFragment extends PreferenceFragmentCompat {
     private void updateIconSizeSummary(Preference pref) {
         String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_SIZE_SCALE_DRAWER);
         pref.setSummary(IconSettingsHelper.getIconSizeSummary(getContext(), current));
+    }
+
+    /** Re-reads the adaptive shape pref and updates the switch + shape visibility. */
+    public void refreshAdaptiveShapeState() {
+        SwitchPreferenceCompat adaptivePref = findPreference("pref_apply_adaptive_shape_drawer");
+        Preference iconShapePref = findPreference("pref_icon_shape");
+        if (adaptivePref == null) return;
+        boolean on = LauncherPrefs.get(getContext()).get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
+        adaptivePref.setChecked(on);
+        if (iconShapePref != null) iconShapePref.setVisible(on);
     }
 }

@@ -80,6 +80,11 @@ public class WorkProfileManager extends UserProfileManager
      */
     private void updateWorkFabVisibility(int page) {
         if (mWorkUtilityView == null) return;
+        // Safety guard: never show FAB when AllApps isn't visible (e.g., on the home screen)
+        if (mAllApps.getVisibility() != View.VISIBLE) {
+            mWorkUtilityView.animateVisibility(false);
+            return;
+        }
         boolean show = false;
         if (page == WORK) {
             show = true;

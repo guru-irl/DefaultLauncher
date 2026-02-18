@@ -63,6 +63,7 @@ import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.LauncherSettings;
+import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.dagger.LauncherComponentProvider;
 import com.android.launcher3.graphics.LauncherPreviewRenderer.PreviewAppComponent;
 import com.android.launcher3.graphics.LauncherPreviewRenderer.PreviewContext;
@@ -86,7 +87,7 @@ import java.util.concurrent.TimeUnit;
 public class PreviewSurfaceRenderer {
 
     private static final String TAG = "PreviewSurfaceRenderer";
-    private static final int FADE_IN_ANIMATION_DURATION = 200;
+    private static final int FADE_IN_ANIMATION_DURATION = M3Durations.SHORT_4; // 200ms
     private static final String KEY_HOST_TOKEN = "host_token";
     private static final String KEY_VIEW_WIDTH = "width";
     private static final String KEY_VIEW_HEIGHT = "height";

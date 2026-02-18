@@ -50,6 +50,7 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.launcher3.Insettable;
 import com.android.launcher3.R;
+import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.util.Themes;
 
@@ -66,14 +67,14 @@ public class PageIndicatorDots extends View implements Insettable, PageIndicator
 
     private static final float SHIFT_PER_ANIMATION = 0.5f;
     private static final float SHIFT_THRESHOLD = (true/*enableLauncherVisualRefresh()*/ ? 0.5f : 0.2f);
-    private static final long ANIMATION_DURATION = (true/*enableLauncherVisualRefresh()*/ ? 200 : 150);
+    private static final long ANIMATION_DURATION = M3Durations.SHORT_4; // 200ms
     private static final int PAGINATION_FADE_DELAY = ViewConfiguration.getScrollDefaultDelay();
-    private static final int PAGINATION_FADE_IN_DURATION = 83;
-    private static final int PAGINATION_FADE_OUT_DURATION = 167;
+    private static final int PAGINATION_FADE_IN_DURATION = M3Durations.SHORT_2; // 100ms
+    private static final int PAGINATION_FADE_OUT_DURATION = M3Durations.SHORT_3; // 150ms
 
-    private static final int ENTER_ANIMATION_START_DELAY = 300;
-    private static final int ENTER_ANIMATION_STAGGERED_DELAY = 150;
-    private static final int ENTER_ANIMATION_DURATION = 400;
+    private static final int ENTER_ANIMATION_START_DELAY = M3Durations.MEDIUM_2; // 300ms
+    private static final int ENTER_ANIMATION_STAGGERED_DELAY = M3Durations.SHORT_3; // 150ms
+    private static final int ENTER_ANIMATION_DURATION = M3Durations.MEDIUM_4; // 400ms
 
     private static final int LARGE_HEIGHT_MULTIPLIER = 12;
     private static final int SMALL_HEIGHT_MULTIPLIER = 4;

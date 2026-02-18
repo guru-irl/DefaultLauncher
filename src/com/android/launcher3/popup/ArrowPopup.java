@@ -17,7 +17,6 @@
 package com.android.launcher3.popup;
 
 import static com.android.app.animation.Interpolators.EMPHASIZED_ACCELERATE;
-import static com.android.app.animation.Interpolators.EMPHASIZED_DECELERATE;
 import static com.android.app.animation.Interpolators.LINEAR;
 
 import android.animation.Animator;
@@ -33,6 +32,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
+import android.util.FloatProperty;
 import android.util.Pair;
 import android.util.Property;
 import android.view.Gravity;
@@ -40,13 +40,14 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Interpolator;
-import android.view.animation.PathInterpolator;
 import android.widget.FrameLayout;
 
 import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.InsettableFrameLayout;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.anim.M3Durations;
+import com.android.launcher3.anim.SpringAnimationBuilder;
 import com.android.launcher3.dragndrop.DragLayer;
 import com.android.launcher3.shortcuts.DeepShortcutView;
 import com.android.launcher3.util.RunnableList;
@@ -62,6 +63,16 @@ import com.android.launcher3.views.BaseDragLayer;
 public abstract class ArrowPopup<T extends Context & ActivityContext>
         extends AbstractFloatingView {
 
+    private static final FloatProperty<View> SCALE_X_PROP = new FloatProperty<View>("scaleX") {
+        @Override public void setValue(View v, float value) { v.setScaleX(value); }
+        @Override public Float get(View v) { return v.getScaleX(); }
+    };
+
+    private static final FloatProperty<View> SCALE_Y_PROP = new FloatProperty<View>("scaleY") {
+        @Override public void setValue(View v, float value) { v.setScaleY(value); }
+        @Override public Float get(View v) { return v.getScaleY(); }
+    };
+
     // Duration values (ms) for popup open and close animations.
     protected int mOpenDuration = 276;
     protected int mOpenFadeStartDelay = 0;
@@ -75,18 +86,16 @@ public abstract class ArrowPopup<T extends Context & ActivityContext>
     protected int mCloseChildFadeStartDelay = 0;
     protected int mCloseChildFadeDuration = 140;
 
-    private static final int OPEN_DURATION_U = 200;
     private static final int OPEN_FADE_START_DELAY_U = 0;
-    private static final int OPEN_FADE_DURATION_U = 83;
+    private static final int OPEN_FADE_DURATION_U = M3Durations.SHORT_2;
     private static final int OPEN_CHILD_FADE_START_DELAY_U = 0;
-    private static final int OPEN_CHILD_FADE_DURATION_U = 83;
-    private static final int OPEN_OVERSHOOT_DURATION_U = 200;
+    private static final int OPEN_CHILD_FADE_DURATION_U = M3Durations.SHORT_2;
 
-    private static final int CLOSE_DURATION_U  = 233;
-    private static final int CLOSE_FADE_START_DELAY_U = 150;
-    private static final int CLOSE_FADE_DURATION_U = 83;
-    private static final int CLOSE_CHILD_FADE_START_DELAY_U = 150;
-    private static final int CLOSE_CHILD_FADE_DURATION_U = 83;
+    private static final int CLOSE_DURATION_U  = M3Durations.MEDIUM_1;
+    private static final int CLOSE_FADE_START_DELAY_U = M3Durations.SHORT_3;
+    private static final int CLOSE_FADE_DURATION_U = M3Durations.SHORT_2;
+    private static final int CLOSE_CHILD_FADE_START_DELAY_U = M3Durations.SHORT_3;
+    private static final int CLOSE_CHILD_FADE_DURATION_U = M3Durations.SHORT_2;
 
     protected final Rect mTempRect = new Rect();
 
@@ -552,14 +561,39 @@ public abstract class ArrowPopup<T extends Context & ActivityContext>
 
     protected void animateOpen() {
         setVisibility(View.VISIBLE);
-        mOpenCloseAnimator = getOpenCloseAnimator(
-                        true,
-                        OPEN_DURATION_U,
-                        OPEN_FADE_START_DELAY_U,
-                        OPEN_FADE_DURATION_U,
-                        OPEN_CHILD_FADE_START_DELAY_U,
-                        OPEN_CHILD_FADE_DURATION_U,
-                        EMPHASIZED_DECELERATE);
+
+        setPivotForOpenCloseAnimation();
+
+        // Fade in popup and arrow
+        float[] alphaValues = new float[] {0, 1};
+        Animator alpha = getAnimatorOfFloat(this, View.ALPHA, OPEN_FADE_DURATION_U,
+                OPEN_FADE_START_DELAY_U, LINEAR, alphaValues);
+        Animator arrowAlpha = getAnimatorOfFloat(mArrow, View.ALPHA, OPEN_FADE_DURATION_U,
+                OPEN_FADE_START_DELAY_U, LINEAR, alphaValues);
+
+        // Spring-based scale animation (m3_bounce_snappy: damping 0.6, stiffness 900)
+        float snappyDamping = getResources().getFloat(R.dimen.m3_bounce_snappy_damping);
+        float snappyStiffness = getResources().getFloat(R.dimen.m3_bounce_snappy_stiffness);
+
+        SpringAnimationBuilder springBuilder = new SpringAnimationBuilder(getContext())
+                .setStartValue(0.5f)
+                .setEndValue(1f)
+                .setDampingRatio(snappyDamping)
+                .setStiffness(snappyStiffness)
+                .setMinimumVisibleChange(0.002f);
+        ValueAnimator springScaleY = springBuilder.build(this, SCALE_Y_PROP);
+        ValueAnimator springScaleX = new SpringAnimationBuilder(getContext())
+                .setStartValue(0.5f)
+                .setEndValue(1f)
+                .setDampingRatio(snappyDamping)
+                .setStiffness(snappyStiffness)
+                .setMinimumVisibleChange(0.002f)
+                .build(this, SCALE_X_PROP);
+
+        mOpenCloseAnimator = new AnimatorSet();
+        mOpenCloseAnimator.playTogether(alpha, arrowAlpha, springScaleX, springScaleY);
+        fadeInChildViews(this, alphaValues, OPEN_CHILD_FADE_START_DELAY_U,
+                OPEN_CHILD_FADE_DURATION_U, mOpenCloseAnimator);
 
         onCreateOpenAnimation(mOpenCloseAnimator);
         mOpenCloseAnimator.addListener(new AnimatorListenerAdapter() {
@@ -605,8 +639,7 @@ public abstract class ArrowPopup<T extends Context & ActivityContext>
         }
         mIsOpen = false;
 
-        mOpenCloseAnimator = getOpenCloseAnimator(
-                        false,
+        mOpenCloseAnimator = getCloseAnimator(
                         CLOSE_DURATION_U,
                         CLOSE_FADE_START_DELAY_U,
                         CLOSE_FADE_DURATION_U,
@@ -648,14 +681,14 @@ public abstract class ArrowPopup<T extends Context & ActivityContext>
     }
 
 
-    protected AnimatorSet getOpenCloseAnimator(boolean isOpening, int scaleDuration,
+    protected AnimatorSet getCloseAnimator(int scaleDuration,
             int fadeStartDelay, int fadeDuration, int childFadeStartDelay, int childFadeDuration,
             Interpolator interpolator) {
 
         setPivotForOpenCloseAnimation();
 
-        float[] alphaValues = isOpening ? new float[] {0, 1} : new float[] {1, 0};
-        float[] scaleValues = isOpening ? new float[] {0.5f, 1.02f} : new float[] {1f, 0.5f};
+        float[] alphaValues = new float[] {1, 0};
+        float[] scaleValues = new float[] {1f, 0.5f};
         Animator alpha = getAnimatorOfFloat(this, View.ALPHA, fadeDuration, fadeStartDelay,
                 LINEAR, alphaValues);
         Animator arrowAlpha = getAnimatorOfFloat(mArrow, View.ALPHA, fadeDuration, fadeStartDelay,
@@ -666,20 +699,7 @@ public abstract class ArrowPopup<T extends Context & ActivityContext>
                 scaleValues);
 
         final AnimatorSet animatorSet = new AnimatorSet();
-        if (isOpening) {
-            float[] scaleValuesOvershoot = new float[] {1.02f, 1f};
-            PathInterpolator overshootInterpolator = new PathInterpolator(0.3f, 0, 0.33f, 1f);
-            Animator overshootY = getAnimatorOfFloat(this, View.SCALE_Y,
-                    OPEN_OVERSHOOT_DURATION_U, scaleDuration, overshootInterpolator,
-                    scaleValuesOvershoot);
-            Animator overshootX = getAnimatorOfFloat(this, View.SCALE_X,
-                    OPEN_OVERSHOOT_DURATION_U, scaleDuration, overshootInterpolator,
-                    scaleValuesOvershoot);
-
-            animatorSet.playTogether(alpha, arrowAlpha, scaleY, scaleX, overshootX, overshootY);
-        } else {
-            animatorSet.playTogether(alpha, arrowAlpha, scaleY, scaleX);
-        }
+        animatorSet.playTogether(alpha, arrowAlpha, scaleY, scaleX);
 
         fadeInChildViews(this, alphaValues, childFadeStartDelay, childFadeDuration, animatorSet);
         return animatorSet;

@@ -580,4 +580,12 @@
     <!-- App Title Pill -->
     <dimen name="app_title_pill_horizontal_padding">4dp</dimen>
     <dimen name="app_title_pill_round_rect_padding">2dp</dimen>
+
+    <!-- M3 Shape Tokens -->
+    <dimen name="m3_shape_extra_small">4dp</dimen>
+    <dimen name="m3_shape_small">8dp</dimen>
+    <dimen name="m3_shape_medium">12dp</dimen>
+    <dimen name="m3_shape_large">16dp</dimen>
+    <dimen name="m3_shape_extra_large">28dp</dimen>
+    <dimen name="m3_shape_full">50dp</dimen>
 </resources>

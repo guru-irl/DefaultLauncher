@@ -20,6 +20,7 @@ package com.android.launcher3.settings;
 
 import android.content.ComponentName;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -114,19 +115,19 @@ public class IconPickerFragment extends Fragment {
         }
 
         // Edge-to-edge: add bottom nav bar inset padding to the RecyclerView
+        Resources res = getResources();
         mRecyclerView.setOnApplyWindowInsetsListener((v, insets) -> {
             v.setPadding(
                     v.getPaddingLeft(), v.getPaddingTop(),
                     v.getPaddingRight(),
-                    (int) (16 * getResources().getDisplayMetrics().density)
+                    res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical)
                             + insets.getSystemWindowInsetBottom());
             return insets.consumeSystemWindowInsets();
         });
 
         // Calculate span count based on available width
         mRecyclerView.post(() -> {
-            float density = getResources().getDisplayMetrics().density;
-            int cellSizePx = (int) (64 * density);
+            int cellSizePx = res.getDimensionPixelSize(R.dimen.settings_icon_cell_size);
             int width = mRecyclerView.getWidth();
             int spanCount = Math.max(4, width / cellSizePx);
 
@@ -187,6 +188,7 @@ public class IconPickerFragment extends Fragment {
             }
 
             mMainHandler.post(() -> {
+                if (!isAdded()) return;
                 mAllItems = items;
                 mFilteredItems = new ArrayList<>(items);
                 if (mAdapter != null) {
@@ -259,8 +261,16 @@ public class IconPickerFragment extends Fragment {
             app.getIconCache().clearAllIcons();
             DrawerIconResolver.getInstance().invalidate();
             LauncherIcons.clearPool(requireContext());
-            mMainHandler.post(() -> app.getModel().forceReload());
+            mMainHandler.post(() -> {
+                if (isAdded()) app.getModel().forceReload();
+            });
         });
+    }
+
+    @Override
+    public void onDestroyView() {
+        mMainHandler.removeCallbacksAndMessages(null);
+        super.onDestroyView();
     }
 
     // ---- Data model ----

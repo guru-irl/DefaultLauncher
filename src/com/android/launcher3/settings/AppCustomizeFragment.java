@@ -489,13 +489,13 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
             Preference sizePref, boolean isHome) {
         Context ctx = getContext();
         if (ctx == null) return;
-        float density = ctx.getResources().getDisplayMetrics().density;
+        android.content.res.Resources res = ctx.getResources();
 
         TextInputLayout inputLayout = new TextInputLayout(ctx,
                 null, com.google.android.material.R.attr.textInputOutlinedStyle);
         inputLayout.setHint("Icon size (50\u2013100%)");
-        int hPad = (int) (24 * density);
-        int tPad = (int) (16 * density);
+        int hPad = res.getDimensionPixelSize(R.dimen.settings_dialog_horizontal_pad);
+        int tPad = res.getDimensionPixelSize(R.dimen.settings_card_padding);
         inputLayout.setPadding(hPad, tPad, hPad, 0);
 
         TextInputEditText editText = new TextInputEditText(inputLayout.getContext());
@@ -825,8 +825,7 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
                     getContext().getColor(R.color.materialColorOnSurfaceVariant));
             summaryView.setAlpha(0.5f);
             summaryView.setGravity(Gravity.CENTER);
-            float d = getResources().getDisplayMetrics().density;
-            int pad16 = (int) (16 * d);
+            int pad16 = getResources().getDimensionPixelSize(R.dimen.settings_card_padding);
             summaryView.setPaddingRelative(pad16, 0, pad16, 0);
             ViewGroup.LayoutParams lp = summaryView.getLayoutParams();
             if (lp instanceof ViewGroup.MarginLayoutParams) {
@@ -903,7 +902,7 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
         Executors.MODEL_EXECUTOR.execute(() -> {
             Drawable icon = resolvePreviewIcon(ctx, override, isHome);
             sMainHandler.post(() -> {
-                if (preview.isAttachedToWindow()) {
+                if (isAdded() && preview.isAttachedToWindow()) {
                     preview.setImageDrawable(icon);
                     preview.setVisibility(View.VISIBLE);
                     if (loading != null) loading.setVisibility(View.GONE);
@@ -1141,7 +1140,15 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
             DrawerIconResolver.getInstance().invalidate();
             PerAppHomeIconResolver.getInstance().invalidate();
             LauncherIcons.clearPool(ctx);
-            sMainHandler.post(() -> app.getModel().forceReload());
+            sMainHandler.post(() -> {
+                if (isAdded()) app.getModel().forceReload();
+            });
         });
+    }
+
+    @Override
+    public void onDestroyView() {
+        sMainHandler.removeCallbacksAndMessages(null);
+        super.onDestroyView();
     }
 }

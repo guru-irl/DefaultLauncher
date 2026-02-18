@@ -345,9 +345,6 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         mWorkspaceFadeInAdjacentScreens = grid.shouldFadeAdjacentWorkspaceScreens();
 
         Rect padding = grid.workspacePadding;
-        Log.d("WsPadDebug", "Workspace.setInsets: wsPad=" + padding
-                + " hotseatBarSize=" + grid.hotseatBarSizePx
-                + " profileH=" + grid.heightPx);
         setPadding(padding.left, padding.top, padding.right, padding.bottom);
         mInsets.set(insets);
 
@@ -1333,7 +1330,9 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     @Override
     public void computeScroll() {
         super.computeScroll();
-        mWallpaperOffset.syncWithScroll();
+        if (LauncherPrefs.get(getContext()).get(LauncherPrefs.WALLPAPER_SCROLL)) {
+            mWallpaperOffset.syncWithScroll();
+        }
     }
 
     @Override
@@ -1395,12 +1394,18 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         mHasOnLayoutBeenCalled = true; // b/349929393 - is the required call to onLayout not done?
         if (mUnlockWallpaperFromDefaultPageOnLayout) {
-            mWallpaperOffset.setLockToDefaultPage(false);
             mUnlockWallpaperFromDefaultPageOnLayout = false;
+            mWallpaperOffset.setLockToDefaultPage(false);
+            if (LauncherPrefs.get(getContext()).get(LauncherPrefs.WALLPAPER_SCROLL)) {
+                mWallpaperOffset.syncWithScroll();
+                mWallpaperOffset.jumpToFinal();
+            }
         }
         if (mFirstLayout && mCurrentPage >= 0 && mCurrentPage < getChildCount()) {
-            mWallpaperOffset.syncWithScroll();
-            mWallpaperOffset.jumpToFinal();
+            if (LauncherPrefs.get(getContext()).get(LauncherPrefs.WALLPAPER_SCROLL)) {
+                mWallpaperOffset.syncWithScroll();
+                mWallpaperOffset.jumpToFinal();
+            }
         }
         super.onLayout(changed, left, top, right, bottom);
         updatePageAlphaValues();

@@ -43,6 +43,7 @@ import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.R;
 import com.android.launcher3.ShortcutAndWidgetContainer;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.anim.PropertyResetListener;
 import com.android.launcher3.apppairs.AppPairIcon;
 import com.android.launcher3.celllayout.CellLayoutLayoutParams;
@@ -63,8 +64,8 @@ import java.util.List;
 public class FolderAnimationManager {
 
     private static final float EXTRA_FOLDER_REVEAL_RADIUS_PERCENTAGE = 0.125F;
-    private static final int FOLDER_NAME_ALPHA_DURATION = 32;
-    private static final int LARGE_FOLDER_FOOTER_DURATION = 128;
+    private static final int FOLDER_NAME_ALPHA_DURATION = M3Durations.SHORT_1;
+    private static final int LARGE_FOLDER_FOOTER_DURATION = M3Durations.SHORT_3;
 
     private Folder mFolder;
     private FolderPagedView mContent;
