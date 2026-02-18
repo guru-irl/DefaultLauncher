@@ -82,8 +82,6 @@ import com.android.launcher3.celllayout.CellLayoutLayoutParams;
 import com.android.launcher3.celllayout.CellPosMapper;
 import com.android.launcher3.celllayout.CellPosMapper.CellPos;
 import com.android.launcher3.config.FeatureFlags;
-import com.android.launcher3.debug.TestEventEmitter;
-import com.android.launcher3.debug.TestEventEmitter.TestEvent;
 import com.android.launcher3.dragndrop.DragController;
 import com.android.launcher3.dragndrop.DragLayer;
 import com.android.launcher3.dragndrop.DragOptions;
@@ -118,7 +116,7 @@ import com.android.launcher3.util.IntSet;
 import com.android.launcher3.util.IntSparseArrayMap;
 import com.android.launcher3.util.LauncherBindableItemsContainer;
 import com.android.launcher3.util.MSDLPlayerWrapper;
-import com.android.launcher3.util.OverlayEdgeEffect;
+
 import com.android.launcher3.util.RunnableList;
 import com.android.launcher3.util.Thunk;
 import com.android.launcher3.util.WallpaperOffsetInterpolator;
@@ -127,8 +125,7 @@ import com.android.launcher3.widget.NavigableAppWidgetHostView;
 import com.android.launcher3.widget.PendingAddShortcutInfo;
 import com.android.launcher3.widget.PendingAddWidgetInfo;
 import com.android.launcher3.widget.util.WidgetSizes;
-import com.android.systemui.plugins.shared.LauncherOverlayManager.LauncherOverlayCallbacks;
-import com.android.systemui.plugins.shared.LauncherOverlayManager.LauncherOverlayTouchProxy;
+
 
 import com.google.android.msdl.data.model.MSDLToken;
 
@@ -148,7 +145,7 @@ import java.util.function.Predicate;
 public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         implements DropTarget, DragSource, View.OnTouchListener, CellLayoutContainer,
         DragController.DragListener, Insettable, StateHandler<LauncherState>,
-        WorkspaceLayoutManager, LauncherBindableItemsContainer, LauncherOverlayCallbacks {
+        WorkspaceLayoutManager, LauncherBindableItemsContainer {
 
     /**
      * The value that {@link #mTransitionProgress} must be greater than for
@@ -284,12 +281,6 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     private float mCurrentScale;
     private float mTransitionProgress;
 
-    // State related to Launcher Overlay
-    private OverlayEdgeEffect mOverlayEdgeEffect;
-    private boolean mOverlayShown = false;
-    private float mOverlayProgress; // 1 -> overlay completely visible, 0 -> home visible
-    private final List<LauncherOverlayCallbacks> mOverlayCallbacks = new ArrayList<>();
-
     private boolean mForceDrawAdjacentPages = false;
 
     // Handles workspace state transitions
@@ -354,6 +345,9 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         mWorkspaceFadeInAdjacentScreens = grid.shouldFadeAdjacentWorkspaceScreens();
 
         Rect padding = grid.workspacePadding;
+        Log.d("WsPadDebug", "Workspace.setInsets: wsPad=" + padding
+                + " hotseatBarSize=" + grid.hotseatBarSizePx
+                + " profileH=" + grid.heightPx);
         setPadding(padding.left, padding.top, padding.right, padding.bottom);
         mInsets.set(insets);
 
@@ -1146,11 +1140,6 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         return super.onTouchEvent(ev);
     }
 
-    @Override
-    protected void onDisallowSwipeToMinusOnePage() {
-        mLauncher.getOverlayManager().onDisallowSwipeToMinusOnePage();
-    }
-
     /**
      * Called directly from a CellLayout (not by the framework), after we've been added as a
      * listener via setOnInterceptTouchEventListener(). This allows us to tell the CellLayout
@@ -1275,37 +1264,6 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         mLauncher.onPageEndTransition();
     }
 
-    public void setLauncherOverlay(LauncherOverlayTouchProxy overlay) {
-        final EdgeEffectCompat newEffect;
-        if (overlay == null) {
-            newEffect = new EdgeEffectCompat(getContext());
-            mOverlayEdgeEffect = null;
-        } else {
-            newEffect = mOverlayEdgeEffect = new OverlayEdgeEffect(getContext(), overlay);
-            overlay.setOverlayCallbacks(this);
-        }
-
-        if (mIsRtl) {
-            mEdgeGlowRight = newEffect;
-        } else {
-            mEdgeGlowLeft = newEffect;
-        }
-        onOverlayScrollChanged(0);
-    }
-
-    public boolean hasOverlay() {
-        return mOverlayEdgeEffect != null;
-    }
-
-    @Override
-    protected void snapToDestination() {
-        if (mOverlayEdgeEffect != null && !mOverlayEdgeEffect.isFinished()) {
-            snapToPageImmediately(0);
-        } else {
-            super.snapToDestination();
-        }
-    }
-
     @Override
     protected void onScrollChanged(int l, int t, int oldl, int oldt) {
         super.onScrollChanged(l, t, oldl, oldt);
@@ -1329,51 +1287,6 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         if (mPageIndicator != null) {
             mPageIndicator.setScroll(getScrollX(), computeMaxScroll());
         }
-    }
-
-    @Override
-    protected boolean shouldFlingForVelocity(int velocityX) {
-        // When the overlay is moving, the fling or settle transition is controlled by the overlay.
-        return Float.compare(Math.abs(mOverlayProgress), 0) == 0
-                && super.shouldFlingForVelocity(velocityX);
-    }
-
-    /**
-     * The overlay scroll is being controlled locally, just update our overlay effect
-     */
-    @Override
-    public void onOverlayScrollChanged(float scroll) {
-        mOverlayProgress = Utilities.boundToRange(scroll, 0, 1);
-        if (Float.compare(mOverlayProgress, 1f) == 0) {
-            if (!mOverlayShown) {
-                mOverlayShown = true;
-                mLauncher.onOverlayVisibilityChanged(true);
-            }
-        } else if (Float.compare(mOverlayProgress, 0f) == 0) {
-            if (mOverlayShown) {
-                mOverlayShown = false;
-                mLauncher.onOverlayVisibilityChanged(false);
-            }
-        }
-        int count = mOverlayCallbacks.size();
-        for (int i = 0; i < count; i++) {
-            mOverlayCallbacks.get(i).onOverlayScrollChanged(mOverlayProgress);
-        }
-    }
-
-    /**
-     * Adds a callback for receiving overlay progress
-     */
-    public void addOverlayCallback(LauncherOverlayCallbacks callback) {
-        mOverlayCallbacks.add(callback);
-        callback.onOverlayScrollChanged(mOverlayProgress);
-    }
-
-    /**
-     * Removes a previously added overlay progress callback
-     */
-    public void removeOverlayCallback(LauncherOverlayCallbacks callback) {
-        mOverlayCallbacks.remove(callback);
     }
 
     @Override
@@ -2264,7 +2177,6 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         if (d.stateAnnouncer != null && !droppedOnOriginalCell) {
             d.stateAnnouncer.completeAction(R.string.item_moved);
         }
-        TestEventEmitter.sendEvent(TestEvent.WORKSPACE_ON_DROP);
     }
 
     @Nullable
@@ -3394,10 +3306,6 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         removeItemsByMatcher(matcher);
     }
 
-    public boolean isOverlayShown() {
-        return mOverlayShown;
-    }
-
     /**
      * Calls {@link #snapToPage(int)} on the {@link #DEFAULT_PAGE}, then requests focus on it.
      */
@@ -3438,7 +3346,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
 
     @Override
     protected boolean canAnnouncePageDescription() {
-        return Float.compare(mOverlayProgress, 0f) == 0;
+        return true;
     }
 
     @Override

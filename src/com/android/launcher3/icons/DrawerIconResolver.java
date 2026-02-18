@@ -58,12 +58,13 @@ import com.android.launcher3.shapes.ShapesProvider;
  */
 public class DrawerIconResolver {
 
-    private static final int CACHE_SIZE = 200;
+    private static final int CACHE_SIZE = 500;
     private static final int FALLBACK_ICON_SIZE = 192;
 
     private static volatile DrawerIconResolver sInstance;
 
     private final LruCache<ComponentName, BitmapInfo> mCache = new LruCache<>(CACHE_SIZE);
+    private volatile Boolean mHasDistinctSettings;
 
     private DrawerIconResolver() { }
 
@@ -83,19 +84,27 @@ public class DrawerIconResolver {
      * Checks icon pack, shape, and size.
      */
     public boolean hasDistinctDrawerSettings(Context context) {
-        // If "match home" is on, drawer always uses home settings
+        Boolean cached = mHasDistinctSettings;
+        if (cached != null) return cached;
+
         boolean matchHome = LauncherPrefs.get(context).get(LauncherPrefs.DRAWER_MATCH_HOME);
-        if (matchHome) return false;
+        if (matchHome) {
+            mHasDistinctSettings = false;
+            return false;
+        }
 
         IconPackManager mgr = LauncherComponentProvider.get(context).getIconPackManager();
-        if (mgr.hasDistinctDrawerPack()) return true;
+        if (mgr.hasDistinctDrawerPack()) {
+            mHasDistinctSettings = true;
+            return true;
+        }
 
         ThemeManager.IconState state = ThemeManager.INSTANCE.get(context).getIconState();
-        if (!state.getIconMask().equals(state.getIconMaskDrawer())) return true;
-        if (state.getIconSizeScale() != state.getIconSizeScaleDrawer()) return true;
-        if (state.getIconScale() != state.getIconScaleDrawer()) return true;
-
-        return false;
+        boolean distinct = !state.getIconMask().equals(state.getIconMaskDrawer())
+                || state.getIconSizeScale() != state.getIconSizeScaleDrawer()
+                || state.getIconScale() != state.getIconScaleDrawer();
+        mHasDistinctSettings = distinct;
+        return distinct;
     }
 
     /**
@@ -236,9 +245,51 @@ public class DrawerIconResolver {
         return drawable;
     }
 
+    /**
+     * Pre-populate the drawer icon cache for all apps on a background thread.
+     * After this completes, the first drawer scroll has zero cache misses.
+     */
+    public void preCacheIcons(Context context, ComponentName[] components) {
+        if (!hasDistinctDrawerSettings(context)) return;
+
+        PackageManager pm = context.getPackageManager();
+        InvariantDeviceProfile idp = InvariantDeviceProfile.INSTANCE.get(context);
+        ThemeManager.IconState state = ThemeManager.INSTANCE.get(context).getIconState();
+        IconPackManager mgr = LauncherComponentProvider.get(context).getIconPackManager();
+        IconPack pack = mgr.hasDistinctDrawerPack()
+                ? mgr.getDrawerPack() : mgr.getCurrentPack();
+
+        for (ComponentName cn : components) {
+            if (cn == null || mCache.get(cn) != null) continue;
+
+            Drawable icon = null;
+            if (pack != null) {
+                icon = pack.getCalendarIcon(cn, pm);
+                if (icon == null) icon = pack.getIconForComponent(cn, pm);
+                if (icon == null && pack.hasFallbackMask()) {
+                    try {
+                        Drawable original = pm.getActivityIcon(cn);
+                        icon = pack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
+                    } catch (PackageManager.NameNotFoundException ignored) { }
+                }
+            }
+            if (icon == null) {
+                try { icon = pm.getActivityIcon(cn); }
+                catch (PackageManager.NameNotFoundException ignored) { }
+            }
+            if (icon == null) continue;
+
+            try (DrawerIconFactory factory = new DrawerIconFactory(
+                    context, idp.fillResIconDpi, idp.iconBitmapSize, state)) {
+                mCache.put(cn, factory.createBadgedIconBitmap(icon));
+            }
+        }
+    }
+
     /** Clear the drawer icon cache. Call when drawer pack, shape, or size changes. */
     public void invalidate() {
         mCache.evictAll();
+        mHasDistinctSettings = null;
     }
 
     /**

@@ -276,6 +276,14 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
 
     private CancellableTask mIconLoadRequest;
 
+    /** Cached notification dot color — cleared on theme change via {@link #clearDotColorCache()}. */
+    private static int sCachedDotColor;
+
+    /** Called from ModelInitializer on theme changes to reset the cached dot color. */
+    public static void clearDotColorCache() {
+        sCachedDotColor = 0;
+    }
+
     private boolean mHighResUpdateInProgress = false;
 
     public BubbleTextView(Context context) {
@@ -617,7 +625,10 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
             iconDrawable = info.newIcon(getContext(), flags);
         }
         mDotParams.appColor = iconDrawable.getIconColor();
-        mDotParams.dotColor = Themes.getAttrColor(getContext(), R.attr.notificationDotColor);
+        if (sCachedDotColor == 0) {
+            sCachedDotColor = Themes.getAttrColor(getContext(), R.attr.notificationDotColor);
+        }
+        mDotParams.dotColor = sCachedDotColor;
         setIcon(iconDrawable);
     }
 

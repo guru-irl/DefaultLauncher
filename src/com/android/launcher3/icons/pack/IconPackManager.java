@@ -77,6 +77,7 @@ public class IconPackManager {
         filter.addDataScheme("package");
         mContext.registerReceiver(new IconPackReceiver(this), filter,
                 Context.RECEIVER_EXPORTED);
+
     }
 
     /** Discover all installed icon packs. Result is cached until invalidated. */
@@ -239,6 +240,11 @@ public class IconPackManager {
     public synchronized List<Drawable> getCachedPreviews(String packageName) {
         if (mPreviewCache == null) return null;
         return mPreviewCache.get(packageName);
+    }
+
+    /** Clear only the installed packs cache so the next getInstalledPacks() re-queries. */
+    public synchronized void refreshPackList() {
+        mInstalledPacks = null;
     }
 
     /** Clear cached state. Call on pack change or pack uninstall. */

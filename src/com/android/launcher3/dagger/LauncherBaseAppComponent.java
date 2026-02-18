@@ -40,7 +40,7 @@ import com.android.launcher3.util.DynamicResource;
 import com.android.launcher3.util.LockedUserState;
 import com.android.launcher3.util.MSDLPlayerWrapper;
 import com.android.launcher3.util.PackageManagerHelper;
-import com.android.launcher3.util.PluginManagerWrapper;
+
 import com.android.launcher3.util.ScreenOnTracker;
 import com.android.launcher3.util.SettingsCache;
 import com.android.launcher3.util.VibratorWrapper;
@@ -73,7 +73,7 @@ public interface LauncherBaseAppComponent {
     ScreenOnTracker getScreenOnTracker();
     SettingsCache getSettingsCache();
     PackageManagerHelper getPackageManagerHelper();
-    PluginManagerWrapper getPluginManagerWrapper();
+
     VibratorWrapper getVibratorWrapper();
     MSDLPlayerWrapper getMSDLPlayerWrapper();
     WindowManagerProxy getWmProxy();

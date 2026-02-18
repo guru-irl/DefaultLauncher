@@ -40,9 +40,13 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.core.graphics.PathParser;
 import androidx.core.widget.NestedScrollView;
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleEventObserver;
+import androidx.lifecycle.LifecycleOwner;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 
@@ -99,6 +103,7 @@ public class IconSettingsHelper {
         Context ctx = fragment.getContext();
         if (ctx == null) return;
 
+        mgr.refreshPackList();
         Map<String, IconPack> packs = mgr.getInstalledPacks();
         PackageManager pm = ctx.getPackageManager();
 
@@ -296,6 +301,7 @@ public class IconSettingsHelper {
 
         sheet.setContentView(root);
         sheet.show();
+        dismissOnDestroy(fragment, sheet);
 
         // Phase 2: load any uncached preview icons async
         if (!uncachedIndices.isEmpty()) {
@@ -451,6 +457,7 @@ public class IconSettingsHelper {
         Context ctx = fragment.getContext();
         if (ctx == null) return;
 
+        mgr.refreshPackList();
         Map<String, IconPack> packs = mgr.getInstalledPacks();
         PackageManager pm = ctx.getPackageManager();
         float density = ctx.getResources().getDisplayMetrics().density;
@@ -552,6 +559,7 @@ public class IconSettingsHelper {
 
         sheet.setContentView(root);
         sheet.show();
+        dismissOnDestroy(fragment, sheet);
     }
 
     private static LinearLayout createPerAppCard(Context ctx, float density,
@@ -719,6 +727,7 @@ public class IconSettingsHelper {
 
         sheet.setContentView(root);
         sheet.show();
+        dismissOnDestroy(fragment, sheet);
     }
 
     /**
@@ -888,6 +897,7 @@ public class IconSettingsHelper {
 
         sheet.setContentView(root);
         sheet.show();
+        dismissOnDestroy(fragment, sheet);
     }
 
     /**
@@ -1053,6 +1063,20 @@ public class IconSettingsHelper {
         lp.topMargin = (int) (12 * density);
         handle.setLayoutParams(lp);
         root.addView(handle);
+    }
+
+    private static void dismissOnDestroy(PreferenceFragmentCompat fragment,
+            BottomSheetDialog sheet) {
+        fragment.getLifecycle().addObserver(new LifecycleEventObserver() {
+            @Override
+            public void onStateChanged(@NonNull LifecycleOwner source,
+                    @NonNull Lifecycle.Event event) {
+                if (event == Lifecycle.Event.ON_DESTROY) {
+                    if (sheet.isShowing()) sheet.dismiss();
+                    source.getLifecycle().removeObserver(this);
+                }
+            }
+        });
     }
 
     static TextView createSheetItem(Context ctx, float density,

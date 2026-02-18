@@ -45,8 +45,6 @@ import com.android.launcher3.Launcher;
 import com.android.launcher3.Workspace;
 import com.android.launcher3.dragndrop.DragLayer;
 import com.android.launcher3.logger.LauncherAtom;
-import com.android.launcher3.testing.TestLogging;
-import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.util.TouchUtil;
 
 /**
@@ -203,7 +201,6 @@ public class WorkspaceTouchListener extends GestureDetector.SimpleOnGestureListe
 
     private void maybeShowMenu() {
         if (mLongPressState == STATE_REQUESTED) {
-            TestLogging.recordEvent(TestProtocol.SEQUENCE_MAIN, "Workspace.longPress");
             if (canHandleLongPress()) {
                 mLongPressState = STATE_PENDING_PARENT_INFORM;
                 mWorkspace.getParent().requestDisallowInterceptTouchEvent(true);

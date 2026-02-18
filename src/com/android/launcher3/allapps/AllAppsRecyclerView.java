@@ -69,6 +69,9 @@ public class AllAppsRecyclerView extends FastScrollRecyclerView {
     protected static final String TAG = "AllAppsRecyclerView";
     private static final boolean DEBUG = false;
     private static final boolean DEBUG_LATENCY = Utilities.isPropertyEnabled(SEARCH_LOGGING);
+
+    /** Fling velocity multiplier for snappier scroll feel. */
+    private static final float FLING_VELOCITY_SCALE = 1.3f;
     private Consumer<View> mChildAttachedConsumer;
 
     protected final int mNumAppsPerRow;
@@ -96,6 +99,11 @@ public class AllAppsRecyclerView extends FastScrollRecyclerView {
         super(context, attrs, defStyleAttr);
         mNumAppsPerRow = LauncherAppState.getIDP(context).numColumns;
         mFastScrollHelper = new AllAppsFastScrollHelper(this);
+    }
+
+    @Override
+    public boolean fling(int velocityX, int velocityY) {
+        return super.fling(velocityX, (int) (velocityY * FLING_VELOCITY_SCALE));
     }
 
     /**

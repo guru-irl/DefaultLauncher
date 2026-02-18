@@ -8,11 +8,11 @@ Custom Android launcher based on AOSP Launcher3 (Android 16 s2-release).
 "/c/Program Files/Android/Android Studio/jbr/bin/java" -Xmx64m -Xms64m \
   -Dorg.gradle.appname=gradlew \
   -classpath "gradle/wrapper/gradle-wrapper.jar" \
-  org.gradle.wrapper.GradleWrapperMain assembleAospWithoutQuickstepDebug
+  org.gradle.wrapper.GradleWrapperMain assembleDebug
 ```
 
 - **gradlew/gradlew.bat are gitignored** -- always use the wrapper jar directly as above
-- Build target: `assembleAospWithoutQuickstepDebug`
+- Build target: `assembleDebug`
 - AGP 8.13.1, Gradle 9.2.1, Java 21 (Android Studio JBR)
 - `JAVA_HOME` path on this machine: `/c/Program Files/Android/Android Studio/jbr`
 
@@ -20,7 +20,17 @@ Custom Android launcher based on AOSP Launcher3 (Android 16 s2-release).
 
 - Internal package: `com.android.launcher3` (kept from AOSP to avoid renaming 1000+ files)
 - ApplicationId: `com.guru.defaultlauncher`
-- Build flavor: `aospWithoutQuickstep` (no recents/system-level permissions)
+- Single build variant (no flavors -- Quickstep/Go/plugin code removed)
+
+## What Was Removed (Dead Code Cleanup)
+
+The following AOSP code was deleted and should NOT be re-created:
+
+- **Directories deleted**: `quickstep/`, `go/`, `tests/`, `src_flags/`, `src_shortcuts_overrides/`, `src_ui_overrides/`, `src_no_quickstep/` (merged into `src/`), `src_plugins/` (2 interfaces kept in `src/`), `checks/`, `aconfig/`, `compose/`, `secondarydisplay/`, all `Android.bp` files
+- **Plugin system removed**: No `PluginManagerWrapper`, no `PluginListener` interfaces on any class, no overlay/Google Discover feed code. `DynamicResource` and `CustomWidgetManager` are simplified (no plugin loading). `ResourceProvider` and `CustomWidgetPlugin` interfaces still exist in `src/com/android/systemui/plugins/` for type compatibility.
+- **Test infrastructure removed**: No `TestLogging`, `TestEventEmitter`, `TestInformationHandler`, `TestInformationProvider`. `TestProtocol` still exists in `shared/src` (used by state ordinals and accessibility).
+- **Build flavors removed**: No `flavorDimensions`, no `productFlavors`, no `variantFilter`. Single default variant only.
+- **Manifest consolidated**: Only `AndroidManifest-common.xml` exists (no flavor-specific `AndroidManifest.xml`).
 
 ## Key Branches
 
@@ -35,7 +45,7 @@ Three-layer grid system:
 2. `InvariantDeviceProfile.java` (parsed config, survives rotation, singleton)
 3. `DeviceProfile.java` (pixel-level calculations, per-orientation)
 
-Submodules: IconLoader, Animation, Shared, WMShared, msdl, flags, systemUIPluginCore, androidx-lib
+Submodules: IconLoader, Animation, Shared, WMShared, msdl, flags
 
 ## Key Files
 
@@ -98,5 +108,5 @@ For settings that trigger grid reconfiguration from `SettingsActivity`, use `get
 
 - Features are planned in detail before implementation, with consideration for AOSP's initialization ordering
 - Implementation changes are documented in `docs/changes/` with numbered files
-- Always verify builds compile after changes: run the full `assembleAospWithoutQuickstepDebug` target
+- Always verify builds compile after changes: run the full `assembleDebug` target
 - The project uses a plan-then-implement workflow: understand existing code deeply before modifying

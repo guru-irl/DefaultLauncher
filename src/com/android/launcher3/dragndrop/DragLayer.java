@@ -60,14 +60,14 @@ import com.android.launcher3.folder.Folder;
 import com.android.launcher3.graphics.Scrim;
 import com.android.launcher3.keyboard.ViewGroupFocusHelper;
 import com.android.launcher3.views.BaseDragLayer;
-import com.android.systemui.plugins.shared.LauncherOverlayManager.LauncherOverlayCallbacks;
+
 
 import java.util.ArrayList;
 
 /**
  * A ViewGroup that coordinates dragging across its descendants
  */
-public class DragLayer extends BaseDragLayer<Launcher> implements LauncherOverlayCallbacks {
+public class DragLayer extends BaseDragLayer<Launcher> {
 
     public static final int ALPHA_INDEX_OVERLAY = 0;
 
@@ -119,7 +119,6 @@ public class DragLayer extends BaseDragLayer<Launcher> implements LauncherOverla
         mDragController = dragController;
         recreateControllers();
         mWorkspaceDragScrim = new Scrim(this);
-        workspace.addOverlayCallback(this);
     }
 
     @Override
@@ -492,15 +491,4 @@ public class DragLayer extends BaseDragLayer<Launcher> implements LauncherOverla
         return mWorkspaceDragScrim;
     }
 
-    @Override
-    public void onOverlayScrollChanged(float progress) {
-        float alpha = 1 - Interpolators.DECELERATE_3.getInterpolation(progress);
-        float transX = getMeasuredWidth() * progress;
-
-        if (mIsRtl) {
-            transX = -transX;
-        }
-        setTranslationX(transX);
-        getAlphaProperty(ALPHA_INDEX_OVERLAY).setValue(alpha);
-    }
 }

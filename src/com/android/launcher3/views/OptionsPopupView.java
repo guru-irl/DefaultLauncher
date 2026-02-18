@@ -50,8 +50,6 @@ import com.android.launcher3.logging.StatsLogManager.EventEnum;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.popup.ArrowPopup;
 import com.android.launcher3.shortcuts.DeepShortcutView;
-import com.android.launcher3.testing.TestLogging;
-import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.widget.picker.WidgetsFullSheet;
 
 import java.util.ArrayList;
@@ -273,7 +271,6 @@ public class OptionsPopupView<T extends Context & ActivityContext> extends Arrow
     }
 
     private static boolean startSettings(View view) {
-        TestLogging.recordEvent(TestProtocol.SEQUENCE_MAIN, "start: startSettings");
         Launcher launcher = Launcher.getLauncher(view.getContext());
         launcher.startActivity(new Intent(Intent.ACTION_APPLICATION_PREFERENCES)
                 .setPackage(launcher.getPackageName())
