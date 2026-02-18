@@ -919,16 +919,6 @@ public class InvariantDeviceProfile {
         return out;
     }
 
-    public DeviceProfile createDeviceProfileForSecondaryDisplay(Context displayContext) {
-        // Disable transpose layout and use multi-window mode so that the icons are scaled properly
-        return newDPBuilder(displayContext, new Info(displayContext))
-                .setIsMultiDisplay(false)
-                .setMultiWindowMode(true)
-                .setWindowBounds(mWMProxy.getRealBounds(
-                        displayContext, mWMProxy.getDisplayInfo(displayContext)))
-                .setTransposeLayoutWithOrientation(false)
-                .build();
-    }
 
     public DeviceProfile getDeviceProfile(Context context) {
         Rect bounds = mWMProxy.getCurrentBounds(context);

@@ -45,8 +45,6 @@ import com.android.launcher3.Launcher;
 import com.android.launcher3.PendingAddItemInfo;
 import com.android.launcher3.R;
 import com.android.launcher3.model.WidgetItem;
-import com.android.launcher3.testing.TestLogging;
-import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.util.SystemUiController;
 import com.android.launcher3.util.Themes;
 import com.android.launcher3.util.window.WindowManagerProxy;
@@ -274,7 +272,6 @@ public abstract class BaseWidgetSheet extends AbstractSlideInView<BaseActivity>
 
     @Override
     public boolean onLongClick(View v) {
-        TestLogging.recordEvent(TestProtocol.SEQUENCE_MAIN, "Widgets.onLongClick");
         v.cancelLongPress();
 
         boolean result;

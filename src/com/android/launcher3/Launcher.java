@@ -186,8 +186,6 @@ import com.android.launcher3.celllayout.CellPosMapper.CellPos;
 import com.android.launcher3.celllayout.CellPosMapper.TwoPanelCellPosMapper;
 import com.android.launcher3.compat.AccessibilityManagerCompat;
 import com.android.launcher3.config.FeatureFlags;
-import com.android.launcher3.debug.TestEventEmitter;
-import com.android.launcher3.debug.TestEventEmitter.TestEvent;
 import com.android.launcher3.dragndrop.DragController;
 import com.android.launcher3.dragndrop.DragLayer;
 import com.android.launcher3.dragndrop.DragView;
@@ -225,7 +223,6 @@ import com.android.launcher3.statemanager.StateManager;
 import com.android.launcher3.statemanager.StateManager.StateHandler;
 import com.android.launcher3.statemanager.StatefulActivity;
 import com.android.launcher3.states.RotationHelper;
-import com.android.launcher3.testing.TestLogging;
 import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.touch.AllAppsSwipeController;
 import com.android.launcher3.touch.StatusBarSwipeController;
@@ -245,7 +242,7 @@ import com.android.launcher3.util.LockedUserState;
 import com.android.launcher3.util.MSDLPlayerWrapper;
 import com.android.launcher3.util.PackageUserKey;
 import com.android.launcher3.util.PendingRequestArgs;
-import com.android.launcher3.util.PluginManagerWrapper;
+
 import com.android.launcher3.util.RunnableList;
 import com.android.launcher3.util.ScreenOnTracker;
 import com.android.launcher3.util.ScreenOnTracker.ScreenOnListener;
@@ -274,10 +271,7 @@ import com.android.launcher3.widget.model.WidgetsListBaseEntry;
 import com.android.launcher3.widget.picker.WidgetsFullSheet;
 import com.android.launcher3.widget.picker.model.WidgetPickerDataProvider;
 import com.android.launcher3.widget.util.WidgetSizes;
-import com.android.systemui.plugins.LauncherOverlayPlugin;
-import com.android.systemui.plugins.PluginListener;
-import com.android.systemui.plugins.shared.LauncherOverlayManager;
-import com.android.systemui.plugins.shared.LauncherOverlayManager.LauncherOverlayTouchProxy;
+
 import com.android.window.flags.Flags;
 
 import java.io.FileDescriptor;
@@ -291,7 +285,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
+
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -299,8 +293,7 @@ import java.util.stream.Stream;
  * Default launcher application.
  */
 public class Launcher extends StatefulActivity<LauncherState>
-        implements Callbacks, InvariantDeviceProfile.OnIDPChangeListener,
-        PluginListener<LauncherOverlayPlugin> {
+        implements Callbacks, InvariantDeviceProfile.OnIDPChangeListener {
     public static final String TAG = "Launcher";
 
     public static final ContextTracker.ActivityTracker<Launcher> ACTIVITY_TRACKER =
@@ -401,11 +394,7 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     private RotationHelper mRotationHelper;
 
-    protected LauncherOverlayManager mOverlayManager;
     protected DragController mDragController;
-    // If true, overlay callbacks are deferred
-    private boolean mDeferOverlayCallbacks;
-    private final Runnable mDeferredOverlayCallbacks = this::checkIfOverlayStillDeferred;
 
     protected long mLastTouchUpTime = -1;
     private boolean mTouchInProgress;
@@ -600,10 +589,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         getSystemUiController().updateUiState(SystemUiController.UI_STATE_BASE_WINDOW,
                 Themes.getAttrBoolean(this, R.attr.isWorkspaceDarkText));
 
-        mOverlayManager = getDefaultOverlay();
-        PluginManagerWrapper.INSTANCE.get(this)
-                .addPluginListener(this, LauncherOverlayPlugin.class);
-
         mRotationHelper.initialize();
         TraceHelper.INSTANCE.endSection();
 
@@ -616,7 +601,6 @@ public class Launcher extends StatefulActivity<LauncherState>
             RuleController.getInstance(this).setRules(
                     RuleController.parseRules(this, R.xml.split_configuration));
         }
-        TestEventEmitter.sendEvent(TestEvent.LAUNCHER_ON_CREATE);
     }
 
     protected ModelCallbacks createModelCallbacks() {
@@ -716,36 +700,9 @@ public class Launcher extends StatefulActivity<LauncherState>
         };
     }
 
-    protected LauncherOverlayManager getDefaultOverlay() {
-        return new LauncherOverlayManager() { };
-    }
-
-    @Override
-    public void onPluginConnected(LauncherOverlayPlugin overlayManager, Context context) {
-        switchOverlay(() -> overlayManager.createOverlayManager(this));
-    }
-
-    @Override
-    public void onPluginDisconnected(LauncherOverlayPlugin plugin) {
-        switchOverlay(this::getDefaultOverlay);
-    }
-
-    private void switchOverlay(Supplier<LauncherOverlayManager> overlaySupplier) {
-        if (mOverlayManager != null) {
-            mOverlayManager.onActivityDestroyed();
-        }
-        mOverlayManager = overlaySupplier.get();
-        if (getRootView().isAttachedToWindow()) {
-            mOverlayManager.onAttachedToWindow();
-        }
-        mDeferOverlayCallbacks = true;
-        checkIfOverlayStillDeferred();
-    }
-
     @Override
     public void dispatchDeviceProfileChanged() {
         super.dispatchDeviceProfileChanged();
-        mOverlayManager.onDeviceProvideChanged();
     }
 
     @Override
@@ -1107,11 +1064,6 @@ public class Launcher extends StatefulActivity<LauncherState>
     @Override
     protected void onStop() {
         super.onStop();
-        if (mDeferOverlayCallbacks) {
-            checkIfOverlayStillDeferred();
-        } else {
-            mOverlayManager.onActivityStopped();
-        }
         hideKeyboard();
         logStopAndResume(false /* isResume */);
         mAppWidgetHolder.setActivityStarted(false);
@@ -1125,9 +1077,6 @@ public class Launcher extends StatefulActivity<LauncherState>
     protected void onStart() {
         TraceHelper.INSTANCE.beginSection(ON_START_EVT);
         super.onStart();
-        if (!mDeferOverlayCallbacks) {
-            mOverlayManager.onActivityStarted();
-        }
 
         mAppWidgetHolder.setActivityStarted(true);
         TraceHelper.INSTANCE.endSection();
@@ -1172,7 +1121,7 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     private void logStopAndResume(boolean isResume) {
         if (mModelCallbacks.getPendingExecutor() != null) return;
-        int pageIndex = mWorkspace.isOverlayShown() ? -1 : mWorkspace.getCurrentPage();
+        int pageIndex = mWorkspace.getCurrentPage();
         int statsLogOrdinal = mStateManager.getState().statsLogOrdinal;
 
         StatsLogManager.EventEnum event;
@@ -1196,45 +1145,9 @@ public class Launcher extends StatefulActivity<LauncherState>
         logger.log(event);
     }
 
-    private void scheduleDeferredCheck() {
-        mHandler.removeCallbacks(mDeferredOverlayCallbacks);
-        postAsyncCallback(mHandler, mDeferredOverlayCallbacks);
-    }
-
-    private void checkIfOverlayStillDeferred() {
-        if (!mDeferOverlayCallbacks) {
-            return;
-        }
-        if (isStarted() && (!hasBeenResumed()
-                || mStateManager.getState().hasFlag(FLAG_NON_INTERACTIVE))) {
-            return;
-        }
-        mDeferOverlayCallbacks = false;
-
-        // Move the client to the correct state. Calling the same method twice is no-op.
-        if (isStarted()) {
-            mOverlayManager.onActivityStarted();
-        }
-        if (hasBeenResumed()) {
-            mOverlayManager.onActivityResumed();
-        } else {
-            mOverlayManager.onActivityPaused();
-        }
-        if (!isStarted()) {
-            mOverlayManager.onActivityStopped();
-        }
-    }
-
-    public void deferOverlayCallbacksUntilNextResumeOrStop() {
-        mDeferOverlayCallbacks = true;
-    }
-
     @Override
     public void onStateSetStart(LauncherState state) {
         super.onStateSetStart(state);
-        if (mDeferOverlayCallbacks) {
-            scheduleDeferredCheck();
-        }
         addActivityFlags(ACTIVITY_STATE_TRANSITION_ACTIVE);
 
         if (state == SPRING_LOADED || state == EDIT_MODE) {
@@ -1319,12 +1232,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         TraceHelper.INSTANCE.beginSection(ON_RESUME_EVT);
         super.onResume();
 
-        if (mDeferOverlayCallbacks) {
-            scheduleDeferredCheck();
-        } else {
-            mOverlayManager.onActivityResumed();
-        }
-
         DragView.removeAllViews(this);
         TraceHelper.INSTANCE.endSection();
     }
@@ -1339,9 +1246,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         mLastTouchUpTime = -1;
         mDropTargetBar.animateToVisibility(false);
 
-        if (!mDeferOverlayCallbacks) {
-            mOverlayManager.onActivityPaused();
-        }
         mAppWidgetHolder.setActivityResumed(false);
     }
 
@@ -1631,13 +1535,11 @@ public class Launcher extends StatefulActivity<LauncherState>
     @Override
     public void onAttachedToWindow() {
         super.onAttachedToWindow();
-        mOverlayManager.onAttachedToWindow();
     }
 
     @Override
     public void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        mOverlayManager.onDetachedFromWindow();
         closeContextMenu();
     }
 
@@ -1693,7 +1595,6 @@ public class Launcher extends StatefulActivity<LauncherState>
             }
 
             handleSplitAnimationGoingToHome(LAUNCHER_SPLIT_SELECTION_EXIT_HOME);
-            mOverlayManager.hideOverlay(isStarted());
             handleGestureContract(intent);
         } else if (Intent.ACTION_ALL_APPS.equals(intent.getAction())) {
             showAllAppsFromIntent(alreadyOnHome);
@@ -1724,9 +1625,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         if (getStateManager().isInStableState(ALL_APPS)) {
             getStateManager().goToState(NORMAL, alreadyOnHome);
         } else {
-            if (mWorkspace.isOverlayShown()) {
-                mOverlayManager.hideOverlay(/* animate */true);
-            }
             AbstractFloatingView.closeAllOpenViews(this);
             getStateManager().goToState(ALL_APPS, true /* animated */,
                     new AnimationSuccessListener() {
@@ -1824,8 +1722,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         SettingsCache.INSTANCE.get(this).unregister(TOUCHPAD_NATURAL_SCROLLING,
                 mNaturalScrollingChangedListener);
         ScreenOnTracker.INSTANCE.get(this).removeListener(mScreenOnListener);
-        PluginManagerWrapper.INSTANCE.get(this).removePluginListener(this);
-
         mModel.removeCallbacks(this);
         mRotationHelper.destroy();
 
@@ -1841,7 +1737,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         // previous activity has not stopped, which could happen when wallpaper detects a color
         // changes while launcher is still loading.
         getRootView().getViewTreeObserver().removeOnPreDrawListener(mOnInitialBindListener);
-        mOverlayManager.onActivityDestroyed();
         PillColorProvider.getInstance(mWorkspace.getContext()).unregisterObserver();
     }
 
@@ -1960,7 +1855,6 @@ public class Launcher extends StatefulActivity<LauncherState>
     private void processShortcutFromDrop(PendingAddShortcutInfo info) {
         Intent intent = new Intent(Intent.ACTION_CREATE_SHORTCUT).setComponent(info.componentName);
         setWaitingForResult(PendingRequestArgs.forIntent(REQUEST_CREATE_SHORTCUT, intent, info));
-        TestLogging.recordEvent(TestProtocol.SEQUENCE_MAIN, "start: processShortcutFromDrop");
         if (!info.getActivityInfo(this).startConfigActivity(this, REQUEST_CREATE_SHORTCUT)) {
             handleActivityResult(REQUEST_CREATE_SHORTCUT, RESULT_CANCELED, null);
         }
@@ -2116,7 +2010,6 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        TestLogging.recordKeyEvent(TestProtocol.SEQUENCE_MAIN, "Key event", event);
         return (event.getKeyCode() == KeyEvent.KEYCODE_HOME) || super.dispatchKeyEvent(event);
     }
 
@@ -2133,7 +2026,6 @@ public class Launcher extends StatefulActivity<LauncherState>
                 mTouchInProgress = false;
                 break;
         }
-        TestLogging.recordMotionEvent(TestProtocol.SEQUENCE_MAIN, "Touch event", ev);
         return super.dispatchTouchEvent(ev);
     }
 
@@ -2508,20 +2400,6 @@ public class Launcher extends StatefulActivity<LauncherState>
     }
 
     /**
-     * Informs us that the overlay (-1 screen, typically), has either become visible or invisible.
-     */
-    public void onOverlayVisibilityChanged(boolean visible) {
-        getStatsLogManager().logger()
-                .withSrcState(LAUNCHER_STATE_HOME)
-                .withDstState(LAUNCHER_STATE_HOME)
-                .withContainerInfo(LauncherAtom.ContainerInfo.newBuilder()
-                        .setWorkspace(WorkspaceContainer.newBuilder()
-                                .setPageIndex(visible ? 0 : -1))
-                        .build())
-                .log(visible ? LAUNCHER_SWIPELEFT : LAUNCHER_SWIPERIGHT);
-    }
-
-    /**
      * Informs us that the page transition has ended, so that we can react to the newly selected
      * page if we want to.
      */
@@ -2669,7 +2547,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         }
 
         mModel.dumpState(prefix, fd, writer, args);
-        mOverlayManager.dump(prefix, writer);
         ACTIVITY_TRACKER.dump(prefix, writer);
         MSDLPlayerWrapper.INSTANCE.get(getApplicationContext()).dump(prefix, writer);
     }
@@ -2916,13 +2793,6 @@ public class Launcher extends StatefulActivity<LauncherState>
     }
 
     /**
-     * Call this after onCreate to set or clear overlay.
-     */
-    public void setLauncherOverlay(LauncherOverlayTouchProxy overlay) {
-        mWorkspace.setLauncherOverlay(overlay);
-    }
-
-    /**
      * Persistent callback which notifies when an activity launch is deferred because the activity
      * was not yet resumed.
      */
@@ -2966,11 +2836,6 @@ public class Launcher extends StatefulActivity<LauncherState>
     @Override
     public WidgetPickerDataProvider getWidgetPickerDataProvider() {
         return mWidgetPickerDataProvider;
-    }
-
-    @NonNull
-    public LauncherOverlayManager getOverlayManager() {
-        return mOverlayManager;
     }
 
     public AllAppsTransitionController getAllAppsController() {

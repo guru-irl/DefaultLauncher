@@ -25,13 +25,12 @@ import androidx.annotation.IntegerRes;
 import com.android.launcher3.dagger.ApplicationContext;
 import com.android.launcher3.dagger.LauncherAppSingleton;
 import com.android.launcher3.dagger.LauncherBaseAppComponent;
-import com.android.systemui.plugins.PluginListener;
 import com.android.systemui.plugins.ResourceProvider;
 
 import javax.inject.Inject;
 
 /**
- * Utility class to support customizing resource values using plugins
+ * Utility class to support customizing resource values
  *
  * To load resources, call
  * DynamicResource.provider(context).getInt(resId) or any other supported methods
@@ -39,22 +38,16 @@ import javax.inject.Inject;
  * To allow customization for a particular resource, add them to dynamic_resources.xml
  */
 @LauncherAppSingleton
-public class DynamicResource implements
-        ResourceProvider, PluginListener<ResourceProvider> {
+public class DynamicResource implements ResourceProvider {
 
     private static final DaggerSingletonObject<DynamicResource> INSTANCE =
             new DaggerSingletonObject<>(LauncherBaseAppComponent::getDynamicResource);
 
     private final Context mContext;
-    private ResourceProvider mPlugin;
 
     @Inject
-    public DynamicResource(@ApplicationContext Context context,
-            PluginManagerWrapper pluginManagerWrapper, DaggerSingletonTracker tracker) {
+    public DynamicResource(@ApplicationContext Context context) {
         mContext = context;
-        pluginManagerWrapper.addPluginListener(this,
-                ResourceProvider.class, false /* allowedMultiple */);
-        tracker.addCloseable(() -> pluginManagerWrapper.removePluginListener(this));
     }
 
     @Override
@@ -82,22 +75,10 @@ public class DynamicResource implements
         return mContext.getResources().getFloat(resId);
     }
 
-    @Override
-    public void onPluginConnected(ResourceProvider plugin, Context context) {
-        mPlugin = plugin;
-    }
-
-    @Override
-    public void onPluginDisconnected(ResourceProvider plugin) {
-        mPlugin = null;
-    }
-
     /**
      * Returns the currently active or default provider
      */
     public static ResourceProvider provider(Context context) {
-        DynamicResource dr = DynamicResource.INSTANCE.get(context);
-        ResourceProvider plugin = dr.mPlugin;
-        return plugin == null ? dr : plugin;
+        return DynamicResource.INSTANCE.get(context);
     }
 }

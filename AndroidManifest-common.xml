@@ -78,11 +78,57 @@
         android:backupInForeground="true"
         android:fullBackupContent="@xml/backupscheme"
         android:hardwareAccelerated="true"
+        android:debuggable="true"
         android:icon="@drawable/ic_launcher_home"
         android:label="@string/derived_app_name"
+        android:theme="@style/AppTheme"
         android:largeHeap="@bool/config_largeHeap"
         android:restoreAnyVersion="true"
         android:supportsRtl="true" >
+
+        <!--
+        Main launcher activity. When extending only change the name, and keep all the
+        attributes and intent filters the same
+        -->
+        <activity
+            android:name="com.android.launcher3.Launcher"
+            android:launchMode="singleTask"
+            android:clearTaskOnLaunch="true"
+            android:stateNotNeeded="true"
+            android:windowSoftInputMode="adjustPan"
+            android:screenOrientation="unspecified"
+            android:configChanges="keyboard|keyboardHidden|mcc|mnc|navigation|orientation|screenSize|screenLayout|smallestScreenSize"
+            android:resizeableActivity="true"
+            android:resumeWhilePausing="true"
+            android:taskAffinity=""
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.SHOW_WORK_APPS" />
+                <action android:name="android.intent.action.ALL_APPS" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.MONKEY"/>
+                <category android:name="android.intent.category.LAUNCHER_APP" />
+            </intent-filter>
+            <meta-data
+                android:name="com.android.launcher3.grid.control"
+                android:value="${packageName}.grid_control" />
+        </activity>
+
+        <!-- Alias so other launchers show this app in their app drawers -->
+        <activity-alias
+            android:name="com.android.launcher3.LauncherAppDrawerAlias"
+            android:targetActivity="com.android.launcher3.Launcher"
+            android:icon="@drawable/ic_launcher_home"
+            android:label="@string/derived_app_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <!-- Intent received when a session is committed -->
         <receiver
@@ -159,30 +205,6 @@
             </intent-filter>
         </activity>
 
-        <provider
-            android:name="com.android.launcher3.testing.TestInformationProvider"
-            android:authorities="${applicationId}.TestInfo"
-            android:readPermission="android.permission.WRITE_SECURE_SETTINGS"
-            android:writePermission="android.permission.WRITE_SECURE_SETTINGS"
-            android:exported="true"
-            android:enabled="false" />
-
-        <!--
-        Launcher activity for secondary display
-        -->
-        <activity
-            android:name="com.android.launcher3.secondarydisplay.SecondaryDisplayLauncher"
-            android:theme="@style/AppTheme"
-            android:launchMode="singleTop"
-            android:exported="true"
-            android:enabled="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.SECONDARY_HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
-
         <!-- Disable eager initialization of Jetpack libraries. See bug 197780098. -->
         <provider
             android:name="androidx.startup.InitializationProvider"
@@ -193,4 +215,17 @@
             android:name="android.window.PROPERTY_ACTIVITY_EMBEDDING_SPLITS_ENABLED"
             android:value="true" />
     </application>
+    <!-- Icon pack discovery: query for ADW-format icon pack intents -->
+    <queries>
+        <intent>
+            <action android:name="org.adw.launcher.THEMES" />
+        </intent>
+        <intent>
+            <action android:name="com.gau.go.launcherex.theme" />
+        </intent>
+        <intent>
+            <action android:name="com.novalauncher.THEME" />
+        </intent>
+    </queries>
+
 </manifest>

@@ -26,6 +26,7 @@ android {
     namespace = 'com.android.launcher3'
 
     defaultConfig {
+        applicationId 'com.guru.defaultlauncher'
         minSdkVersion 33
         targetSdkVersion 36
         versionCode 1
@@ -38,7 +39,6 @@ android {
         buildConfigField "boolean", "WIDGETS_ENABLED", "true"
         buildConfigField "boolean", "NOTIFICATION_DOTS_ENABLED", "true"
 
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }
     buildTypes {
@@ -52,96 +52,14 @@ android {
         targetCompatibility JavaVersion.VERSION_21
     }
 
-    // The flavor dimensions for build variants (e.g. aospWithQuickstep, aospWithoutQuickstep)
-    // See: https://developer.android.com/studio/build/build-variants#flavor-dimensions
-    flavorDimensions "app", "recents"
-
-    productFlavors {
-        aosp {
-            dimension "app"
-            applicationId 'com.guru.defaultlauncher'
-            testApplicationId 'com.guru.defaultlauncher.tests'
-        }
-
-        l3go {
-            dimension "app"
-            applicationId 'com.guru.defaultlauncher'
-            testApplicationId 'com.guru.defaultlauncher.tests'
-        }
-
-        withQuickstep {
-            dimension "recents"
-
-            minSdkVersion 33
-        }
-
-        withoutQuickstep {
-            dimension "recents"
-        }
-    }
-
-    // Disable release builds for now
-    android.variantFilter { variant ->
-        if (variant.buildType.name.endsWith('release')) {
-            variant.setIgnore(true)
-        }
-    }
-
     sourceSets {
         main {
             res.srcDirs = ['res']
-            java.srcDirs = ['src', 'src_plugins', 'tests/shared', 'system_ext', 'tests/multivalentTests/shared', 'systemui_core/shared', 'shared/src']
+            java.srcDirs = ['src', 'shared/src']
             manifest.srcFile 'AndroidManifest-common.xml'
             proto {
-                srcDirs = ['protos/', 'quickstep/protos_overrides/']
+                srcDirs = ['protos/']
             }
-        }
-
-        androidTest {
-            res.srcDirs = ['tests/res']
-            java.srcDirs = ['tests/src', 'tests/tapl']
-            manifest.srcFile "tests/AndroidManifest-common.xml"
-        }
-
-        androidTestDebug {
-            manifest.srcFile "tests/AndroidManifest.xml"
-        }
-
-        aosp {
-            java.srcDirs = ['src_flags', 'src_shortcuts_overrides']
-        }
-
-        aospWithoutQuickstep {
-            java.srcDirs = ['src_no_quickstep']
-            manifest.srcFile "AndroidManifest.xml"
-        }
-
-        aospWithQuickstep {
-            manifest.srcFile "quickstep/AndroidManifest-launcher.xml"
-        }
-
-        l3go {
-            res.srcDirs = ['go/res']
-            java.srcDirs = ['go/src']
-            manifest.srcFile "go/AndroidManifest.xml"
-        }
-
-        l3goWithoutQuickstepDebug {
-            manifest.srcFile "AndroidManifest.xml"
-        }
-
-        l3goWithQuickstepDebug {
-            manifest.srcFile "quickstep/AndroidManifest-launcher.xml"
-        }
-
-        withoutQuickstep {
-            java.srcDirs = ['src_ui_overrides']
-        }
-
-        withQuickstep {
-            res.srcDirs = ['quickstep/res', 'quickstep/recents_ui_overrides/res']
-            java.srcDirs = ['quickstep/src', 'quickstep/recents_ui_overrides/src', 'quickstep/src_protolog', 'quickstep/dagger']
-            manifest.srcFile "quickstep/AndroidManifest.xml"
         }
     }
     kotlinOptions {
@@ -236,14 +154,6 @@ dependencies {
     implementation libs.dagger
     kapt libs.dagger.compiler
 
-    testImplementation libs.junit
-    androidTestImplementation libs.mockito.core
-    androidTestImplementation libs.dexmaker
-    androidTestImplementation libs.dexmaker.mockito
-    androidTestImplementation libs.runner
-    androidTestImplementation libs.rules
-    androidTestImplementation libs.uiautomator.v18
-    androidTestImplementation libs.annotation
 }
 
 dependencies {
@@ -256,25 +166,7 @@ dependencies {
 }
 
 dependencies {
-    // Recents lib dependency
-    withQuickstepImplementation fileTree(dir: "${FRAMEWORK_PREBUILTS_DIR}", include: 'sysui_shared.jar')
-    // Required for AOSP to compile. This is already included in the sysui_shared.jar
-    withoutQuickstepImplementation fileTree(dir: "${FRAMEWORK_PREBUILTS_DIR}", include: 'PluginCoreLib.jar')
-
-    l3goImplementation files('prebuilts/libs/libandroid_browser_helper.jar')
-//    withQuickstepImplementation files('prebuilts/libs/SettingsLibCollapsingToolbarBaseActivity.jar')
-    withQuickstepImplementation files('prebuilts/libs/SystemUISharedLib.jar')
-    withQuickstepImplementation files('prebuilts/libs/SystemUISharedLib_kotlin.jar')
-    withQuickstepImplementation files('prebuilts/libs/SystemUI-shared-utils_kotlin.jar')
-    withQuickstepImplementation files('prebuilts/libs/SystemUIUnfoldLib.jar')
-    withQuickstepImplementation files('prebuilts/libs/SystemUIUnfoldLib_kotlin.jar')
     implementation files('prebuilts/libs/SystemUI-statsd.jar')
-    withQuickstepImplementation files('prebuilts/libs/contextualeducationlib.jar')
-//    withQuickstepImplementation files('prebuilts/libs/com_android_wm_shell_flags.jar')
-    withQuickstepImplementation files('prebuilts/libs/WindowManager-Shell-shared.jar')
-    withQuickstepImplementation files('prebuilts/libs/WindowManager-Shell-shared_kotlin.jar')
-//    withQuickstepImplementation files('prebuilts/libs/com_android_systemui_shared_flags.jar')
-//    withQuickstepImplementation files('prebuilts/libs/com_android_systemui_flags.jar')
     implementation files('prebuilts/libs/am_flags_lib.jar')
     implementation files('prebuilts/libs/com_android_window_flags.jar')
     implementation files('prebuilts/libs/com_android_systemui_flags.jar')
@@ -286,13 +178,10 @@ dependencies {
     implementation files('prebuilts/libs/PluginAnnotationLib_kotlin.jar')
     implementation files('prebuilts/libs/PluginCoreLib.jar')
     implementation files('prebuilts/libs/PluginCoreLib_kotlin.jar')
-    withQuickstepImplementation files('prebuilts/libs/com_android_window_flags.jar')
     implementation files('prebuilts/libs/view_capture_proto.jar')
-//    implementation files('prebuilts/libs/tracinglib-platform.jar')
     implementation files('prebuilts/libs/tracinglib-platform.jar')
     implementation files('prebuilts/libs/view_capture.jar')
     implementation files('prebuilts/libs/view_capture_kotlin.jar')
-    releaseImplementation files('prebuilts/libs/aconfig-annotations-lib.jar')
     compileOnly files('prebuilts/libs/framework-16.jar')
 }
 

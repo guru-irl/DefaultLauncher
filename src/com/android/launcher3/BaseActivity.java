@@ -45,8 +45,6 @@ import androidx.savedstate.SavedStateRegistryController;
 import com.android.launcher3.DeviceProfile.OnDeviceProfileChangeListener;
 import com.android.launcher3.logging.StatsLogManager;
 import com.android.launcher3.model.data.ItemInfo;
-import com.android.launcher3.testing.TestLogging;
-import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.util.ActivityOptionsWrapper;
 import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.DisplayController.DisplayInfoChangeListener;
@@ -319,7 +317,6 @@ public abstract class BaseActivity extends Activity implements ActivityContext,
                     OnBackInvokedDispatcher.PRIORITY_DEFAULT,
                     () -> {
                         onBackPressed();
-                        TestLogging.recordEvent(TestProtocol.SEQUENCE_MAIN, "onBackInvoked");
                     });
         }
     }

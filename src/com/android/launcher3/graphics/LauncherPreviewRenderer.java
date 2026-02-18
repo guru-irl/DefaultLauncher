@@ -84,7 +84,7 @@ import com.android.launcher3.dagger.AppModule;
 import com.android.launcher3.dagger.LauncherAppComponent;
 import com.android.launcher3.dagger.LauncherAppSingleton;
 import com.android.launcher3.dagger.LauncherComponentProvider;
-import com.android.launcher3.dagger.PluginManagerWrapperModule;
+
 import com.android.launcher3.dagger.StaticObjectModule;
 import com.android.launcher3.dagger.WindowManagerProxyModule;
 import com.android.launcher3.folder.FolderIcon;
@@ -668,7 +668,6 @@ public class LauncherPreviewRenderer extends BaseContext
     // Exclude widget module since we bind widget holder separately
     @Component(modules = {WindowManagerProxyModule.class,
             ApiWrapperModule.class,
-            PluginManagerWrapperModule.class,
             StaticObjectModule.class,
             AppModule.class})
     public interface PreviewAppComponent extends LauncherAppComponent {

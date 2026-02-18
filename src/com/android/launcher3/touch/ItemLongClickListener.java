@@ -40,8 +40,6 @@ import com.android.launcher3.folder.Folder;
 import com.android.launcher3.logging.StatsLogManager.StatsLogger;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.PrivateSpaceInstallAppButtonInfo;
-import com.android.launcher3.testing.TestLogging;
-import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.views.BubbleTextHolder;
 import com.android.launcher3.widget.LauncherAppWidgetHostView;
 import com.android.launcher3.widget.NavigableAppWidgetHostView;
@@ -61,11 +59,6 @@ public class ItemLongClickListener {
             ItemLongClickListener::onAllAppsItemLongClick;
 
     private static boolean onWorkspaceItemLongClick(View v) {
-        if (v instanceof LauncherAppWidgetHostView) {
-            TestLogging.recordEvent(TestProtocol.SEQUENCE_MAIN, "Widgets.onLongClick");
-        } else {
-            TestLogging.recordEvent(TestProtocol.SEQUENCE_MAIN, "onWorkspaceItemLongClick");
-        }
         Launcher launcher = Launcher.getLauncher(v.getContext());
         if (!canStartDrag(launcher)) return false;
         if (!launcher.isInState(NORMAL)
@@ -139,7 +132,6 @@ public class ItemLongClickListener {
         if (view instanceof WidgetCell wc) {
             return onWidgetItemLongClick(wc);
         }
-        TestLogging.recordEvent(TestProtocol.SEQUENCE_MAIN, "onAllAppsItemLongClick");
         view.cancelLongPress();
         View v = (view instanceof BubbleTextHolder)
                 ? ((BubbleTextHolder) view).getBubbleText()
