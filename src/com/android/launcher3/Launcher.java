@@ -758,8 +758,13 @@ public class Launcher extends StatefulActivity<LauncherState>
     public void onMultiWindowModeChanged(boolean isInMultiWindowMode, Configuration newConfig) {
         super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
         // Always update device profile when multi window mode changed.
-        initDeviceProfile(mDeviceProfile.inv);
-        dispatchDeviceProfileChanged();
+        boolean profileChanged = initDeviceProfile(mDeviceProfile.inv);
+        Log.d("WsPadDebug", "onMultiWindowModeChanged: isMultiWindow=" + isInMultiWindowMode
+                + " profileChanged=" + profileChanged);
+        if (profileChanged) {
+            dispatchDeviceProfileChanged();
+            reapplyUi();
+        }
     }
 
     /**
@@ -824,14 +829,21 @@ public class Launcher extends StatefulActivity<LauncherState>
         // Load configuration-specific DeviceProfile
         DeviceProfile deviceProfile = idp.getDeviceProfile(this);
         if (mDeviceProfile == deviceProfile) {
+            Log.d("WsPadDebug", "initDeviceProfile: same profile, skipping");
             return false;
         }
 
+        DeviceProfile oldProfile = mDeviceProfile;
         mDeviceProfile = deviceProfile;
         if (isInMultiWindowMode()) {
             mDeviceProfile = mDeviceProfile.getMultiWindowProfile(
                     this, getMultiWindowDisplaySize());
         }
+        Log.d("WsPadDebug", "initDeviceProfile: swapped"
+                + " oldH=" + (oldProfile != null ? oldProfile.heightPx : -1)
+                + " newH=" + mDeviceProfile.heightPx
+                + " wsPadBot=" + mDeviceProfile.workspacePadding.bottom
+                + " isMultiWindow=" + isInMultiWindowMode());
 
         if (FOLDABLE_SINGLE_PAGE.get() && mDeviceProfile.isTwoPanels) {
             mCellPosMapper = new TwoPanelCellPosMapper(mDeviceProfile.inv.numColumns);
