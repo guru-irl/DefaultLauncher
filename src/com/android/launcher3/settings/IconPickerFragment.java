@@ -187,6 +187,7 @@ public class IconPickerFragment extends Fragment {
             }
 
             mMainHandler.post(() -> {
+                if (!isAdded()) return;
                 mAllItems = items;
                 mFilteredItems = new ArrayList<>(items);
                 if (mAdapter != null) {
@@ -259,8 +260,16 @@ public class IconPickerFragment extends Fragment {
             app.getIconCache().clearAllIcons();
             DrawerIconResolver.getInstance().invalidate();
             LauncherIcons.clearPool(requireContext());
-            mMainHandler.post(() -> app.getModel().forceReload());
+            mMainHandler.post(() -> {
+                if (isAdded()) app.getModel().forceReload();
+            });
         });
+    }
+
+    @Override
+    public void onDestroyView() {
+        mMainHandler.removeCallbacksAndMessages(null);
+        super.onDestroyView();
     }
 
     // ---- Data model ----

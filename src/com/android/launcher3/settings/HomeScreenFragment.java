@@ -20,8 +20,6 @@ package com.android.launcher3.settings;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.text.InputType;
 import android.view.View;
 import android.widget.Toast;
@@ -135,8 +133,9 @@ public class HomeScreenFragment extends PreferenceFragmentCompat {
                                 app.getIconCache().clearAllIcons();
                                 PerAppHomeIconResolver.getInstance().invalidate();
                                 LauncherIcons.clearPool(getContext());
-                                new Handler(Looper.getMainLooper()).post(
-                                        () -> app.getModel().forceReload());
+                                Executors.MAIN_EXECUTOR.execute(() -> {
+                                    if (isAdded()) app.getModel().forceReload();
+                                });
                             });
                         })
                         .setNegativeButton(android.R.string.cancel, null)
@@ -208,13 +207,13 @@ public class HomeScreenFragment extends PreferenceFragmentCompat {
     private void showCustomIconSizeDialog(
             MaterialButtonToggleGroup toggleGroup, Preference iconSizePref) {
         Context ctx = getContext();
-        float density = ctx.getResources().getDisplayMetrics().density;
+        android.content.res.Resources res = ctx.getResources();
 
         TextInputLayout inputLayout = new TextInputLayout(ctx,
                 null, com.google.android.material.R.attr.textInputOutlinedStyle);
         inputLayout.setHint("Icon size (50\u2013100%)");
-        int hPad = (int) (24 * density);
-        int tPad = (int) (16 * density);
+        int hPad = res.getDimensionPixelSize(R.dimen.settings_dialog_horizontal_pad);
+        int tPad = res.getDimensionPixelSize(R.dimen.settings_card_padding);
         inputLayout.setPadding(hPad, tPad, hPad, 0);
 
         TextInputEditText editText = new TextInputEditText(inputLayout.getContext());

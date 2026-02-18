@@ -6,7 +6,6 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.ViewDebug;
 import android.view.WindowInsets;
 
@@ -63,7 +62,6 @@ public class LauncherRootView extends InsettableFrameLayout {
     private WindowInsets updateInsets(WindowInsets insets) {
         insets = WindowManagerProxy.INSTANCE.get(getContext())
                 .normalizeWindowInsets(getContext(), insets, mTempRect);
-        Log.d("WsPadDebug", "LauncherRootView.updateInsets: normalized=" + mTempRect);
         handleSystemWindowInsets(mTempRect);
         return insets;
     }
@@ -73,8 +71,6 @@ public class LauncherRootView extends InsettableFrameLayout {
         // If the insets haven't changed, this is a no-op. Avoid unnecessary layout caused by
         // modifying child layout params.
         boolean changed = !insets.equals(mInsets);
-        Log.d("WsPadDebug", "LauncherRootView.setInsets: insets=" + insets
-                + " changed=" + changed);
         if (changed) {
             super.setInsets(insets);
             mSysUiScrim.onInsetsChanged(insets);

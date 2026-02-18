@@ -398,7 +398,7 @@ public class IconSettingsHelper {
                 autoDetectAdaptiveAsync(ctx, mgr, false);
 
                 app.getIconCache().clearAllIcons();
-                new Handler(Looper.getMainLooper()).post(() -> {
+                Executors.MAIN_EXECUTOR.execute(() -> {
                     LauncherIcons.clearPool(ctx);
                     DrawerIconResolver.getInstance().invalidate();
                     // Force ThemeManager to pick up the new adaptive shape state synchronously
@@ -554,7 +554,7 @@ public class IconSettingsHelper {
                 }
                 final Drawable finalIcon = appIcon;
                 if (finalIcon != null) {
-                    new Handler(Looper.getMainLooper()).post(() -> {
+                    Executors.MAIN_EXECUTOR.execute(() -> {
                         if (sheet.isShowing()) {
                             preview.setImageDrawable(finalIcon);
                         }

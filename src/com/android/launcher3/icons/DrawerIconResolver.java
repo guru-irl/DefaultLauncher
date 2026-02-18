@@ -68,6 +68,23 @@ public class DrawerIconResolver {
 
     private DrawerIconResolver() { }
 
+    /**
+     * Resolve an icon from the given pack: calendar → component → fallback mask.
+     * Returns null if the pack cannot provide an icon for this component.
+     */
+    private static Drawable resolveFromPack(
+            IconPack pack, ComponentName cn, PackageManager pm) {
+        Drawable icon = pack.getCalendarIcon(cn, pm);
+        if (icon == null) icon = pack.getIconForComponent(cn, pm);
+        if (icon == null && pack.hasFallbackMask()) {
+            try {
+                Drawable original = pm.getActivityIcon(cn);
+                icon = pack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
+            } catch (PackageManager.NameNotFoundException ignored) { }
+        }
+        return icon;
+    }
+
     public static DrawerIconResolver getInstance() {
         if (sInstance == null) {
             synchronized (DrawerIconResolver.class) {
@@ -159,16 +176,7 @@ public class DrawerIconResolver {
                                 perAppOverride.drawableName, pm);
                     }
                     if (icon == null) {
-                        icon = overridePack.getCalendarIcon(cn, pm);
-                    }
-                    if (icon == null) {
-                        icon = overridePack.getIconForComponent(cn, pm);
-                    }
-                    if (icon == null && overridePack.hasFallbackMask()) {
-                        try {
-                            Drawable original = pm.getActivityIcon(cn);
-                            icon = overridePack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
-                        } catch (PackageManager.NameNotFoundException ignored) { }
+                        icon = resolveFromPack(overridePack, cn, pm);
                     }
                 }
             } else {
@@ -177,16 +185,7 @@ public class DrawerIconResolver {
                 IconPack pack = mgr.hasDistinctDrawerPack()
                         ? mgr.getDrawerPack() : mgr.getCurrentPack();
                 if (pack != null) {
-                    icon = pack.getCalendarIcon(cn, pm);
-                    if (icon == null) {
-                        icon = pack.getIconForComponent(cn, pm);
-                    }
-                    if (icon == null && pack.hasFallbackMask()) {
-                        try {
-                            Drawable original = pm.getActivityIcon(cn);
-                            icon = pack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
-                        } catch (PackageManager.NameNotFoundException ignored) { }
-                    }
+                    icon = resolveFromPack(pack, cn, pm);
                 }
             }
         } else {
@@ -197,16 +196,7 @@ public class DrawerIconResolver {
                     : mgr.getCurrentPack();
 
             if (pack != null) {
-                icon = pack.getCalendarIcon(cn, pm);
-                if (icon == null) {
-                    icon = pack.getIconForComponent(cn, pm);
-                }
-                if (icon == null && pack.hasFallbackMask()) {
-                    try {
-                        Drawable original = pm.getActivityIcon(cn);
-                        icon = pack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
-                    } catch (PackageManager.NameNotFoundException ignored) { }
-                }
+                icon = resolveFromPack(pack, cn, pm);
             }
         }
 
@@ -262,17 +252,7 @@ public class DrawerIconResolver {
         for (ComponentName cn : components) {
             if (cn == null || mCache.get(cn) != null) continue;
 
-            Drawable icon = null;
-            if (pack != null) {
-                icon = pack.getCalendarIcon(cn, pm);
-                if (icon == null) icon = pack.getIconForComponent(cn, pm);
-                if (icon == null && pack.hasFallbackMask()) {
-                    try {
-                        Drawable original = pm.getActivityIcon(cn);
-                        icon = pack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
-                    } catch (PackageManager.NameNotFoundException ignored) { }
-                }
-            }
+            Drawable icon = pack != null ? resolveFromPack(pack, cn, pm) : null;
             if (icon == null) {
                 try { icon = pm.getActivityIcon(cn); }
                 catch (PackageManager.NameNotFoundException ignored) { }

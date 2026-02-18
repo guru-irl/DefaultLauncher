@@ -114,9 +114,6 @@ public class PreferenceHighlighter extends ItemDecoration implements Runnable {
         View view = holder.itemView;
         mPaint.setColor(mHighlightColor);
         mDrawRect.set(0, view.getY(), parent.getWidth(), view.getY() + view.getHeight());
-        if (mPreference instanceof HighlightDelegate) {
-            ((HighlightDelegate) mPreference).offsetHighlight(view, mDrawRect);
-        }
         c.drawRect(mDrawRect, mPaint);
     }
 
@@ -134,15 +131,4 @@ public class PreferenceHighlighter extends ItemDecoration implements Runnable {
         anim.start();
     }
 
-    /**
-     * Interface to be implemented by a preference to customize the highlight are
-     */
-    public interface HighlightDelegate {
-
-        /**
-         * Allows the preference to update the highlight area
-         */
-        void offsetHighlight(View prefView, RectF bounds);
-
-    }
 }

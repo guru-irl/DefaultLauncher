@@ -19,6 +19,7 @@
 package com.android.launcher3.settings;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
@@ -78,10 +79,11 @@ public class ColorDebugPreference extends Preference {
         // Work with whatever layout the adapter provides
         ViewGroup root = (ViewGroup) holder.itemView;
 
-        // Remove previously added grid (handles view recycling)
+        // Reuse cached grid if present — just update color values
         View existingGrid = root.findViewWithTag(GRID_TAG);
-        if (existingGrid != null) {
-            root.removeView(existingGrid);
+        if (existingGrid instanceof GridLayout) {
+            updateGridColors((GridLayout) existingGrid);
+            return;
         }
 
         // Hide default preference title/summary since the category provides the title
@@ -94,20 +96,20 @@ public class ColorDebugPreference extends Preference {
         if (iconFrame != null) iconFrame.setVisibility(View.GONE);
 
         Context ctx = getContext();
-        float density = ctx.getResources().getDisplayMetrics().density;
+        Resources res = ctx.getResources();
 
         GridLayout grid = new GridLayout(ctx);
         grid.setTag(GRID_TAG);
         grid.setColumnCount(2);
-        int vertPad = (int) (12 * density);
+        int vertPad = res.getDimensionPixelSize(R.dimen.settings_vertical_pad_large);
         grid.setPadding(0, vertPad, 0, vertPad);
         grid.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        int pad = (int) (4 * density);
-        int swatchSize = (int) (24 * density);
-        float cornerRadius = 4 * density;
+        int pad = res.getDimensionPixelSize(R.dimen.settings_vertical_pad_small);
+        int swatchSize = res.getDimensionPixelSize(R.dimen.settings_swatch_size);
+        float cornerRadius = res.getDimension(R.dimen.settings_card_small_corner_radius);
 
         for (int i = 0; i < COLOR_RESOURCES.length; i++) {
             int color = ctx.getColor(COLOR_RESOURCES[i]);
@@ -144,5 +146,20 @@ public class ColorDebugPreference extends Preference {
         }
 
         root.addView(grid);
+    }
+
+    private void updateGridColors(GridLayout grid) {
+        Context ctx = getContext();
+        for (int i = 0; i < grid.getChildCount() && i < COLOR_RESOURCES.length; i++) {
+            int color = ctx.getColor(COLOR_RESOURCES[i]);
+            LinearLayout swatch = (LinearLayout) grid.getChildAt(i);
+            // Update color rect background
+            View colorRect = swatch.getChildAt(0);
+            GradientDrawable bg = (GradientDrawable) colorRect.getBackground();
+            bg.setColor(color);
+            // Update label text
+            TextView tv = (TextView) swatch.getChildAt(1);
+            tv.setText(COLOR_NAMES[i] + "\n" + String.format("#%06X", 0xFFFFFF & color));
+        }
     }
 }

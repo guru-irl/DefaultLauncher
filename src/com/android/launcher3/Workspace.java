@@ -345,9 +345,6 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         mWorkspaceFadeInAdjacentScreens = grid.shouldFadeAdjacentWorkspaceScreens();
 
         Rect padding = grid.workspacePadding;
-        Log.d("WsPadDebug", "Workspace.setInsets: wsPad=" + padding
-                + " hotseatBarSize=" + grid.hotseatBarSizePx
-                + " profileH=" + grid.heightPx);
         setPadding(padding.left, padding.top, padding.right, padding.bottom);
         mInsets.set(insets);
 

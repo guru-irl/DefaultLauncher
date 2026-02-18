@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared dimension constants for the Settings UI. -->
+<resources>
+    <dimen name="settings_card_corner_radius">24dp</dimen>
+    <dimen name="settings_card_small_corner_radius">4dp</dimen>
+    <dimen name="settings_horizontal_margin">16dp</dimen>
+    <dimen name="settings_item_gap">4dp</dimen>
+    <dimen name="settings_card_padding">16dp</dimen>
+    <dimen name="settings_icon_size">40dp</dimen>
+    <dimen name="settings_swatch_size">24dp</dimen>
+    <dimen name="settings_vertical_pad_small">4dp</dimen>
+    <dimen name="settings_vertical_pad_medium">8dp</dimen>
+    <dimen name="settings_vertical_pad_large">12dp</dimen>
+    <dimen name="settings_slider_outer_pad_top">16dp</dimen>
+    <dimen name="settings_slider_outer_pad_bottom">10dp</dimen>
+    <dimen name="settings_slider_track_height">16dp</dimen>
+    <dimen name="settings_slider_thumb_width">4dp</dimen>
+    <dimen name="settings_slider_thumb_height">28dp</dimen>
+    <dimen name="settings_slider_track_offset">8dp</dimen>
+    <dimen name="settings_value_label_min_width">24dp</dimen>
+    <dimen name="settings_dialog_horizontal_pad">24dp</dimen>
+</resources>
