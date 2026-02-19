@@ -73,6 +73,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.view.ViewCompat;
 
 import com.android.app.animation.Interpolators;
+import com.android.launcher3.BuildConfig;
 import com.android.launcher3.accessibility.AccessibleDragListenerAdapter;
 import com.android.launcher3.accessibility.WorkspaceAccessibilityHelper;
 import com.android.launcher3.anim.PendingAnimation;
@@ -151,6 +152,9 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
      * The value that {@link #mTransitionProgress} must be greater than for
      * {@link #transitionStateShouldAllowDrop()} to return true.
      */
+    private static final String TAG = "Workspace";
+    private static final boolean DEBUG_WS_PAD = BuildConfig.DEBUG;
+
     private static final float ALLOW_DROP_TRANSITION_PROGRESS = 0.25f;
 
     /**
@@ -345,6 +349,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         mWorkspaceFadeInAdjacentScreens = grid.shouldFadeAdjacentWorkspaceScreens();
 
         Rect padding = grid.workspacePadding;
+        if (DEBUG_WS_PAD) {
+            Log.d(TAG, "setInsets: wsPad=" + padding + " hotseatBarSize=" + grid.hotseatBarSizePx
+                    + " profileH=" + grid.heightPx);
+        }
         setPadding(padding.left, padding.top, padding.right, padding.bottom);
         mInsets.set(insets);
 
@@ -2077,8 +2085,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                     lp.cellVSpan = item.spanY;
                     lp.isLockedToGrid = true;
 
-                    if (container != LauncherSettings.Favorites.CONTAINER_HOTSEAT &&
-                            cell instanceof LauncherAppWidgetHostView) {
+                    if (cell instanceof LauncherAppWidgetHostView) {
 
                         // We post this call so that the widget has a chance to be placed
                         // in its final location

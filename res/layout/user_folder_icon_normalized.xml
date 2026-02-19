@@ -34,8 +34,8 @@
         android:layout_height="@dimen/folder_footer_height_default"
         android:clipChildren="false"
         android:orientation="horizontal"
-        android:paddingLeft="@dimen/folder_footer_horiz_padding"
-        android:paddingRight="@dimen/folder_footer_horiz_padding">
+        android:paddingStart="@dimen/folder_footer_horiz_padding"
+        android:paddingEnd="@dimen/folder_footer_horiz_padding">
 
         <com.android.launcher3.folder.FolderNameEditText
             android:id="@+id/folder_name"

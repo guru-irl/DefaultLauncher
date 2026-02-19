@@ -57,6 +57,7 @@ public class ColorPickerPreference extends Preference {
     private int mDefaultColorResId;
     private int mDefaultColorOverride;
     private View mSwatchView;
+    private BottomSheetDialog mDialog;
 
     public ColorPickerPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -137,7 +138,11 @@ public class ColorPickerPreference extends Preference {
     private void showColorPickerSheet() {
         Context ctx = getContext();
         float density = ctx.getResources().getDisplayMetrics().density;
+        if (mDialog != null && mDialog.isShowing()) {
+            mDialog.dismiss();
+        }
         BottomSheetDialog sheet = new BottomSheetDialog(ctx);
+        mDialog = sheet;
 
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -320,6 +325,15 @@ public class ColorPickerPreference extends Preference {
         });
 
         row.addView(wrapper);
+    }
+
+    @Override
+    public void onDetached() {
+        super.onDetached();
+        if (mDialog != null && mDialog.isShowing()) {
+            mDialog.dismiss();
+        }
+        mDialog = null;
     }
 
     private int dp(int value) {

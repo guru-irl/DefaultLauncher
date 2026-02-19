@@ -78,7 +78,6 @@
         android:backupInForeground="true"
         android:fullBackupContent="@xml/backupscheme"
         android:hardwareAccelerated="true"
-        android:debuggable="true"
         android:icon="@drawable/ic_launcher_home"
         android:label="@string/derived_app_name"
         android:theme="@style/AppTheme"

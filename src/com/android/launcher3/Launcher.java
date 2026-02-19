@@ -175,6 +175,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.os.BuildCompat;
 import androidx.window.embedding.RuleController;
 
+import com.android.launcher3.BuildConfig;
 import com.android.launcher3.DropTarget.DragObject;
 import com.android.launcher3.ExtendedEditText;
 import com.android.launcher3.accessibility.LauncherAccessibilityDelegate;
@@ -305,6 +306,9 @@ public class Launcher extends StatefulActivity<LauncherState>
     static final boolean LOGD = false;
 
     static final boolean DEBUG_STRICT_MODE = false;
+
+    private static final boolean DEBUG_WS_PAD = BuildConfig.DEBUG;
+    private static final boolean DEBUG_LAUNCHER_ANIM = BuildConfig.DEBUG;
 
     private static final float BOUNCE_ANIMATION_TENSION = 1.3f;
 
@@ -729,6 +733,10 @@ public class Launcher extends StatefulActivity<LauncherState>
         super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
         // Always update device profile when multi window mode changed.
         boolean profileChanged = initDeviceProfile(mDeviceProfile.inv);
+        if (DEBUG_WS_PAD) {
+            Log.d(TAG, "onMultiWindowModeChanged: isMultiWindow=" + isInMultiWindowMode
+                    + " profileChanged=" + profileChanged);
+        }
         if (profileChanged) {
             dispatchDeviceProfileChanged();
             reapplyUi();
@@ -797,6 +805,7 @@ public class Launcher extends StatefulActivity<LauncherState>
         // Load configuration-specific DeviceProfile
         DeviceProfile deviceProfile = idp.getDeviceProfile(this);
         if (mDeviceProfile == deviceProfile) {
+            if (DEBUG_WS_PAD) Log.d(TAG, "initDeviceProfile: same profile, skipping");
             return false;
         }
 
@@ -814,6 +823,11 @@ public class Launcher extends StatefulActivity<LauncherState>
                     mDeviceProfile.numShownHotseatIcons);
         }
         mModelWriter = mModel.getWriter(true, mCellPosMapper, this);
+        if (DEBUG_WS_PAD) {
+            Log.d(TAG, "initDeviceProfile: swapped oldH="
+                    + (oldProfile != null ? oldProfile.heightPx : 0)
+                    + " newH=" + mDeviceProfile.heightPx);
+        }
         updateFixedLandscape();
         return true;
     }
@@ -1566,9 +1580,11 @@ public class Launcher extends StatefulActivity<LauncherState>
         }
         TraceHelper.INSTANCE.beginSection(ON_NEW_INTENT_EVT);
         super.onNewIntent(intent);
-        Log.d("LauncherAnim", "onNewIntent: action=" + intent.getAction()
-                + " hasGestureContract=" + (intent.getBundleExtra(
-                        GestureNavContract.EXTRA_GESTURE_CONTRACT) != null));
+        if (DEBUG_LAUNCHER_ANIM) {
+            Log.d(TAG, "onNewIntent: action=" + intent.getAction()
+                    + " hasGestureContract=" + (intent.getBundleExtra(
+                            GestureNavContract.EXTRA_GESTURE_CONTRACT) != null));
+        }
 
         boolean alreadyOnHome = hasWindowFocus() && ((intent.getFlags() &
                 Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT)
@@ -1674,8 +1690,10 @@ public class Launcher extends StatefulActivity<LauncherState>
      */
     protected void handleGestureContract(Intent intent) {
         GestureNavContract gnc = GestureNavContract.fromIntent(intent);
-        Log.d("LauncherAnim", "handleGestureContract: gnc=" + (gnc != null)
-                + " extras=" + intent.getExtras());
+        if (DEBUG_LAUNCHER_ANIM) {
+            Log.d(TAG, "handleGestureContract: gnc=" + (gnc != null)
+                    + " extras=" + intent.getExtras());
+        }
         if (gnc != null) {
             AbstractFloatingView.closeOpenViews(this, false, TYPE_ICON_SURFACE);
             FloatingSurfaceView.show(this, gnc);

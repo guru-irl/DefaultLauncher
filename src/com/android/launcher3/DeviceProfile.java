@@ -42,6 +42,7 @@ import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.util.SparseArray;
 import android.view.Surface;
 
@@ -50,6 +51,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.content.res.ResourcesCompat;
 
+import com.android.launcher3.BuildConfig;
 import com.android.launcher3.CellLayout.ContainerType;
 import com.android.launcher3.DevicePaddings.DevicePadding;
 import com.android.launcher3.folder.ClippedFolderIconLayoutRule;
@@ -78,6 +80,9 @@ import java.util.function.Consumer;
 
 @SuppressLint("NewApi")
 public class DeviceProfile {
+
+    private static final String TAG = "DeviceProfile";
+    private static final boolean DEBUG_SQUARE_GRID = BuildConfig.DEBUG;
 
     private static final int DEFAULT_DOT_SIZE = 100;
     private static final float MIN_FOLDER_TEXT_SIZE_SP = 16f;
@@ -1262,40 +1267,42 @@ public class DeviceProfile {
         cellLayoutPaddingPx.left = hEdgeTotal / 2;
         cellLayoutPaddingPx.right = hEdgeTotal - hEdgeTotal / 2;
 
-        android.util.Log.d("SquareGrid", "=== Square Grid Derivation ===");
-        android.util.Log.d("SquareGrid", String.format(
-                "Screen: %dx%d  density=%.1f  insets.top=%d insets.bottom=%d",
-                widthPx, heightPx, density, mInsets.top, mInsets.bottom));
-        android.util.Log.d("SquareGrid", String.format(
-                "Cell: %dx%d (%.1fx%.1fdp)  interGap=%dpx(%.1fdp)  edgeGap=%dpx(%.1fdp)",
-                cellWidthPx, cellHeightPx, cellWidthPx/density, cellHeightPx/density,
-                interGap, interGap/density, edgeGap, edgeGap/density));
-        android.util.Log.d("SquareGrid", String.format(
-                "AvailH: %dpx = %d(screenH) - %d(statusBar) - %d(bottomMargin %.1fdp)",
-                availH, heightPx, mInsets.top, bottomMargin, bottomMargin/density));
-        android.util.Log.d("SquareGrid", String.format(
-                "Rows: totalRows=%d  workspaceRows=%d  cols=%d",
-                totalRows, numRows, inv.numColumns));
-        android.util.Log.d("SquareGrid", String.format(
-                "Gap: adjusted=%d  maxH=%d  final=%dpx(%.1fdp)",
-                adjustedGap, maxGap, gap, gap/density));
-        android.util.Log.d("SquareGrid", String.format(
-                "GridH: %d  totalUsed=%d  slop=%d  slopTop=%d  slopBottom=%d",
-                gridH, totalUsed, slop, slopTop, slopBottom));
-        android.util.Log.d("SquareGrid", String.format(
-                "Hotseat: bottomSpace=%dpx(%.1fdp)  barSize=%dpx",
-                hotseatBarBottomSpacePx, hotseatBarBottomSpacePx/density, hotseatBarSizePx));
-        android.util.Log.d("SquareGrid", String.format(
-                "CellLayoutPad: top=%d bottom=%d left=%d right=%d",
-                cellLayoutPaddingPx.top, cellLayoutPaddingPx.bottom,
-                cellLayoutPaddingPx.left, cellLayoutPaddingPx.right));
-        android.util.Log.d("SquareGrid", String.format(
-                "WorkspacePad: top=%d bottom=%d  getCellLayoutH=%d(physical) wsGridH=%d vPad=%d",
-                workspacePadding.top, workspacePadding.bottom,
-                clH, workspaceGridH, vPadTotal));
-        android.util.Log.d("SquareGrid", String.format(
-                "availableHeightPx=%d  getCellLayoutW=%d",
-                availableHeightPx, getCellLayoutWidth()));
+        if (DEBUG_SQUARE_GRID) {
+            Log.d(TAG, "=== Square Grid Derivation ===");
+            Log.d(TAG, String.format(
+                    "Screen: %dx%d  density=%.1f  insets.top=%d insets.bottom=%d",
+                    widthPx, heightPx, density, mInsets.top, mInsets.bottom));
+            Log.d(TAG, String.format(
+                    "Cell: %dx%d (%.1fx%.1fdp)  interGap=%dpx(%.1fdp)  edgeGap=%dpx(%.1fdp)",
+                    cellWidthPx, cellHeightPx, cellWidthPx/density, cellHeightPx/density,
+                    interGap, interGap/density, edgeGap, edgeGap/density));
+            Log.d(TAG, String.format(
+                    "AvailH: %dpx = %d(screenH) - %d(statusBar) - %d(bottomMargin %.1fdp)",
+                    availH, heightPx, mInsets.top, bottomMargin, bottomMargin/density));
+            Log.d(TAG, String.format(
+                    "Rows: totalRows=%d  workspaceRows=%d  cols=%d",
+                    totalRows, numRows, inv.numColumns));
+            Log.d(TAG, String.format(
+                    "Gap: adjusted=%d  maxH=%d  final=%dpx(%.1fdp)",
+                    adjustedGap, maxGap, gap, gap/density));
+            Log.d(TAG, String.format(
+                    "GridH: %d  totalUsed=%d  slop=%d  slopTop=%d  slopBottom=%d",
+                    gridH, totalUsed, slop, slopTop, slopBottom));
+            Log.d(TAG, String.format(
+                    "Hotseat: bottomSpace=%dpx(%.1fdp)  barSize=%dpx",
+                    hotseatBarBottomSpacePx, hotseatBarBottomSpacePx/density, hotseatBarSizePx));
+            Log.d(TAG, String.format(
+                    "CellLayoutPad: top=%d bottom=%d left=%d right=%d",
+                    cellLayoutPaddingPx.top, cellLayoutPaddingPx.bottom,
+                    cellLayoutPaddingPx.left, cellLayoutPaddingPx.right));
+            Log.d(TAG, String.format(
+                    "WorkspacePad: top=%d bottom=%d  getCellLayoutH=%d(physical) wsGridH=%d vPad=%d",
+                    workspacePadding.top, workspacePadding.bottom,
+                    clH, workspaceGridH, vPadTotal));
+            Log.d(TAG, String.format(
+                    "availableHeightPx=%d  getCellLayoutW=%d",
+                    availableHeightPx, getCellLayoutWidth()));
+        }
     }
 
     /**

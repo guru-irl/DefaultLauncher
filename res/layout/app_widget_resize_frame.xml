@@ -38,8 +38,8 @@
             android:id="@+id/widget_resize_left_handle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="left|center_vertical"
-            android:layout_marginLeft="@dimen/widget_handle_margin"
+            android:layout_gravity="start|center_vertical"
+            android:layout_marginStart="@dimen/widget_handle_margin"
             android:src="@drawable/ic_widget_resize_handle"
             android:tint="?attr/workspaceAccentColor" />
 
@@ -58,8 +58,8 @@
             android:id="@+id/widget_resize_right_handle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="right|center_vertical"
-            android:layout_marginRight="@dimen/widget_handle_margin"
+            android:layout_gravity="end|center_vertical"
+            android:layout_marginEnd="@dimen/widget_handle_margin"
             android:src="@drawable/ic_widget_resize_handle"
             android:tint="?attr/workspaceAccentColor" />
 

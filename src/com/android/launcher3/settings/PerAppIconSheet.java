@@ -18,9 +18,6 @@
  */
 package com.android.launcher3.settings;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ValueAnimator;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -55,6 +52,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import com.android.launcher3.R;
+import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.icons.pack.IconPack;
 import com.android.launcher3.icons.pack.IconPackManager;
 import com.android.launcher3.util.Executors;
@@ -82,9 +80,8 @@ public class PerAppIconSheet {
         void onIconSelected(String packPackage, String drawableName);
     }
 
-    private static final long EXPAND_DURATION = 350L;
-    private static final long FADE_DURATION = 200L;
-    private static final long SEARCH_DEBOUNCE_MS = 300;
+    private static final long SLIDE_DURATION = M3Durations.MEDIUM_2; // 300ms
+    private static final long SEARCH_DEBOUNCE_MS = M3Durations.MEDIUM_2; // 300ms
 
     private static final int VIEW_TYPE_HEADER = 0;
     private static final int VIEW_TYPE_ICON = 1;
@@ -255,52 +252,13 @@ public class PerAppIconSheet {
             boolean[] onIconPage, View[] iconPageRef) {
 
         Resources res = ctx.getResources();
-        int cornerPx = res.getDimensionPixelSize(R.dimen.settings_card_corner_radius);
 
-        // Get card position relative to root
-        int[] cardLoc = new int[2];
-        int[] rootLoc = new int[2];
-        selectedCard.getLocationInWindow(cardLoc);
-        root.getLocationInWindow(rootLoc);
-        int cardTop = cardLoc[1] - rootLoc[1];
-        int cardLeft = cardLoc[0] - rootLoc[0];
-        int cardWidth = selectedCard.getWidth();
-        int cardHeight = selectedCard.getHeight();
-
-        // M3 bottom sheet top corner radius (the overlay morphs card → sheet shape)
-        float sheetCornerPx = res.getDimension(R.dimen.settings_sheet_corner_radius);
-
-        // Create overlay matching the card — use clipToOutline for proper rounding
-        View overlay = new View(ctx);
-        GradientDrawable overlayBg = new GradientDrawable();
-        overlayBg.setCornerRadius(cornerPx);
-        overlayBg.setColor(colorSurfaceVar);
-        overlay.setBackground(overlayBg);
-        overlay.setClipToOutline(true);
-
-        // Mutable radius holder for the outline provider
-        final float[] currentRadius = {cornerPx};
-        overlay.setOutlineProvider(new android.view.ViewOutlineProvider() {
-            @Override
-            public void getOutline(View view, android.graphics.Outline outline) {
-                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(),
-                        currentRadius[0]);
-            }
-        });
-
-        FrameLayout.LayoutParams overlayLp =
-                new FrameLayout.LayoutParams(cardWidth, cardHeight);
-        overlayLp.leftMargin = cardLeft;
-        overlayLp.topMargin = cardTop;
-        overlay.setLayoutParams(overlayLp);
-        root.addView(overlay);
-
-        // Build icon picker page (invisible initially)
+        // Build icon picker page (starts off-screen right)
         LinearLayout iconPage = buildIconPickerPage(ctx, packPackage, pack,
                 appCn, mgr, sheet, root, packPage, callback,
                 colorOnSurface, colorSurfaceVar, onIconPage);
         iconPage.setAlpha(0f);
-        iconPage.setVisibility(View.INVISIBLE);
+        iconPage.setTranslationX(root.getWidth() * 0.3f);
 
         // Use the screen height for the icon picker so RecyclerView gets room
         int screenHeight = res.getDisplayMetrics().heightPixels;
@@ -311,47 +269,25 @@ public class PerAppIconSheet {
                 ViewGroup.LayoutParams.MATCH_PARENT));
         iconPageRef[0] = iconPage;
 
-        // Animate: card overlay expands to fill the root with smooth corner morphing
-        int rootWidth = root.getWidth();
-        int rootHeight = Math.max(root.getHeight(), (int) (screenHeight * 0.7f));
+        // Slide pack page left + fade out
+        FastOutSlowInInterpolator interp = new FastOutSlowInInterpolator();
+        packPage.animate()
+                .translationX(-root.getWidth() * 0.3f)
+                .alpha(0f)
+                .setDuration(SLIDE_DURATION)
+                .setInterpolator(interp)
+                .withEndAction(() -> packPage.setVisibility(View.GONE))
+                .start();
 
-        ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
-        anim.setDuration(EXPAND_DURATION);
-        anim.setInterpolator(new FastOutSlowInInterpolator());
-        anim.addUpdateListener(a -> {
-            float f = (float) a.getAnimatedValue();
-            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) overlay.getLayoutParams();
-            lp.leftMargin = (int) (cardLeft * (1 - f));
-            lp.topMargin = (int) (cardTop * (1 - f));
-            lp.width = (int) (cardWidth + (rootWidth - cardWidth) * f);
-            lp.height = (int) (cardHeight + (rootHeight - cardHeight) * f);
-            overlay.setLayoutParams(lp);
-
-            // Morph corners: card radius → sheet top corner radius
-            float radius = cornerPx + (sheetCornerPx - cornerPx) * f;
-            currentRadius[0] = radius;
-            ((GradientDrawable) overlay.getBackground()).setCornerRadius(radius);
-            overlay.invalidateOutline();
-
-            // Fade out pack page
-            packPage.setAlpha(1 - f);
-        });
-        anim.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                packPage.setVisibility(View.GONE);
-
-                // Fade in icon picker, fade out overlay
-                iconPage.setVisibility(View.VISIBLE);
-                iconPage.animate().alpha(1f).setDuration(FADE_DURATION).start();
-                overlay.animate().alpha(0f).setDuration(FADE_DURATION)
-                        .withEndAction(() -> root.removeView(overlay))
-                        .start();
-
-                onIconPage[0] = true;
-            }
-        });
-        anim.start();
+        // Slide icon page in from right + fade in
+        iconPage.setVisibility(View.VISIBLE);
+        iconPage.animate()
+                .translationX(0f)
+                .alpha(1f)
+                .setDuration(SLIDE_DURATION)
+                .setInterpolator(interp)
+                .withEndAction(() -> onIconPage[0] = true)
+                .start();
     }
 
     // ---- Page 2: Icon picker grid ----
@@ -656,12 +592,27 @@ public class PerAppIconSheet {
             boolean[] onIconPage, BottomSheetDialog sheet) {
         onIconPage[0] = false;
 
-        iconPage.animate().alpha(0f).setDuration(FADE_DURATION).withEndAction(() -> {
-            root.removeView(iconPage);
-            packPage.setVisibility(View.VISIBLE);
-            packPage.setAlpha(0f);
-            packPage.animate().alpha(1f).setDuration(FADE_DURATION).start();
-        }).start();
+        FastOutSlowInInterpolator interp = new FastOutSlowInInterpolator();
+
+        // Slide icon page out to the right
+        iconPage.animate()
+                .translationX(root.getWidth() * 0.3f)
+                .alpha(0f)
+                .setDuration(SLIDE_DURATION)
+                .setInterpolator(interp)
+                .withEndAction(() -> root.removeView(iconPage))
+                .start();
+
+        // Slide pack page back in from the left
+        packPage.setVisibility(View.VISIBLE);
+        packPage.setTranslationX(-root.getWidth() * 0.3f);
+        packPage.setAlpha(0f);
+        packPage.animate()
+                .translationX(0f)
+                .alpha(1f)
+                .setDuration(SLIDE_DURATION)
+                .setInterpolator(interp)
+                .start();
     }
 
     // ---- Pack card builder ----

@@ -20,12 +20,9 @@ package com.android.launcher3.settings;
 
 import android.os.Bundle;
 import android.os.UserManager;
-import android.view.View;
 
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
-import androidx.preference.PreferenceFragmentCompat;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.LauncherFiles;
@@ -35,7 +32,7 @@ import com.android.launcher3.R;
 /**
  * Fragment for the App Drawer Colors settings sub-page.
  */
-public class AppDrawerColorsFragment extends PreferenceFragmentCompat {
+public class AppDrawerColorsFragment extends SettingsBaseFragment {
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -121,26 +118,4 @@ public class AppDrawerColorsFragment extends PreferenceFragmentCompat {
         }
     }
 
-    @Override
-    public void onViewCreated(View view, Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-
-        // Edge-to-edge insets
-        View listView = getListView();
-        final int bottomPadding = listView.getPaddingBottom();
-        listView.setOnApplyWindowInsetsListener((v, insets) -> {
-            v.setPadding(
-                    v.getPaddingLeft(),
-                    v.getPaddingTop(),
-                    v.getPaddingRight(),
-                    bottomPadding + insets.getSystemWindowInsetBottom());
-            return insets.consumeSystemWindowInsets();
-        });
-
-        view.setTextDirection(View.TEXT_DIRECTION_LOCALE);
-
-        // Card group decoration
-        RecyclerView rv = getListView();
-        rv.addItemDecoration(new CardGroupItemDecoration(getContext()));
-    }
 }

@@ -19,11 +19,8 @@
 package com.android.launcher3.settings;
 
 import android.os.Bundle;
-import android.view.View;
 
 import androidx.preference.Preference;
-import androidx.preference.PreferenceFragmentCompat;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.LauncherFiles;
@@ -33,7 +30,7 @@ import com.android.launcher3.R;
  * Fragment for the Grids settings sub-page.
  * Contains: grid columns slider.
  */
-public class GridsFragment extends PreferenceFragmentCompat {
+public class GridsFragment extends SettingsBaseFragment {
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -61,24 +58,4 @@ public class GridsFragment extends PreferenceFragmentCompat {
         }
     }
 
-    @Override
-    public void onViewCreated(View view, Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-
-        View listView = getListView();
-        final int bottomPadding = listView.getPaddingBottom();
-        listView.setOnApplyWindowInsetsListener((v, insets) -> {
-            v.setPadding(
-                    v.getPaddingLeft(),
-                    v.getPaddingTop(),
-                    v.getPaddingRight(),
-                    bottomPadding + insets.getSystemWindowInsetBottom());
-            return insets.consumeSystemWindowInsets();
-        });
-
-        view.setTextDirection(View.TEXT_DIRECTION_LOCALE);
-
-        RecyclerView rv = getListView();
-        rv.addItemDecoration(new CardGroupItemDecoration(getContext()));
-    }
 }

@@ -39,7 +39,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
-import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -69,7 +68,7 @@ import com.android.launcher3.util.Executors;
  * Each section has: icon picker, match global/home toggle, adaptive shape switch,
  * icon shape picker, icon size toggle, and a reset button.
  */
-public class AppCustomizeFragment extends PreferenceFragmentCompat {
+public class AppCustomizeFragment extends SettingsBaseFragment {
 
     public static final String EXTRA_COMPONENT_NAME = "customize_component_name";
     public static final String EXTRA_APP_LABEL = "customize_app_label";
@@ -401,11 +400,7 @@ public class AppCustomizeFragment extends PreferenceFragmentCompat {
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        view.setTextDirection(View.TEXT_DIRECTION_LOCALE);
-
         RecyclerView rv = getListView();
-        rv.addItemDecoration(new CardGroupItemDecoration(getContext()));
-
         rv.addOnChildAttachStateChangeListener(
                 new RecyclerView.OnChildAttachStateChangeListener() {
             @Override

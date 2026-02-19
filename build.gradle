@@ -83,7 +83,6 @@ kapt {
 
 allprojects {
     ext {
-        daggerVersion = '2.56.2'
         addFrameworkJar = { String name ->
             def frameworkJar = new File(FRAMEWORK_PREBUILTS_DIR, name)
             if (!frameworkJar.exists()) {

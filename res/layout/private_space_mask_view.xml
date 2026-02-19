@@ -20,8 +20,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_alignParentBottom="true"
-    android:layout_marginLeft="@dimen/ps_floating_mask_end_padding"
-    android:layout_marginRight="@dimen/ps_floating_mask_end_padding"
+    android:layout_marginStart="@dimen/ps_floating_mask_end_padding"
+    android:layout_marginEnd="@dimen/ps_floating_mask_end_padding"
     android:importantForAccessibility="noHideDescendants"
     android:orientation="horizontal">
 

@@ -51,7 +51,7 @@
         <item name="popupShadeSecond">@color/materialColorSurfaceContainerHigh</item>
         <item name="popupShadeThird">@color/materialColorSurfaceContainerHighest</item>
         <item name="popupNotificationDotColor">@color/materialColorPrimaryContainer</item>
-        <item name="notificationDotColor">@color/materialColorTertiaryContainer</item>
+        <item name="notificationDotColor">@color/materialColorTertiary</item>
         <item name="isMainColorDark">false</item>
         <item name="isWorkspaceDarkText">false</item>
         <item name="workspaceTextColor">@color/workspace_text_color_light</item>
@@ -119,7 +119,7 @@
         <item name="popupShadeFirst">@color/materialColorSurfaceContainer</item>
         <item name="popupShadeSecond">@color/materialColorSurfaceContainerHigh</item>
         <item name="popupShadeThird">@color/materialColorSurfaceContainerHighest</item>
-        <item name="notificationDotColor">@color/materialColorTertiaryContainer</item>
+        <item name="notificationDotColor">@color/materialColorTertiary</item>
         <item name="widgetsTheme">@style/WidgetContainerTheme.Dark</item>
         <item name="pageIndicatorDotColor">@color/page_indicator_dot_color_dark</item>
         <item name="folderPreviewColor">@color/materialColorSurfaceContainerHigh</item>
@@ -171,6 +171,11 @@
 
     <style name="HomeSettings.PreferenceTheme" parent="@style/PreferenceThemeOverlay.v14.Material">
         <item name="preferenceFragmentCompatStyle">@style/HomeSettings.FragmentCompatStyle</item>
+        <item name="preferenceStyle">@style/HomeSettings.PreferenceStyleBase</item>
+    </style>
+
+    <style name="HomeSettings.PreferenceStyleBase" parent="@style/Preference">
+        <item name="android:background">@android:color/transparent</item>
     </style>
 
     <style name="HomeSettings.FragmentCompatStyle" parent="@style/PreferenceFragment.Material">

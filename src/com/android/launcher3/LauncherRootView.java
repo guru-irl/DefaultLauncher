@@ -6,9 +6,11 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.ViewDebug;
 import android.view.WindowInsets;
 
+import com.android.launcher3.BuildConfig;
 import com.android.launcher3.graphics.SysUiScrim;
 import com.android.launcher3.statemanager.StatefulContainer;
 import com.android.launcher3.util.window.WindowManagerProxy;
@@ -18,6 +20,9 @@ import java.util.Collections;
 import java.util.List;
 
 public class LauncherRootView extends InsettableFrameLayout {
+
+    private static final String TAG = "LauncherRootView";
+    private static final boolean DEBUG_WS_PAD = BuildConfig.DEBUG;
 
     private final Rect mTempRect = new Rect();
 
@@ -62,6 +67,7 @@ public class LauncherRootView extends InsettableFrameLayout {
     private WindowInsets updateInsets(WindowInsets insets) {
         insets = WindowManagerProxy.INSTANCE.get(getContext())
                 .normalizeWindowInsets(getContext(), insets, mTempRect);
+        if (DEBUG_WS_PAD) Log.d(TAG, "updateInsets: normalized=" + mTempRect);
         handleSystemWindowInsets(mTempRect);
         return insets;
     }
@@ -71,6 +77,7 @@ public class LauncherRootView extends InsettableFrameLayout {
         // If the insets haven't changed, this is a no-op. Avoid unnecessary layout caused by
         // modifying child layout params.
         boolean changed = !insets.equals(mInsets);
+        if (DEBUG_WS_PAD) Log.d(TAG, "setInsets: insets=" + insets + " changed=" + changed);
         if (changed) {
             super.setInsets(insets);
             mSysUiScrim.onInsetsChanged(insets);

@@ -34,6 +34,7 @@ import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 
 import androidx.annotation.NonNull;
 
+import com.android.launcher3.BuildConfig;
 import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.GestureNavContract;
 import com.android.launcher3.Insettable;
@@ -48,6 +49,9 @@ import com.android.launcher3.util.window.RefreshRateTracker;
  */
 public class FloatingSurfaceView extends AbstractFloatingView implements
         OnGlobalLayoutListener, Insettable, SurfaceHolder.Callback2 {
+
+    private static final String TAG = "FloatingSurfaceView";
+    private static final boolean DEBUG_LAUNCHER_ANIM = BuildConfig.DEBUG;
 
     private final RectF mTmpPosition = new RectF();
 
@@ -162,9 +166,11 @@ public class FloatingSurfaceView extends AbstractFloatingView implements
         }
         View icon = mLauncher.getFirstHomeElementForAppClose(null /* StableViewInfo */,
                 mContract.componentName.getPackageName(), mContract.user);
-        Log.d("LauncherAnim", "updateIconLocation: icon=" + (icon != null)
-                + " component=" + mContract.componentName
-                + " user=" + mContract.user);
+        if (DEBUG_LAUNCHER_ANIM) {
+            Log.d(TAG, "updateIconLocation: icon=" + (icon != null)
+                    + " component=" + mContract.componentName
+                    + " user=" + mContract.user);
+        }
 
         boolean iconChanged = mIcon != icon;
         if (iconChanged) {
