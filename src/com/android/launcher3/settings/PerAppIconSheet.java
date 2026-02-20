@@ -158,7 +158,8 @@ public class PerAppIconSheet {
         // Title
         TextView title = new TextView(ctx);
         title.setText(R.string.choose_icon_pack);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                res.getDimension(R.dimen.settings_sheet_title_text_size));
         title.setTextColor(colorOnSurface);
         int titlePadH = res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal);
         int titlePadV = res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical);
@@ -342,7 +343,8 @@ public class PerAppIconSheet {
         // Title
         TextView title = new TextView(ctx);
         title.setText(R.string.icon_picker_choose_icon);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                res.getDimension(R.dimen.settings_sheet_title_text_size));
         title.setTextColor(colorOnSurface);
         header.addView(title);
 

@@ -269,8 +269,12 @@ public class FloatingIconView extends FrameLayout implements
 
         if (v instanceof BubbleTextView) {
             ((BubbleTextView) v).getIconBounds(outViewBounds);
-        } else if (v instanceof FolderIcon) {
-            ((FolderIcon) v).getPreviewBounds(outViewBounds);
+        } else if (v instanceof FolderIcon fi) {
+            if (fi.isExpanded()) {
+                outViewBounds.set(0, 0, v.getWidth(), v.getHeight());
+            } else {
+                fi.getPreviewBounds(outViewBounds);
+            }
         } else {
             outViewBounds.set(0, 0, v.getWidth(), v.getHeight());
         }

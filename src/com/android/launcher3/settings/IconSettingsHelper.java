@@ -143,7 +143,7 @@ public class IconSettingsHelper {
 
         TextView titleView = new TextView(ctx);
         titleView.setText(R.string.icon_pack_title);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimension(R.dimen.settings_sheet_title_text_size));
         titleView.setTextColor(colorOnSurface);
         titleView.setPadding(
                 res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
@@ -235,7 +235,7 @@ public class IconSettingsHelper {
             if (isSelected) {
                 TextView badge = new TextView(ctx);
                 badge.setText("\u2713 Selected");
-                badge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                badge.setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimension(R.dimen.settings_sheet_category_text_size));
                 badge.setTextColor(colorOnPrimaryContainer);
                 badge.setTypeface(Typeface.create(Typeface.DEFAULT, 500, false));
                 labelCol.addView(badge);
@@ -487,7 +487,7 @@ public class IconSettingsHelper {
 
         TextView titleView = new TextView(ctx);
         titleView.setText(R.string.choose_icon_pack);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimension(R.dimen.settings_sheet_title_text_size));
         titleView.setTextColor(colorOnSurface);
         titleView.setPadding(
                 res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
@@ -668,7 +668,7 @@ public class IconSettingsHelper {
 
         TextView titleView = new TextView(ctx);
         titleView.setText(R.string.icon_shape_title);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimension(R.dimen.settings_sheet_title_text_size));
         titleView.setTextColor(ctx.getColor(R.color.materialColorOnSurface));
         titleView.setPadding(
                 res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
@@ -747,7 +747,7 @@ public class IconSettingsHelper {
      * A simple Drawable that renders a filled shape preview from an SVG path string.
      * The path is in the standard 100x100 coordinate system used by ShapesProvider.
      */
-    private static class ShapePreviewDrawable extends Drawable {
+    static class ShapePreviewDrawable extends Drawable {
         private final Path mPath;
         private final Paint mPaint;
         private final int mSize;
@@ -846,7 +846,7 @@ public class IconSettingsHelper {
 
         TextView titleView = new TextView(ctx);
         titleView.setText(R.string.icon_shape_title);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimension(R.dimen.settings_sheet_title_text_size));
         titleView.setTextColor(ctx.getColor(R.color.materialColorOnSurface));
         titleView.setPadding(
                 res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
@@ -1082,7 +1082,7 @@ public class IconSettingsHelper {
         root.addView(handle);
     }
 
-    private static void dismissOnDestroy(PreferenceFragmentCompat fragment,
+    static void dismissOnDestroy(PreferenceFragmentCompat fragment,
             BottomSheetDialog sheet) {
         fragment.getLifecycle().addObserver(new LifecycleEventObserver() {
             @Override

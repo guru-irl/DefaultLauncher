@@ -60,9 +60,13 @@ import androidx.dynamicanimation.animation.SpringForce;
 import com.android.app.animation.Interpolators;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.graphics.ShapeDelegate;
 import com.android.launcher3.graphics.ThemeManager;
 import com.android.launcher3.icons.FastBitmapDrawable;
 import com.android.launcher3.icons.IconNormalizer;
+import com.android.launcher3.folder.FolderCoverManager;
+import com.android.launcher3.model.data.FolderInfo;
+import com.android.launcher3.settings.FolderSettingsHelper;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.util.RunnableList;
 import com.android.launcher3.views.ActivityContext;
@@ -244,6 +248,17 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
      */
     @TargetApi(Build.VERSION_CODES.O)
     public void setItemInfo(final ItemInfo info) {
+        // Skip spring icon layers for multi-cell items (expanded folders).
+        // The drag bitmap already shows the full NxN content at the correct size.
+        if (info.spanX > 1 || info.spanY > 1) {
+            return;
+        }
+        // Skip spring icon for covered folders — FolderAdaptiveIcon doesn't
+        // reproduce the cover, so keep the original drag bitmap.
+        if (info instanceof FolderInfo
+                && FolderCoverManager.getInstance(getContext()).getCover(info.id) != null) {
+            return;
+        }
         // Load the adaptive icon on a background thread and add the view in ui thread.
         MODEL_EXECUTOR.getHandler().postAtFrontOfQueue(() -> {
             ThemeManager themeManager = ThemeManager.INSTANCE.get(getContext());
@@ -271,8 +286,12 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
                 Utilities.scaleRectAboutCenter(shrunkBounds, 0.98f);
                 adaptiveIcon.setBounds(shrunkBounds);
 
+                ShapeDelegate folderCustomShape =
+                        FolderSettingsHelper.resolveFolderIconShape(getContext());
                 final Path mask = (adaptiveIcon instanceof FolderAdaptiveIcon
-                        ? themeManager.getFolderShape() : themeManager.getIconShape())
+                        ? (folderCustomShape != null ? folderCustomShape
+                                : themeManager.getFolderShape())
+                        : themeManager.getIconShape())
                         .getPath(shrunkBounds);
 
                 mTranslateX = new SpringFloatValue(DragView.this,

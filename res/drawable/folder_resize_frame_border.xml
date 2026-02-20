@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2025 DefaultLauncher Contributors
+
+     Licensed under the GNU General Public License, Version 3
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@android:color/transparent" />
+    <corners android:radius="16dp" />
+    <stroke android:width="2dp" android:color="?attr/workspaceAccentColor" />
+</shape>

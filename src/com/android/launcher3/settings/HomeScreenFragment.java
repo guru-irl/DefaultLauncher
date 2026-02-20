@@ -22,7 +22,6 @@ import android.content.Context;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.View;
-import android.widget.Toast;
 
 import androidx.preference.Preference;
 import androidx.preference.SwitchPreferenceCompat;
@@ -40,7 +39,6 @@ import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.dagger.LauncherComponentProvider;
 import com.android.launcher3.graphics.ThemeManager;
-import com.android.launcher3.icons.DrawerIconResolver;
 import com.android.launcher3.icons.LauncherIcons;
 import com.android.launcher3.icons.PerAppHomeIconResolver;
 import com.android.launcher3.icons.pack.IconPackManager;

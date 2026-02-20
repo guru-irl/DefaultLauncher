@@ -588,4 +588,8 @@
     <dimen name="m3_shape_large">16dp</dimen>
     <dimen name="m3_shape_extra_large">28dp</dimen>
     <dimen name="m3_shape_full">50dp</dimen>
+
+    <!-- Settings bottom sheet text sizes -->
+    <dimen name="settings_sheet_title_text_size">22sp</dimen>
+    <dimen name="settings_sheet_category_text_size">12sp</dimen>
 </resources>

@@ -52,6 +52,14 @@ public class AppDrawerColorsFragment extends SettingsBaseFragment {
         configureColorPicker("pref_drawer_tab_unselected_color",
                 LauncherPrefs.DRAWER_TAB_UNSELECTED_COLOR, R.color.materialColorOnSurfaceVariant);
 
+        // Folder color pickers — defaults from FolderSettingsHelper (single source of truth)
+        configureColorPickerWithDefault("pref_folder_icon_color",
+                LauncherPrefs.FOLDER_ICON_COLOR,
+                FolderSettingsHelper.getDefaultCoverBgColor(getContext()));
+        configureColorPickerWithDefault("pref_folder_bg_color",
+                LauncherPrefs.FOLDER_BG_COLOR,
+                FolderSettingsHelper.getDefaultFolderBgColor(getContext()));
+
         // Wire opacity slider changes to trigger recreation
         Preference opacityPref = findPreference("pref_drawer_bg_opacity");
         if (opacityPref != null) {
@@ -65,6 +73,15 @@ public class AppDrawerColorsFragment extends SettingsBaseFragment {
         Preference searchOpacityPref = findPreference("pref_drawer_search_bg_opacity");
         if (searchOpacityPref != null) {
             searchOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> {
+                getListView().post(() ->
+                        InvariantDeviceProfile.INSTANCE.get(getContext())
+                                .onConfigChanged(getContext()));
+                return true;
+            });
+        }
+        Preference folderOpacityPref = findPreference("pref_folder_bg_opacity");
+        if (folderOpacityPref != null) {
+            folderOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> {
                 getListView().post(() ->
                         InvariantDeviceProfile.INSTANCE.get(getContext())
                                 .onConfigChanged(getContext()));

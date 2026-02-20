@@ -270,7 +270,9 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
                     R.layout.system_shortcut);
         }
         show();
-        loadAppShortcuts(itemInfo);
+        if (ShortcutUtil.supportsShortcuts(itemInfo)) {
+            loadAppShortcuts(itemInfo);
+        }
     }
 
     /**
@@ -578,6 +580,9 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
 
     @Override
     protected void onCreateCloseAnimation(AnimatorSet anim) {
+        // mOriginalIcon is null when the popup was created for a FolderIcon
+        // (FolderPopupHelper uses BubbleTextView anchor, not an icon view).
+        if (mOriginalIcon == null) return;
         // Animate original icon's text back in.
         anim.play(mOriginalIcon.createTextAlphaAnimator(true /* fadeIn */));
         mOriginalIcon.setForceHideDot(false);
@@ -589,6 +594,8 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
         if (mActivityContext.getDragController() != null) {
             mActivityContext.getDragController().removeDragListener(this);
         }
+        // mOriginalIcon is null for folder popups (see onCreateCloseAnimation comment).
+        if (mOriginalIcon == null) return;
         PopupContainerWithArrow openPopup = getOpen(mActivityContext);
         if (openPopup == null || openPopup.mOriginalIcon != mOriginalIcon) {
             mOriginalIcon.setTextVisibility(mOriginalIcon.shouldTextBeVisible());
