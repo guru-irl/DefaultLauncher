@@ -5,6 +5,12 @@
     android:title="@string/debug_title">
 
     <Preference
+        android:key="pref_app_version"
+        android:title="@string/app_version_title"
+        android:selectable="false"
+        launcher:iconSpaceReserved="false" />
+
+    <Preference
         android:key="pref_restart_launcher"
         android:title="@string/restart_launcher_title"
         android:summary="@string/restart_launcher_summary"

@@ -22,6 +22,7 @@ import android.os.Bundle;
 
 import androidx.preference.Preference;
 
+import com.android.launcher3.BuildConfig;
 import com.android.launcher3.LauncherFiles;
 import com.android.launcher3.R;
 
@@ -35,6 +36,12 @@ public class DebugFragment extends SettingsBaseFragment {
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         getPreferenceManager().setSharedPreferencesName(LauncherFiles.SHARED_PREFERENCES_KEY);
         setPreferencesFromResource(R.xml.debug_preferences, rootKey);
+
+        Preference versionPref = findPreference("pref_app_version");
+        if (versionPref != null) {
+            versionPref.setSummary(BuildConfig.VERSION_NAME
+                    + " (" + BuildConfig.VERSION_CODE + ")");
+        }
 
         Preference restartPref = findPreference("pref_restart_launcher");
         if (restartPref != null) {

@@ -630,6 +630,9 @@
     <string name="set_default_title">Set as default launcher</string>
     <string name="set_default_subtitle">Tap to set Default Launcher as your home app</string>
 
+    <!-- Debug: app version -->
+    <string name="app_version_title">App version</string>
+
     <!-- Debug: restart launcher -->
     <string name="restart_launcher_title">Restart launcher</string>
     <string name="restart_launcher_summary">Force stop and restart the launcher process</string>

@@ -29,8 +29,8 @@ android {
         applicationId 'com.guru.defaultlauncher'
         minSdkVersion 33
         targetSdkVersion 36
-        versionCode 1
-        versionName "1.0"
+        versionCode project.hasProperty('versionCode') ? project.property('versionCode').toInteger() : 1
+        versionName project.hasProperty('versionName') ? project.property('versionName') : "1.0-dev"
 
         buildConfigField "boolean", "IS_STUDIO_BUILD", "false"
         buildConfigField "boolean", "QSB_ON_FIRST_SCREEN", "false"
@@ -41,9 +41,28 @@ android {
 
         vectorDrawables.useSupportLibrary = true
     }
+    signingConfigs {
+        release {
+            def keystorePath = project.hasProperty('KEYSTORE_FILE') ? project.property('KEYSTORE_FILE') : null
+            if (keystorePath != null) {
+                storeFile file(keystorePath)
+                storePassword project.property('KEYSTORE_PASSWORD')
+                keyAlias project.property('KEY_ALIAS')
+                keyPassword project.property('KEY_PASSWORD')
+            }
+        }
+    }
+
     buildTypes {
         debug {
             minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            def keystorePath = project.hasProperty('KEYSTORE_FILE') ? project.property('KEYSTORE_FILE') : null
+            if (keystorePath != null) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 
