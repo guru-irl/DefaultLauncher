@@ -610,7 +610,7 @@
 
     <!-- Colors settings -->
     <string name="colors_title">Colors</string>
-    <string name="colors_summary">Drawer, search, tab colors</string>
+    <string name="colors_summary">Drawer, folder, search, tab colors</string>
     <string name="colors_drawer_category">App Drawer</string>
     <string name="colors_search_category">Search</string>
     <string name="colors_tabs_category">Personal / Work Tabs</string>
@@ -709,4 +709,42 @@
     <!-- Search result contact actions [CHAR LIMIT=20] -->
     <string name="search_contact_call">Call</string>
     <string name="search_contact_message">Message</string>
+
+    <!-- Folder settings -->
+    <string name="folder_settings_category">Folders</string>
+    <string name="folder_icon_shape_title">Folder icon shape</string>
+    <string name="folder_icon_color_title">Folder icon color</string>
+    <string name="folder_bg_color_title">Folder background</string>
+    <string name="folder_bg_color_summary">Background for the folder icon and open panel</string>
+    <string name="folder_cover_bg_title">Folder cover background</string>
+    <string name="folder_cover_bg_summary">Background color when a cover icon is set</string>
+    <string name="folder_bg_opacity_title">Open folder opacity</string>
+    <string name="home_screen_colors_category">Colors</string>
+    <string name="folder_color_default">Default</string>
+    <string name="folder_color_primary_container">Primary</string>
+    <string name="folder_color_secondary_container">Secondary</string>
+    <string name="folder_color_tertiary_container">Tertiary</string>
+    <string name="folder_color_surface_container_high">Surface</string>
+    <string name="folder_color_primary">Primary (vivid)</string>
+    <string name="folder_shape_default">Follow icon shape</string>
+    <string name="folder_shape_circle">Circle</string>
+    <string name="folder_shape_rounded_square">Rounded square</string>
+    <string name="folder_expanded_shape_title">Expanded folder shape</string>
+    <string name="folder_expanded_shape">Expanded shape</string>
+    <string name="folder_rename">Rename</string>
+    <string name="folder_no_space">Not enough space to expand</string>
+    <string name="folder_cover_title">Choose cover icon</string>
+    <string name="folder_cover_remove">Remove cover</string>
+    <string name="folder_emoji_search_hint">Search emoji</string>
+    <string name="folder_custom_cover">Custom cover icon</string>
+    <string name="folder_resize">Resize</string>
+    <string name="folder_icon_shape_popup">Shape</string>
+    <string name="folder_shape_follow_global">Default</string>
+    <string name="folder_emoji_smileys">Smileys</string>
+    <string name="folder_emoji_animals">Animals</string>
+    <string name="folder_emoji_food">Food</string>
+    <string name="folder_emoji_activities">Activities</string>
+    <string name="folder_emoji_travel">Travel</string>
+    <string name="folder_emoji_objects">Objects</string>
+    <string name="folder_emoji_symbols">Symbols</string>
 </resources>

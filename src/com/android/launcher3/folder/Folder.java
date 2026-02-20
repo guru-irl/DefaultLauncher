@@ -104,6 +104,7 @@ import com.android.launcher3.util.Thunk;
 import com.android.launcher3.views.ActivityContext;
 import com.android.launcher3.views.BaseDragLayer;
 import com.android.launcher3.views.ClipPathView;
+import com.android.launcher3.settings.FolderSettingsHelper;
 import com.android.launcher3.widget.PendingAddShortcutInfo;
 
 import java.lang.annotation.Retention;
@@ -282,6 +283,9 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
                 ResourcesCompat.getDrawable(getResources(),
                         R.drawable.round_rect_folder, getContext().getTheme()));
         mBackground.setCallback(this);
+
+        // Open folder panel bg: centralized resolve + fallback + opacity
+        mBackground.setColor(FolderSettingsHelper.getEffectivePanelColor(getContext()));
     }
 
     @Override
@@ -721,6 +725,12 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         cancelRunningAnimations();
         Log.d("b/383526431", "animateOpen: content child count after cancelling"
                 + " animation: " + mContent.getTotalChildCount());
+
+        // Pre-hide cover/expanded icons before animation to prevent 1-frame flash
+        if (mFolderIcon.mCoverDrawable != null || mFolderIcon.isExpanded()) {
+            mFolderIcon.setIconVisible(false);
+        }
+
         FolderAnimationManager fam = new FolderAnimationManager(this, true /* isOpening */);
         AnimatorSet anim = fam.getAnimator();
         anim.addListener(new AnimatorListenerAdapter() {
@@ -882,6 +892,17 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
             public void onAnimationStart(Animator animation) {
                 setWindowInsetsAnimationCallback(null);
                 mIsAnimatingClosed = true;
+
+                // For cover/expanded folders: pre-show the FolderIcon so it's
+                // already drawn when closeComplete() removes the Folder panel.
+                // The Folder (on DragLayer) covers the FolderIcon (on Workspace)
+                // during the animation, so this has no visible effect until the
+                // panel is removed — eliminating the 1-2 frame pop-in delay.
+                if (mFolderIcon != null
+                        && (mFolderIcon.mCoverDrawable != null
+                                || mFolderIcon.isExpanded())) {
+                    mFolderIcon.setIconVisible(true);
+                }
             }
 
             @Override
@@ -1309,6 +1330,11 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
     }
 
     void replaceFolderWithFinalItem() {
+        // Clean up per-folder prefs when folder is being deleted
+        FolderCoverManager mgr = FolderCoverManager.getInstance(getContext());
+        mgr.removeCover(mInfo.id);
+        mgr.removeExpandedShape(mInfo.id);
+        mgr.removeIconShape(mInfo.id);
         mDestroyed = mLauncherDelegate.replaceFolderWithFinalItem(this);
     }
 

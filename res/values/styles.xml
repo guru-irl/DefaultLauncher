@@ -62,7 +62,11 @@
         <item name="pageIndicatorDotColor">@color/page_indicator_dot_color_light</item>
         <item name="focusOutlineColor">@color/materialColorSecondaryFixed</item>
         <item name="focusInnerOutlineColor">@color/materialColorOnSecondaryFixedVariant</item>
-        <item name="folderPreviewColor">@color/materialColorPrimaryContainer</item>
+        <!-- folderPreviewColor: used by AppPairIconDrawingParams.kt for app-pair surface
+             color in folder previews. NOT dead — removing breaks app pair rendering. -->
+        <item name="folderPreviewColor">@color/materialColorSurface</item>
+        <!-- folderBackgroundColor: used by round_rect_folder.xml and keyboard_drag_and_drop.xml.
+             Runtime color is superseded by FolderSettingsHelper defaults (SurfaceContainerLow). -->
         <item name="folderBackgroundColor">@color/materialColorSurfaceContainerHigh</item>
         <item name="folderIconBorderColor">@color/materialColorPrimary</item>
         <item name="isFolderDarkText">true</item>
@@ -122,7 +126,9 @@
         <item name="notificationDotColor">@color/materialColorTertiary</item>
         <item name="widgetsTheme">@style/WidgetContainerTheme.Dark</item>
         <item name="pageIndicatorDotColor">@color/page_indicator_dot_color_dark</item>
-        <item name="folderPreviewColor">@color/materialColorSurfaceContainerHigh</item>
+        <!-- folderPreviewColor: see comment in LauncherTheme above -->
+        <item name="folderPreviewColor">@color/materialColorSurface</item>
+        <!-- folderBackgroundColor: see comment in LauncherTheme above -->
         <item name="folderBackgroundColor">@color/materialColorSurfaceContainerHigh</item>
         <item name="folderIconBorderColor">@color/materialColorPrimary</item>
         <item name="isFolderDarkText">false</item>

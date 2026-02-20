@@ -1609,9 +1609,9 @@ public class DeviceProfile {
         // Use base icon size for hotseat so its height doesn't change with workspace labels
         updateHotseatSizes(inv.isSquareGrid ? mSquareGridBaseIconSizePx : iconSizePx);
 
-        // Folder icon
-        folderIconSizePx = Math.round(iconSizePx * ICON_VISIBLE_AREA_FACTOR);
-        folderIconOffsetYPx = (iconSizePx - folderIconSizePx) / 2;
+        // Folder icon — match global icon size
+        folderIconSizePx = iconSizePx;
+        folderIconOffsetYPx = 0;
 
         // Update widget padding:
         float minSpacing = pxFromDp(MIN_WIDGET_PADDING_DP, mMetrics);

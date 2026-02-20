@@ -164,7 +164,8 @@ public class ColorPickerPreference extends Preference {
         // Title
         TextView titleView = new TextView(ctx);
         titleView.setText(getTitle());
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                ctx.getResources().getDimension(R.dimen.settings_sheet_title_text_size));
         titleView.setTextColor(ctx.getColor(R.color.materialColorOnSurface));
         titleView.setPadding(dp(24), dp(16), dp(24), dp(8));
         root.addView(titleView);
@@ -259,7 +260,8 @@ public class ColorPickerPreference extends Preference {
         // Section header
         TextView header = new TextView(ctx);
         header.setText(group.label);
-        header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        header.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                ctx.getResources().getDimension(R.dimen.settings_sheet_category_text_size));
         header.setTextColor(ctx.getColor(R.color.materialColorOnSurfaceVariant));
         header.setAllCaps(true);
         header.setLetterSpacing(0.1f);

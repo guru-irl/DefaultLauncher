@@ -48,7 +48,11 @@
 
 
     <attr name="pageIndicatorDotColor" format="color" />
+    <!-- Used by AppPairIconDrawingParams.kt for app-pair surface color in folder previews.
+         NOT dead — removing breaks app pair rendering in folders. -->
     <attr name="folderPreviewColor" format="color" />
+    <!-- Used by round_rect_folder.xml and keyboard_drag_and_drop.xml for folder backgrounds.
+         NOT dead — removing breaks folder preview background and keyboard D&D highlighting. -->
     <attr name="folderBackgroundColor" format="color" />
     <attr name="folderIconRadius" format="float" />
     <attr name="folderIconBorderColor" format="color" />
