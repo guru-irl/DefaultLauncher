@@ -37,9 +37,9 @@ jobs:
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "${{ runner.temp }}/release-keystore.jks"
 
-      - name: Build release APK
+      - name: Build APKs
         run: |
-          gradle --no-daemon assembleRelease \
+          gradle --no-daemon assembleDebug assembleRelease \
             -PversionCode=${{ steps.version.outputs.code }} \
             -PversionName=${{ steps.version.outputs.name }} \
             -PKEYSTORE_FILE=${{ runner.temp }}/release-keystore.jks \
@@ -54,6 +54,7 @@ jobs:
           generate_release_notes: true
           files: |
             build/outputs/apk/release/*.apk
+            build/outputs/apk/debug/*.apk
 
       - name: Cleanup keystore
         if: always()
