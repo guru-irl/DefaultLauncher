@@ -91,7 +91,7 @@ public class FolderSettingsHelper {
      * @return the color int, or 0 to use theme default.
      */
     public static int resolveFolderCoverBgColor(Context ctx) {
-        String key = LauncherPrefs.get(ctx).get(LauncherPrefs.FOLDER_ICON_COLOR);
+        String key = LauncherPrefs.get(ctx).get(LauncherPrefs.FOLDER_COVER_BG_COLOR);
         return AllAppsColorResolver.resolveColorByName(ctx, key);
     }
 

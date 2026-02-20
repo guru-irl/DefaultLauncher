@@ -48,7 +48,6 @@ import com.android.launcher3.anim.PropertyResetListener;
 import com.android.launcher3.apppairs.AppPairIcon;
 import com.android.launcher3.celllayout.CellLayoutLayoutParams;
 import com.android.launcher3.graphics.ShapeDelegate;
-import com.android.launcher3.graphics.ThemeManager;
 import com.android.launcher3.settings.FolderSettingsHelper;
 import com.android.launcher3.views.BaseDragLayer;
 
@@ -284,20 +283,22 @@ public class FolderAnimationManager {
 
         ShapeDelegate shapeDelegate;
         if (mFolderIcon.isExpanded() && mFolderIcon.mCoverDrawable == null) {
-            // Expanded uncovered: M3 Large shape token rounded square
-            float cornerPx = mContext.getResources().getDimension(R.dimen.m3_shape_large);
-            int minDim = Math.min(mFolderIcon.getWidth(), mFolderIcon.getHeight());
-            float halfEdge = minDim / 2f;
-            float ratio = Math.min(cornerPx / halfEdge, 1f);
-            shapeDelegate = new ShapeDelegate.RoundedSquare(ratio);
+            // Expanded uncovered: use FolderIcon's cached M3 Large shape
+            shapeDelegate = mFolderIcon.getCachedExpandedShape();
+            if (shapeDelegate == null) {
+                // Fallback if shape hasn't been computed yet
+                float cornerPx = mContext.getResources().getDimension(R.dimen.m3_shape_large);
+                int minDim = Math.min(mFolderIcon.getWidth(), mFolderIcon.getHeight());
+                float halfEdge = minDim / 2f;
+                float ratio = Math.min(cornerPx / halfEdge, 1f);
+                shapeDelegate = new ShapeDelegate.RoundedSquare(ratio);
+            }
         } else if (isCoverOrExpanded) {
-            // Covered folder (1x1 or expanded): use per-folder shape
+            // Covered folder (1x1 or expanded): use FolderIcon's resolved shape
             shapeDelegate = mFolderIcon.resolveCurrentShape();
         } else {
-            // Normal 1x1: use global shape (existing behavior)
-            ShapeDelegate customShape = FolderSettingsHelper.resolveFolderIconShape(mContext);
-            shapeDelegate = customShape != null ? customShape
-                    : ThemeManager.INSTANCE.get(mContext).getFolderShape();
+            // Normal 1x1: use PreviewBackground's shape (single source of truth)
+            shapeDelegate = mPreviewBackground.getShape();
         }
         // Create reveal animator for the folder background
         play(a, shapeDelegate.createRevealAnimator(

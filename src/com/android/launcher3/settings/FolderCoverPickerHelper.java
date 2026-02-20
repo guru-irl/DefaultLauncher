@@ -21,7 +21,6 @@ package com.android.launcher3.settings;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
-import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
@@ -33,13 +32,12 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
-import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.core.content.ContextCompat;
-import androidx.core.widget.NestedScrollView;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.color.DynamicColors;
@@ -61,19 +59,30 @@ import java.util.Locale;
 public class FolderCoverPickerHelper {
 
     private static final String TAG = "FolderCoverPicker";
-    private static final int GRID_COLUMNS = 7;
     private static final String EMOJI_PREFIX = "emoji";
     private static final long SEARCH_DEBOUNCE_MS = 250;
 
-    /** Tracks the active sheet for lifecycle dismissal. */
-    private static BottomSheetDialog sActiveSheet;
+    /** Tracks the active sheet via WeakReference to avoid leaking Activity context. */
+    private static java.lang.ref.WeakReference<BottomSheetDialog> sActiveSheet;
 
     /** Dismisses the active cover picker sheet if showing. */
     public static void dismissIfShowing() {
-        if (sActiveSheet != null && sActiveSheet.isShowing()) {
-            sActiveSheet.dismiss();
+        BottomSheetDialog sheet = sActiveSheet != null ? sActiveSheet.get() : null;
+        if (sheet != null && sheet.isShowing()) {
+            sheet.dismiss();
         }
         sActiveSheet = null;
+    }
+
+    /** An emoji paired with its category name (lowercase) for search matching. */
+    private static class EmojiItem {
+        final String emoji;
+        final String categoryLower;
+
+        EmojiItem(String emoji, String categoryLower) {
+            this.emoji = emoji;
+            this.categoryLower = categoryLower;
+        }
     }
 
     /** Curated emoji categories and entries. */
@@ -212,8 +221,8 @@ public class FolderCoverPickerHelper {
 
         // Apply M3 theme first, then DynamicColors (which needs M3's
         // dynamicColorThemeOverlay attribute to apply wallpaper-derived colors)
-        Context themed = new ContextThemeWrapper(ctx, R.style.HomeSettings_Theme);
-        themed = DynamicColors.wrapContextIfAvailable(themed);
+        Context themed = DynamicColors.wrapContextIfAvailable(
+                new ContextThemeWrapper(ctx, R.style.HomeSettings_Theme));
         Resources res = themed.getResources();
         int padH = res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal);
         int padV = res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical);
@@ -221,14 +230,6 @@ public class FolderCoverPickerHelper {
         // M3 colors — resolve from BottomSheetDialog's context for proper day/night
         int colorOnSurface = themed.getColor(R.color.materialColorOnSurface);
         int colorOnSurfaceVar = themed.getColor(R.color.materialColorOnSurfaceVariant);
-        // Resolve error color from theme attribute for reliable light/dark switching
-        int colorError;
-        TypedValue errorTv = new TypedValue();
-        if (themed.getTheme().resolveAttribute(android.R.attr.colorError, errorTv, true)) {
-            colorError = errorTv.data;
-        } else {
-            colorError = themed.getColor(R.color.materialColorError);
-        }
         BottomSheetDialog sheet = new BottomSheetDialog(themed);
         sheet.getBehavior().setPeekHeight(
                 res.getDisplayMetrics().heightPixels * 2 / 3);
@@ -246,49 +247,6 @@ public class FolderCoverPickerHelper {
         titleView.setTextColor(colorOnSurface);
         titleView.setPadding(padH, padV, padH, padV);
         root.addView(titleView);
-
-        // "Remove cover" row with leading icon
-        LinearLayout removeRow = new LinearLayout(themed);
-        removeRow.setOrientation(LinearLayout.HORIZONTAL);
-        removeRow.setGravity(Gravity.CENTER_VERTICAL);
-        removeRow.setMinimumHeight(res.getDimensionPixelSize(R.dimen.settings_row_min_height));
-        removeRow.setPadding(padH, 0, padH, 0);
-        TypedValue tv = new TypedValue();
-        themed.getTheme().resolveAttribute(
-                android.R.attr.selectableItemBackground, tv, true);
-        removeRow.setBackgroundResource(tv.resourceId);
-
-        // Remove icon
-        ImageView removeIcon = new ImageView(themed);
-        Drawable removeDrawable = ContextCompat.getDrawable(themed, R.drawable.ic_remove_no_shadow);
-        if (removeDrawable != null) {
-            removeDrawable = removeDrawable.mutate();
-            removeDrawable.setTintList(ColorStateList.valueOf(colorError));
-        }
-        removeIcon.setImageDrawable(removeDrawable);
-        int iconDp = (int) TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP, 20, res.getDisplayMetrics());
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(iconDp, iconDp);
-        iconLp.setMarginEnd((int) TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP, 12, res.getDisplayMetrics()));
-        removeIcon.setLayoutParams(iconLp);
-        removeRow.addView(removeIcon);
-
-        // Remove text
-        TextView removeCover = new TextView(themed);
-        removeCover.setText(R.string.folder_cover_remove);
-        removeCover.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        removeCover.setTextColor(colorError);
-        removeRow.addView(removeCover);
-
-        removeRow.setOnClickListener(v -> {
-            FolderCoverManager.getInstance(ctx).removeCover(folderId);
-            folderIcon.updateCoverDrawable();
-            folderIcon.invalidate();
-            sheet.dismiss();
-            if (onChanged != null) onChanged.run();
-        });
-        root.addView(removeRow);
 
         // Search bar — matches PerAppIconSheet pattern
         EditText searchBar = new EditText(themed);
@@ -326,93 +284,84 @@ public class FolderCoverPickerHelper {
         searchBar.setLayoutParams(searchLp);
         root.addView(searchBar);
 
-        // Scrollable emoji grid
-        LinearLayout gridContainer = new LinearLayout(themed);
-        gridContainer.setOrientation(LinearLayout.VERTICAL);
-        gridContainer.setPadding(padH, 0, padH, 0);
+        // Build flat list of emoji items
+        FolderCoverManager coverMgr = FolderCoverManager.getInstance(ctx);
+        int emojiSizePx = (int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, 26, res.getDisplayMetrics());
 
-        // Keep references to category headers and grids for filtering
-        List<TextView> catHeaders = new ArrayList<>();
-        List<GridLayout> catGrids = new ArrayList<>();
-        // Store category names (localized) for category-level matching
-        List<String> catNames = new ArrayList<>();
-
+        List<CategoryGridAdapter.ListItem<EmojiItem>> items = new ArrayList<>();
         for (int catIdx = 0; catIdx < EMOJI_CATEGORIES.length; catIdx++) {
             String[] category = EMOJI_CATEGORIES[catIdx];
             String catName = category[0];
             if (catIdx < CATEGORY_STRING_IDS.length) {
                 catName = themed.getString(CATEGORY_STRING_IDS[catIdx]);
             }
+            String catNameLower = catName.toLowerCase(Locale.ROOT);
 
-            // Category header — M3 Label Medium style
-            TextView catHeader = new TextView(themed);
-            catHeader.setText(catName);
-            catHeader.setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimension(R.dimen.settings_sheet_category_text_size));
-            catHeader.setTextColor(colorOnSurfaceVar);
-            catHeader.setTypeface(Typeface.create(Typeface.DEFAULT, 500, false));
-            catHeader.setPadding(0, padV, 0, padV / 2);
-            gridContainer.addView(catHeader);
-            catHeaders.add(catHeader);
-            catNames.add(catName.toLowerCase(Locale.ROOT));
-
-            // Emoji grid — fill full width with evenly spaced columns
-            GridLayout grid = new GridLayout(themed);
-            grid.setColumnCount(GRID_COLUMNS);
-            grid.setLayoutParams(new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT));
-
-            FolderCoverManager coverMgr = FolderCoverManager.getInstance(ctx);
-            int emojiSizePx = (int) TypedValue.applyDimension(
-                    TypedValue.COMPLEX_UNIT_DIP, 26, res.getDisplayMetrics());
-
+            items.add(new CategoryGridAdapter.ListItem<>(catName));
             for (int i = 1; i < category.length; i++) {
-                final String emoji = category[i];
-
-                // Render emoji to bitmap via Noto Emoji font for guaranteed monochrome
-                ImageView emojiView = new ImageView(themed);
-                Drawable emojiDrawable = coverMgr.renderEmojiSmall(
-                        emoji, emojiSizePx, colorOnSurface);
-                if (emojiDrawable != null) {
-                    emojiView.setImageDrawable(emojiDrawable);
-                }
-                emojiView.setScaleType(ImageView.ScaleType.CENTER);
-                // Store the emoji string as tag for search filtering
-                emojiView.setTag(emoji);
-
-                // Each cell fills 1/GRID_COLUMNS of the grid width
-                GridLayout.LayoutParams glp = new GridLayout.LayoutParams();
-                glp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
-                glp.rowSpec = GridLayout.spec(GridLayout.UNDEFINED);
-                glp.width = 0;
-                glp.height = res.getDimensionPixelSize(R.dimen.settings_row_min_height);
-                emojiView.setLayoutParams(glp);
-
-                // Borderless ripple effect
-                TypedValue ripple = new TypedValue();
-                themed.getTheme().resolveAttribute(
-                        android.R.attr.selectableItemBackgroundBorderless, ripple, true);
-                emojiView.setBackgroundResource(ripple.resourceId);
-
-                emojiView.setOnClickListener(v -> {
-                    CoverIcon cover = new CoverIcon(EMOJI_PREFIX, emoji);
-                    FolderCoverManager.getInstance(ctx).setCover(folderId, cover);
-                    folderIcon.updateCoverDrawable();
-                    folderIcon.invalidate();
-                    sheet.dismiss();
-                    if (onChanged != null) onChanged.run();
-                });
-
-                grid.addView(emojiView);
+                items.add(new CategoryGridAdapter.ListItem<>(
+                        new EmojiItem(category[i], catNameLower)));
             }
-            gridContainer.addView(grid);
-            catGrids.add(grid);
         }
 
-        NestedScrollView scroll = new NestedScrollView(themed);
-        scroll.addView(gridContainer);
-        root.addView(scroll, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        // Create binder for emoji items
+        final Context finalCtx = ctx;
+        CategoryGridAdapter.ItemBinder<EmojiItem> binder =
+                new CategoryGridAdapter.ItemBinder<>() {
+            @Override
+            public void bind(ImageView view, EmojiItem item, int position) {
+                Drawable emojiDrawable = coverMgr.renderEmojiSmall(
+                        item.emoji, emojiSizePx, colorOnSurface);
+                if (emojiDrawable != null) {
+                    view.setImageDrawable(emojiDrawable);
+                }
+                view.setScaleType(ImageView.ScaleType.CENTER);
+            }
+
+            @Override
+            public void onItemClick(EmojiItem item) {
+                CoverIcon cover = new CoverIcon(EMOJI_PREFIX, item.emoji);
+                FolderCoverManager.getInstance(finalCtx).setCover(folderId, cover);
+                folderIcon.updateCoverDrawable();
+                folderIcon.invalidate();
+                sheet.dismiss();
+                if (onChanged != null) onChanged.run();
+            }
+
+            @Override
+            public boolean matchesQuery(EmojiItem item, String query) {
+                // Match against category name
+                if (item.categoryLower.contains(query)) return true;
+                // Match against Unicode character names
+                return emojiMatchesQuery(item.emoji, query);
+            }
+
+            @Override
+            public String getContentDescription(EmojiItem item) {
+                return null;
+            }
+        };
+
+        CategoryGridAdapter<EmojiItem> adapter = new CategoryGridAdapter<>(items, binder);
+
+        // RecyclerView emoji grid
+        RecyclerView rv = new RecyclerView(themed);
+        rv.setClipToPadding(false);
+        int rvPadH = res.getDimensionPixelSize(R.dimen.settings_item_spacing);
+        rv.setPadding(rvPadH, 0, rvPadH,
+                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical));
+        rv.setNestedScrollingEnabled(true);
+        root.addView(rv, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        // Set up grid after layout to calculate span count
+        rv.post(() -> {
+            int cellSizePx = res.getDimensionPixelSize(R.dimen.settings_icon_cell_size);
+            rv.setLayoutManager(CategoryGridAdapter.createGridLayoutManager(
+                    themed, rv, cellSizePx, adapter));
+            rv.setAdapter(adapter);
+        });
 
         // Debounced search filtering
         Handler handler = new Handler(Looper.getMainLooper());
@@ -425,55 +374,21 @@ public class FolderCoverPickerHelper {
             @Override
             public void afterTextChanged(Editable s) {
                 if (pendingFilter[0] != null) handler.removeCallbacks(pendingFilter[0]);
-                pendingFilter[0] = () -> filterEmojis(s.toString(), catHeaders, catGrids, catNames);
+                pendingFilter[0] = () -> adapter.filter(s.toString());
                 handler.postDelayed(pendingFilter[0], SEARCH_DEBOUNCE_MS);
             }
         });
 
         sheet.setContentView(root);
-        sActiveSheet = sheet;
+        sActiveSheet = new java.lang.ref.WeakReference<>(sheet);
         sheet.setOnDismissListener(d -> sActiveSheet = null);
         sheet.show();
     }
 
     /**
-     * Filters emoji grid items by query. Matches against Unicode character names
-     * and category names. Hides empty categories.
-     */
-    private static void filterEmojis(String query, List<TextView> catHeaders,
-            List<GridLayout> catGrids, List<String> catNames) {
-        String q = query.trim().toLowerCase(Locale.ROOT);
-        boolean showAll = q.isEmpty();
-
-        for (int catIdx = 0; catIdx < catGrids.size(); catIdx++) {
-            GridLayout grid = catGrids.get(catIdx);
-            boolean catMatch = !showAll && catNames.get(catIdx).contains(q);
-            int visibleCount = 0;
-
-            for (int i = 0; i < grid.getChildCount(); i++) {
-                View child = grid.getChildAt(i);
-                if (showAll || catMatch) {
-                    child.setVisibility(View.VISIBLE);
-                    visibleCount++;
-                } else {
-                    String emoji = (String) child.getTag();
-                    boolean match = emojiMatchesQuery(emoji, q);
-                    child.setVisibility(match ? View.VISIBLE : View.GONE);
-                    if (match) visibleCount++;
-                }
-            }
-
-            // Hide empty categories
-            int vis = (showAll || visibleCount > 0) ? View.VISIBLE : View.GONE;
-            catHeaders.get(catIdx).setVisibility(vis);
-            grid.setVisibility(vis);
-        }
-    }
-
-    /**
      * Checks if an emoji matches a search query by examining its Unicode character names.
      */
-    private static boolean emojiMatchesQuery(String emoji, String query) {
+    static boolean emojiMatchesQuery(String emoji, String query) {
         if (emoji == null || query.isEmpty()) return false;
         // Check each codepoint's Unicode name
         for (int i = 0; i < emoji.length(); ) {

@@ -93,7 +93,7 @@ public class PreviewBackground extends DelegatedCellDrawing {
     int basePreviewOffsetX;
     int basePreviewOffsetY;
 
-    @Nullable private ShapeDelegate mPerFolderShape;
+    @Nullable private ShapeDelegate mResolvedShape;
 
     private CellLayout mDrawingDelegate;
 
@@ -276,15 +276,17 @@ public class PreviewBackground extends DelegatedCellDrawing {
     }
 
     /**
-     * Sets a per-folder shape override. When non-null, this takes priority over
-     * the global folder shape setting.
+     * Sets the resolved shape for this folder icon background.
+     * Called by FolderIcon after resolving per-folder → global → theme priority.
+     * When null, falls back to global/theme resolution (for standalone use during
+     * folder creation animations).
      */
-    public void setPerFolderShape(@Nullable ShapeDelegate shape) {
-        mPerFolderShape = shape;
+    public void setResolvedShape(@Nullable ShapeDelegate shape) {
+        mResolvedShape = shape;
     }
 
-    private ShapeDelegate getShape() {
-        if (mPerFolderShape != null) return mPerFolderShape;
+    ShapeDelegate getShape() {
+        if (mResolvedShape != null) return mResolvedShape;
         ShapeDelegate custom = FolderSettingsHelper.resolveFolderIconShape(mContext);
         return custom != null ? custom : ThemeManager.INSTANCE.get(mContext).getFolderShape();
     }

@@ -39,6 +39,14 @@
 - Choose a shape for your icons: circle, square, cookie, arch, or raw
 - Customize individual app icons from the long-press menu — different icons for the home screen and app drawer
 
+### Folders
+
+- **Cover icons** — replace the mini-icon preview with a monochrome emoji from a searchable picker
+- **Expanded folders** — display folder contents directly on the home screen as a 2x2 or 3x3 grid with tap-to-launch
+- **Resize** — drag corner handles to grow or shrink folders on the workspace
+- **Per-folder shapes** — override the global icon shape on individual folders
+- **Customizable colors** — separate background colors for folder icons, open panels, and covers
+
 ### App Drawer
 
 - Adjustable label size and two-line labels for long app names
@@ -57,7 +65,7 @@
 
 - Material 3 dynamic colors from your wallpaper
 - Full dark mode support
-- Customizable drawer background, search bar, and tab colors
+- Customizable drawer background, search bar, tab, and folder colors
 
 ### Gestures
 

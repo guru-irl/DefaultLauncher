@@ -342,8 +342,8 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField val WALLPAPER_SCROLL = backedUpItem("pref_wallpaper_scroll", true)
 
         // Folder appearance preferences (store color resource name or shape key; empty = default)
-        // Key is "pref_folder_icon_color" for backward compat; stores cover background color
-        @JvmField val FOLDER_ICON_COLOR = backedUpItem("pref_folder_icon_color", "")
+        // Pref key is "pref_folder_icon_color" for backward compat; stores cover background color
+        @JvmField val FOLDER_COVER_BG_COLOR = backedUpItem("pref_folder_icon_color", "")
         @JvmField val FOLDER_ICON_SHAPE = backedUpItem("pref_folder_icon_shape", "")
         @JvmField val FOLDER_BG_COLOR = backedUpItem("pref_folder_bg_color", "")
         @JvmField val FOLDER_BG_OPACITY = backedUpItem("pref_folder_bg_opacity", 95)

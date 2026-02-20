@@ -33,7 +33,6 @@ import android.text.TextWatcher;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
@@ -42,11 +41,9 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import androidx.annotation.NonNull;
 import androidx.core.widget.NestedScrollView;
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import androidx.preference.PreferenceFragmentCompat;
-import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
@@ -82,9 +79,6 @@ public class PerAppIconSheet {
 
     private static final long SLIDE_DURATION = M3Durations.MEDIUM_2; // 300ms
     private static final long SEARCH_DEBOUNCE_MS = M3Durations.MEDIUM_2; // 300ms
-
-    private static final int VIEW_TYPE_HEADER = 0;
-    private static final int VIEW_TYPE_ICON = 1;
 
     private static final Handler sMainHandler = new Handler(Looper.getMainLooper());
 
@@ -400,32 +394,52 @@ public class PerAppIconSheet {
         // Set up grid after layout to calculate span count
         rv.post(() -> {
             int cellSizePx = res.getDimensionPixelSize(R.dimen.settings_icon_cell_size);
-            int width = rv.getWidth();
-            int spanCount = Math.max(4, width / cellSizePx);
 
-            List<ListItem> allItems = new ArrayList<>();
-            List<ListItem> filteredItems = new ArrayList<>();
-            IconGridAdapter adapter = new IconGridAdapter(ctx, packPackage, mgr,
-                    filteredItems, sheet, callback);
-
-            GridLayoutManager layoutManager = new GridLayoutManager(ctx, spanCount);
-            final int finalSpanCount = spanCount;
-            layoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+            CategoryGridAdapter.ItemBinder<IconPack.IconEntry> binder =
+                    new CategoryGridAdapter.ItemBinder<>() {
                 @Override
-                public int getSpanSize(int position) {
-                    if (position < filteredItems.size()
-                            && filteredItems.get(position).type == VIEW_TYPE_HEADER) {
-                        return finalSpanCount;
-                    }
-                    return 1;
+                public void bind(ImageView view, IconPack.IconEntry entry, int position) {
+                    view.setTag(entry.drawableName);
+                    String drawableName = entry.drawableName;
+                    Executors.MODEL_EXECUTOR.execute(() -> {
+                        IconPack p = mgr.getPack(packPackage);
+                        if (p == null) return;
+                        Drawable d = p.getDrawableForEntry(
+                                drawableName, ctx.getPackageManager());
+                        sMainHandler.post(() -> {
+                            if (drawableName.equals(view.getTag())) {
+                                view.setImageDrawable(d);
+                            }
+                        });
+                    });
                 }
-            });
-            rv.setLayoutManager(layoutManager);
+
+                @Override
+                public void onItemClick(IconPack.IconEntry entry) {
+                    sheet.dismiss();
+                    callback.onIconSelected(packPackage, entry.drawableName);
+                }
+
+                @Override
+                public boolean matchesQuery(IconPack.IconEntry entry, String query) {
+                    return entry.label.toLowerCase().contains(query)
+                            || entry.drawableName.toLowerCase().contains(query);
+                }
+
+                @Override
+                public String getContentDescription(IconPack.IconEntry entry) {
+                    return entry.label;
+                }
+            };
+
+            CategoryGridAdapter<IconPack.IconEntry> adapter =
+                    new CategoryGridAdapter<>(new ArrayList<>(), binder);
+            rv.setLayoutManager(CategoryGridAdapter.createGridLayoutManager(
+                    ctx, rv, cellSizePx, adapter));
             rv.setAdapter(adapter);
 
             // Load icons with "Suggested" section at top
-            loadIconsWithSuggested(ctx, packPackage, pack, appCn, mgr,
-                    allItems, filteredItems, adapter);
+            loadIconsWithSuggested(ctx, packPackage, pack, appCn, mgr, adapter);
 
             // Search with debounce
             final Runnable[] pendingSearch = {null};
@@ -440,8 +454,7 @@ public class PerAppIconSheet {
                     if (pendingSearch[0] != null) {
                         sMainHandler.removeCallbacks(pendingSearch[0]);
                     }
-                    pendingSearch[0] = () ->
-                            filterItems(s.toString(), allItems, filteredItems, adapter);
+                    pendingSearch[0] = () -> adapter.filter(s.toString());
                     sMainHandler.postDelayed(pendingSearch[0], SEARCH_DEBOUNCE_MS);
                 }
 
@@ -457,8 +470,7 @@ public class PerAppIconSheet {
 
     private static void loadIconsWithSuggested(Context ctx, String packPackage,
             IconPack pack, ComponentName appCn, IconPackManager mgr,
-            List<ListItem> allItems, List<ListItem> filteredItems,
-            IconGridAdapter adapter) {
+            CategoryGridAdapter<IconPack.IconEntry> adapter) {
 
         Executors.MODEL_EXECUTOR.execute(() -> {
             PackageManager pm = ctx.getPackageManager();
@@ -472,7 +484,7 @@ public class PerAppIconSheet {
 
             List<IconPack.IconCategory> categories = pack.getAllIcons(pm);
 
-            List<ListItem> items = new ArrayList<>();
+            List<CategoryGridAdapter.ListItem<IconPack.IconEntry>> items = new ArrayList<>();
 
             // Build suggested section: matched icon + variants (name-similar drawables)
             List<IconPack.IconEntry> suggestedEntries = new ArrayList<>();
@@ -500,33 +512,29 @@ public class PerAppIconSheet {
             }
 
             if (!suggestedEntries.isEmpty()) {
-                items.add(new ListItem(ctx.getString(R.string.icon_picker_suggested)));
+                items.add(new CategoryGridAdapter.ListItem<>(
+                        ctx.getString(R.string.icon_picker_suggested)));
                 for (IconPack.IconEntry entry : suggestedEntries) {
-                    items.add(new ListItem(entry));
+                    items.add(new CategoryGridAdapter.ListItem<>(entry));
                 }
             }
 
             // Add remaining categories, excluding already-suggested items
             for (IconPack.IconCategory cat : categories) {
-                List<ListItem> catItems = new ArrayList<>();
+                List<CategoryGridAdapter.ListItem<IconPack.IconEntry>> catItems =
+                        new ArrayList<>();
                 for (IconPack.IconEntry entry : cat.items) {
                     if (!suggestedNames.contains(entry.drawableName)) {
-                        catItems.add(new ListItem(entry));
+                        catItems.add(new CategoryGridAdapter.ListItem<>(entry));
                     }
                 }
                 if (!catItems.isEmpty()) {
-                    items.add(new ListItem(cat.title));
+                    items.add(new CategoryGridAdapter.ListItem<>(cat.title));
                     catItems.forEach(items::add);
                 }
             }
 
-            sMainHandler.post(() -> {
-                allItems.clear();
-                allItems.addAll(items);
-                filteredItems.clear();
-                filteredItems.addAll(items);
-                adapter.notifyDataSetChanged();
-            });
+            sMainHandler.post(() -> adapter.setItems(items));
         });
     }
 
@@ -548,43 +556,6 @@ public class PerAppIconSheet {
 
     private static String humanize(String drawableName) {
         return drawableName.replace('_', ' ').replace('-', ' ').trim();
-    }
-
-    // ---- Search filtering ----
-
-    private static void filterItems(String query, List<ListItem> allItems,
-            List<ListItem> filteredItems, IconGridAdapter adapter) {
-        filteredItems.clear();
-        if (query == null || query.trim().isEmpty()) {
-            filteredItems.addAll(allItems);
-        } else {
-            String lowerQuery = query.toLowerCase();
-            String lastHeader = null;
-            List<ListItem> pendingIcons = new ArrayList<>();
-
-            for (ListItem item : allItems) {
-                if (item.type == VIEW_TYPE_HEADER) {
-                    if (lastHeader != null && !pendingIcons.isEmpty()) {
-                        filteredItems.add(new ListItem(lastHeader));
-                        filteredItems.addAll(pendingIcons);
-                    }
-                    lastHeader = item.headerTitle;
-                    pendingIcons = new ArrayList<>();
-                } else {
-                    String matchText = item.entry.label.toLowerCase();
-                    String matchDrawable = item.entry.drawableName.toLowerCase();
-                    if (matchText.contains(lowerQuery)
-                            || matchDrawable.contains(lowerQuery)) {
-                        pendingIcons.add(item);
-                    }
-                }
-            }
-            if (lastHeader != null && !pendingIcons.isEmpty()) {
-                filteredItems.add(new ListItem(lastHeader));
-                filteredItems.addAll(pendingIcons);
-            }
-        }
-        adapter.notifyDataSetChanged();
     }
 
     // ---- Back navigation: icon picker → pack list ----
@@ -676,123 +647,4 @@ public class PerAppIconSheet {
         return card;
     }
 
-    // ---- Data model ----
-
-    static class ListItem {
-        final int type;
-        final String headerTitle;
-        final IconPack.IconEntry entry;
-
-        ListItem(String headerTitle) {
-            this.type = VIEW_TYPE_HEADER;
-            this.headerTitle = headerTitle;
-            this.entry = null;
-        }
-
-        ListItem(IconPack.IconEntry entry) {
-            this.type = VIEW_TYPE_ICON;
-            this.headerTitle = null;
-            this.entry = entry;
-        }
-    }
-
-    // ---- RecyclerView Adapter ----
-
-    private static class IconGridAdapter
-            extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
-
-        private final Context mContext;
-        private final String mPackPackage;
-        private final IconPackManager mMgr;
-        private final List<ListItem> mItems;
-        private final BottomSheetDialog mSheet;
-        private final Callback mCallback;
-
-        IconGridAdapter(Context ctx, String packPackage, IconPackManager mgr,
-                List<ListItem> items, BottomSheetDialog sheet, Callback callback) {
-            mContext = ctx;
-            mPackPackage = packPackage;
-            mMgr = mgr;
-            mItems = items;
-            mSheet = sheet;
-            mCallback = callback;
-        }
-
-        @Override
-        public int getItemViewType(int position) {
-            return mItems.get(position).type;
-        }
-
-        @Override
-        public int getItemCount() {
-            return mItems.size();
-        }
-
-        @NonNull
-        @Override
-        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent,
-                int viewType) {
-            LayoutInflater inflater = LayoutInflater.from(parent.getContext());
-            if (viewType == VIEW_TYPE_HEADER) {
-                View v = inflater.inflate(
-                        R.layout.item_icon_picker_header, parent, false);
-                return new HeaderHolder(v);
-            } else {
-                View v = inflater.inflate(
-                        R.layout.item_icon_picker, parent, false);
-                return new IconHolder(v);
-            }
-        }
-
-        @Override
-        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder,
-                int position) {
-            ListItem item = mItems.get(position);
-            if (holder instanceof HeaderHolder) {
-                ((HeaderHolder) holder).title.setText(item.headerTitle);
-            } else if (holder instanceof IconHolder) {
-                IconHolder iconHolder = (IconHolder) holder;
-                iconHolder.image.setImageDrawable(null);
-                iconHolder.image.setTag(item.entry.drawableName);
-
-                iconHolder.itemView.setOnClickListener(v -> {
-                    mSheet.dismiss();
-                    mCallback.onIconSelected(mPackPackage, item.entry.drawableName);
-                });
-                iconHolder.itemView.setContentDescription(item.entry.label);
-
-                // Load icon async with tag-based cancellation
-                String drawableName = item.entry.drawableName;
-                Executors.MODEL_EXECUTOR.execute(() -> {
-                    IconPack pack = mMgr.getPack(mPackPackage);
-                    if (pack == null) return;
-                    Drawable d = pack.getDrawableForEntry(
-                            drawableName, mContext.getPackageManager());
-                    sMainHandler.post(() -> {
-                        if (drawableName.equals(iconHolder.image.getTag())) {
-                            iconHolder.image.setImageDrawable(d);
-                        }
-                    });
-                });
-            }
-        }
-
-        private static class HeaderHolder extends RecyclerView.ViewHolder {
-            final TextView title;
-
-            HeaderHolder(@NonNull View itemView) {
-                super(itemView);
-                title = itemView.findViewById(R.id.category_title);
-            }
-        }
-
-        private static class IconHolder extends RecyclerView.ViewHolder {
-            final ImageView image;
-
-            IconHolder(@NonNull View itemView) {
-                super(itemView);
-                image = itemView.findViewById(R.id.icon_image);
-            }
-        }
-    }
 }

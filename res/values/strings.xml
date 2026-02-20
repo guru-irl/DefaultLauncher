@@ -736,7 +736,8 @@
     <string name="folder_cover_title">Choose cover icon</string>
     <string name="folder_cover_remove">Remove cover</string>
     <string name="folder_emoji_search_hint">Search emoji</string>
-    <string name="folder_custom_cover">Custom cover icon</string>
+    <string name="folder_set_cover">Set cover</string>
+    <string name="folder_change_cover">Change cover</string>
     <string name="folder_resize">Resize</string>
     <string name="folder_icon_shape_popup">Shape</string>
     <string name="folder_shape_follow_global">Default</string>

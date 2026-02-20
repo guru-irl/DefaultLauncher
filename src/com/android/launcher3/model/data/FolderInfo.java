@@ -63,6 +63,9 @@ public class FolderInfo extends CollectionInfo {
      */
     public static final int FLAG_EXPANDED = 0x00000010;
 
+    /** Maximum span (width or height) for expanded folders on the workspace grid. */
+    public static final int MAX_SPAN = 3;
+
     /**
      * Different states of folder label.
      */

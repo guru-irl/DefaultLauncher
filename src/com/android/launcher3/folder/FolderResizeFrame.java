@@ -61,7 +61,6 @@ public class FolderResizeFrame extends AbstractFloatingView
     private static final int SNAP_DURATION_MS = 150;
     private static final float DIMMED_HANDLE_ALPHA = 0f;
     private static final float RESIZE_THRESHOLD = 0.66f;
-    private static final int MAX_FOLDER_SPAN = 3;
 
     private static final int HANDLE_COUNT = 4;
     private static final int INDEX_TL = 0;
@@ -409,7 +408,7 @@ public class FolderResizeFrame extends AbstractFloatingView
         // Since we always keep spanX == spanY, use info.spanX as the current span
 
         // Clamp span
-        newSpan = Math.max(1, Math.min(MAX_FOLDER_SPAN, newSpan));
+        newSpan = Math.max(1, Math.min(FolderInfo.MAX_SPAN, newSpan));
 
         // Don't allow span larger than grid
         int numCols = mCellLayout.getCountX();
@@ -449,38 +448,21 @@ public class FolderResizeFrame extends AbstractFloatingView
         boolean vacant = mCellLayout.isRegionVacant(newCellX, newCellY, newSpan, newSpan);
 
         if (vacant) {
-            // Apply the resize (always square)
-            info.spanX = newSpan;
-            info.spanY = newSpan;
-            info.cellX = newCellX;
-            info.cellY = newCellY;
+            // Apply span change (model + layout params + occupation + state)
+            FolderSpanHelper.applySpanChange(
+                    mFolderIcon, mCellLayout, newSpan, newCellX, newCellY);
 
-            folderLp.setCellX(newCellX);
-            folderLp.setCellY(newCellY);
-            // Also set tmp coords to match, in case useTmpCoords is true
-            // from a previous drag/reorder operation
+            // Sync tmp coords in case useTmpCoords is true from a previous drag/reorder
             folderLp.setTmpCellX(newCellX);
             folderLp.setTmpCellY(newCellY);
             folderLp.useTmpCoords = false;
-            folderLp.cellHSpan = newSpan;
-            folderLp.cellVSpan = newSpan;
 
             mRunningSpanInc += actualDelta;
-
-            // Update expanded state flag (expanded only when span > 1)
-            if (newSpan > 1) {
-                info.options |= FolderInfo.FLAG_EXPANDED;
-            } else {
-                info.options &= ~FolderInfo.FLAG_EXPANDED;
-            }
 
             if (DEBUG) Log.d(TAG, "resize applied: span=" + newSpan
                     + " cell=" + newCellX + "," + newCellY
                     + " options=" + info.options
                     + " FLAG_EXPANDED=" + ((info.options & FolderInfo.FLAG_EXPANDED) != 0));
-
-            mCellLayout.markCellsAsOccupiedForView(mFolderIcon);
-            mFolderIcon.updateExpandedState();
 
             // Cancel any in-progress animations and reset scale to avoid
             // stale transforms affecting layout/position calculations
@@ -600,7 +582,7 @@ public class FolderResizeFrame extends AbstractFloatingView
 
     @Override
     protected boolean isOfType(int type) {
-        return (type & TYPE_WIDGET_RESIZE_FRAME) != 0;
+        return (type & TYPE_FOLDER_RESIZE_FRAME) != 0;
     }
 
     @Override

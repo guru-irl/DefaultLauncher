@@ -98,6 +98,7 @@ import com.android.launcher3.graphics.ShapeDelegate;
 import com.android.launcher3.graphics.ThemeManager;
 import com.android.launcher3.popup.PopupContainerWithArrow;
 import com.android.launcher3.settings.FolderSettingsHelper;
+import com.android.launcher3.touch.ItemClickHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -185,6 +186,7 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
     private int mCachedOnSurfaceVariantColor;
     private float mCachedExpandedCornerPx;
     private ShapeDelegate mCachedExpandedShape;
+    private ExpandedGridParams mCachedGridParams;
 
     // Track if a long-press (popup) fired so ACTION_UP skips cell tap handling
     private boolean mLongPressHandled;
@@ -303,12 +305,10 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
         // Load per-folder icon shape key if set
         icon.mPerFolderShapeKey = FolderCoverManager.getInstance(
                 icon.getContext().getApplicationContext()).getIconShape(folderInfo.id);
-        if (!TextUtils.isEmpty(icon.mPerFolderShapeKey)) {
-            ShapeDelegate s = FolderSettingsHelper.resolveShapeKey(icon.mPerFolderShapeKey);
-            if (s != null) icon.mBackground.setPerFolderShape(s);
-        }
-
         icon.refreshCachedState();
+
+        // Push fully resolved shape to PreviewBackground (single source of truth)
+        icon.mBackground.setResolvedShape(icon.resolveCurrentShape());
 
         if (DEBUG) Log.d(TAG, "inflateIcon: id=" + folderInfo.id
                 + " title=" + folderInfo.title
@@ -392,6 +392,7 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
     /** Called after expand/collapse to refresh the rendering mode. */
     public void updateExpandedState() {
         mExpandedIconCache.clear();
+        mCachedGridParams = null;
         boolean flagSet = mInfo != null && mInfo.hasOption(FolderInfo.FLAG_EXPANDED);
         // Only consider expanded if span is actually > 1x1 and square
         boolean spanValid = mInfo != null && mInfo.spanX > 1 && mInfo.spanY > 1
@@ -441,6 +442,16 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
         return mIsExpanded;
     }
 
+    /**
+     * Returns the cached expanded shape (M3 Large token rounded square).
+     * Used by FolderAnimationManager for the reveal animation of expanded uncovered folders.
+     * May return null if the shape hasn't been computed yet (before first draw).
+     */
+    @Nullable
+    ShapeDelegate getCachedExpandedShape() {
+        return mCachedExpandedShape;
+    }
+
     /** Reloads the cover drawable from the cover manager. */
     public void updateCoverDrawable() {
         mExpandedIconCache.clear();
@@ -462,12 +473,7 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
     /** Updates the per-folder icon shape and triggers redraw. */
     public void updatePerFolderShape(@Nullable String shapeKey) {
         mPerFolderShapeKey = shapeKey;
-        if (!TextUtils.isEmpty(shapeKey)) {
-            ShapeDelegate s = FolderSettingsHelper.resolveShapeKey(shapeKey);
-            mBackground.setPerFolderShape(s);
-        } else {
-            mBackground.setPerFolderShape(null);
-        }
+        mBackground.setResolvedShape(resolveCurrentShape());
         invalidate();
     }
 
@@ -1121,6 +1127,8 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
      * @return params, or null if dimensions are invalid (zero cell/icon sizes).
      */
     private ExpandedGridParams computeExpandedGridParams() {
+        if (mCachedGridParams != null) return mCachedGridParams;
+
         DeviceProfile dp = mActivity.getDeviceProfile();
         int w = getWidth();
         int h = getHeight();
@@ -1142,15 +1150,17 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
         int startX = (w - contentW) / 2;
         int startY = (h - contentH) / 2;
 
-        return new ExpandedGridParams(spanX, spanY, cellW, cellH,
+        mCachedGridParams = new ExpandedGridParams(spanX, spanY, cellW, cellH,
                 borderSpace, iconSize, startX, startY);
+        return mCachedGridParams;
     }
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        // Invalidate cached shape since it depends on view dimensions
+        // Invalidate cached shape and grid params since they depend on view dimensions
         mCachedExpandedShape = null;
+        mCachedGridParams = null;
         if (DEBUG && (w != oldw || h != oldh)) {
             Log.d(TAG, "onSizeChanged: id=" + (mInfo != null ? mInfo.id : -1)
                     + " " + oldw + "x" + oldh + " -> " + w + "x" + h
@@ -1267,16 +1277,12 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
                 return true;
             } else if (cellIndex >= 0 && cellIndex < lastCellIndex
                     && cellIndex < contents.size()) {
-                // Launch the app
+                // Launch the app via ItemClickHandler (handles disabled apps,
+                // promise icons, work profile, safe mode, analytics, etc.)
                 ItemInfo item = contents.get(cellIndex);
                 if (item instanceof WorkspaceItemInfo wii) {
                     Launcher launcher = Launcher.getLauncher(getContext());
-                    if (launcher.supportsAdaptiveIconAnimation(this)
-                            && !wii.shouldUseBackgroundAnimation()) {
-                        com.android.launcher3.views.FloatingIconView.fetchIcon(
-                                launcher, this, wii, true);
-                    }
-                    launcher.startActivitySafely(this, wii.getIntent(), wii);
+                    ItemClickHandler.onClickAppShortcut(this, wii, launcher);
                     return true;
                 }
             }
