@@ -57,16 +57,22 @@ public class M3SliderPreference extends Preference {
         super(context, attrs);
         TypedArray a = context.obtainStyledAttributes(attrs,
                 androidx.preference.R.styleable.SeekBarPreference);
-        mMin = a.getInt(androidx.preference.R.styleable.SeekBarPreference_min, 0);
-        mShowValue = a.getBoolean(
-                androidx.preference.R.styleable.SeekBarPreference_showSeekBarValue, true);
-        a.recycle();
+        try {
+            mMin = a.getInt(androidx.preference.R.styleable.SeekBarPreference_min, 0);
+            mShowValue = a.getBoolean(
+                    androidx.preference.R.styleable.SeekBarPreference_showSeekBarValue, true);
+        } finally {
+            a.recycle();
+        }
 
         TypedArray b = context.obtainStyledAttributes(attrs,
                 new int[]{android.R.attr.max, android.R.attr.defaultValue});
-        mMax = b.getInt(0, 100);
-        mValue = b.getInt(1, (int) mMin);
-        b.recycle();
+        try {
+            mMax = b.getInt(0, 100);
+            mValue = b.getInt(1, (int) mMin);
+        } finally {
+            b.recycle();
+        }
 
         mStepSize = 1f;
     }
@@ -109,14 +115,16 @@ public class M3SliderPreference extends Preference {
         View existing = root.findViewWithTag(TAG_SLIDER);
         if (existing != null) {
             Slider slider = existing.findViewWithTag(TAG_SLIDER_WIDGET);
-            if (slider != null) {
-                slider.setValue(Math.max(mMin, Math.min(mMax, mValue)));
-            }
             TextView titleView = existing.findViewWithTag(TAG_SLIDER_TITLE);
-            if (titleView != null) titleView.setText(getTitle());
-            TextView valueView = existing.findViewWithTag(TAG_SLIDER_VALUE);
-            if (valueView != null) valueView.setText(String.valueOf((int) mValue));
-            return;
+            if (slider != null && titleView != null) {
+                slider.setValue(Math.max(mMin, Math.min(mMax, mValue)));
+                titleView.setText(getTitle());
+                TextView valueView = existing.findViewWithTag(TAG_SLIDER_VALUE);
+                if (valueView != null) valueView.setText(String.valueOf((int) mValue));
+                return;
+            }
+            // Stale container — remove and rebuild
+            root.removeView(existing);
         }
 
         for (int i = 0; i < root.getChildCount(); i++) {

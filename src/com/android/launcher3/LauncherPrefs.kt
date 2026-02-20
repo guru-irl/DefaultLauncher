@@ -341,6 +341,13 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField val APPLY_ADAPTIVE_SHAPE_DRAWER = backedUpItem("pref_apply_adaptive_shape_drawer", true)
         @JvmField val WALLPAPER_SCROLL = backedUpItem("pref_wallpaper_scroll", true)
 
+        // Folder appearance preferences (store color resource name or shape key; empty = default)
+        // Pref key is "pref_folder_icon_color" for backward compat; stores cover background color
+        @JvmField val FOLDER_COVER_BG_COLOR = backedUpItem("pref_folder_icon_color", "")
+        @JvmField val FOLDER_ICON_SHAPE = backedUpItem("pref_folder_icon_shape", "")
+        @JvmField val FOLDER_BG_COLOR = backedUpItem("pref_folder_bg_color", "")
+        @JvmField val FOLDER_BG_OPACITY = backedUpItem("pref_folder_bg_opacity", 95)
+
         // Universal search preferences
         @JvmField val SEARCH_APPS = backedUpItem("pref_search_apps", true)
         @JvmField val SEARCH_SHORTCUTS = backedUpItem("pref_search_shortcuts", true)

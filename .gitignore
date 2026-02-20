@@ -9,3 +9,7 @@ gradlew.bat
 nul
 local.properties
 .kotlin/
+*.jks
+*.keystore
+rotate-keystore.sh
+rotate-keystore.ps1

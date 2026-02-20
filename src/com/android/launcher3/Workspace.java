@@ -73,6 +73,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.view.ViewCompat;
 
 import com.android.app.animation.Interpolators;
+import com.android.launcher3.BuildConfig;
 import com.android.launcher3.accessibility.AccessibleDragListenerAdapter;
 import com.android.launcher3.accessibility.WorkspaceAccessibilityHelper;
 import com.android.launcher3.anim.PendingAnimation;
@@ -90,6 +91,7 @@ import com.android.launcher3.dragndrop.DraggableView;
 import com.android.launcher3.dragndrop.SpringLoadedDragController;
 import com.android.launcher3.folder.Folder;
 import com.android.launcher3.folder.FolderIcon;
+import com.android.launcher3.folder.FolderResizeFrame;
 import com.android.launcher3.folder.PreviewBackground;
 import com.android.launcher3.graphics.DragPreviewProvider;
 import com.android.launcher3.icons.BitmapRenderer;
@@ -151,6 +153,9 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
      * The value that {@link #mTransitionProgress} must be greater than for
      * {@link #transitionStateShouldAllowDrop()} to return true.
      */
+    private static final String TAG = "Workspace";
+    private static final boolean DEBUG_WS_PAD = BuildConfig.DEBUG;
+
     private static final float ALLOW_DROP_TRANSITION_PROGRESS = 0.25f;
 
     /**
@@ -345,6 +350,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         mWorkspaceFadeInAdjacentScreens = grid.shouldFadeAdjacentWorkspaceScreens();
 
         Rect padding = grid.workspacePadding;
+        if (DEBUG_WS_PAD) {
+            Log.d(TAG, "setInsets: wsPad=" + padding + " hotseatBarSize=" + grid.hotseatBarSizePx
+                    + " profileH=" + grid.heightPx);
+        }
         setPadding(padding.left, padding.top, padding.right, padding.bottom);
         mInsets.set(insets);
 
@@ -1589,6 +1598,13 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         View child = cellInfo.cell;
 
         mDragInfo = cellInfo;
+        // Cancel any pending animations and reset scale for correct drag preview capture.
+        // Intentionally redundant with prepareDrawDragView() as a safety net: that method
+        // only runs for DraggableView implementations, but startDrag applies to all views
+        // (widgets, shortcuts, folders). Keeping both ensures clean bitmap capture regardless.
+        child.animate().cancel();
+        child.setScaleX(1f);
+        child.setScaleY(1f);
         child.setVisibility(INVISIBLE);
 
         if (options.isAccessibleDrag) {
@@ -1684,6 +1700,11 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             }
             if (btv.isDisplaySearchResult()) {
                 dragOptions.preDragEndScale = (float) mAllAppsIconSize / btv.getIconSize();
+            }
+        } else if (child instanceof FolderIcon) {
+            FolderIcon fi = (FolderIcon) child;
+            if (!dragOptions.isAccessibleDrag) {
+                dragOptions.preDragCondition = fi.startLongPressAction();
             }
         }
 
@@ -1837,8 +1858,12 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
 
     boolean willAddToExistingUserFolder(ItemInfo dragInfo, CellLayout target, int[] targetCell,
                                         float distance) {
-        if (distance > target.getFolderCreationRadius(targetCell)) return false;
         View dropOverView = target.getChildAt(targetCell[0], targetCell[1]);
+        // Expanded folders cover multiple cells — always accept drops over any cell
+        if (dropOverView instanceof FolderIcon fi && fi.isExpanded()) {
+            return willAddToExistingUserFolder(dragInfo, dropOverView);
+        }
+        if (distance > target.getFolderCreationRadius(targetCell)) return false;
         return willAddToExistingUserFolder(dragInfo, dropOverView);
 
     }
@@ -2077,13 +2102,22 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                     lp.cellVSpan = item.spanY;
                     lp.isLockedToGrid = true;
 
-                    if (container != LauncherSettings.Favorites.CONTAINER_HOTSEAT &&
-                            cell instanceof LauncherAppWidgetHostView) {
+                    if (cell instanceof LauncherAppWidgetHostView) {
 
                         // We post this call so that the widget has a chance to be placed
                         // in its final location
                         onCompleteRunnable = getWidgetResizeFrameRunnable(options,
                                 (LauncherAppWidgetHostView) cell, dropTargetLayout);
+                    } else if (cell instanceof FolderIcon
+                            && ((FolderInfo) cell.getTag()).spanX > 1) {
+                        // Show resize frame for expanded folders after drop
+                        final CellLayout finalDropLayout = dropTargetLayout;
+                        onCompleteRunnable = () -> {
+                            if (!isPageInTransition()) {
+                                FolderResizeFrame.showForFolder(
+                                        (FolderIcon) cell, finalDropLayout);
+                            }
+                        };
                     }
                     mLauncher.getModelWriter().modifyItemInDatabase(info, container, screenId,
                             lp.getCellX(), lp.getCellY(), item.spanX, item.spanY);

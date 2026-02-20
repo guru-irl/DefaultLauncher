@@ -45,6 +45,7 @@
 
     <style name="HomeSettings.PreferenceStyle" parent="@style/Preference.Material">
         <item name="iconSpaceReserved">@bool/home_settings_icon_space_reserved</item>
+        <item name="android:background">@android:color/transparent</item>
     </style>
 
     <style name="HomeSettings.PreferenceScreenStyle"
@@ -56,6 +57,7 @@
             parent="@style/Preference.SwitchPreferenceCompat.Material">
         <item name="iconSpaceReserved">@bool/home_settings_icon_space_reserved</item>
         <item name="android:widgetLayout">@layout/preference_widget_material_switch</item>
+        <item name="android:background">@android:color/transparent</item>
     </style>
 
     <style name="HomeSettings.PreferenceTitle"

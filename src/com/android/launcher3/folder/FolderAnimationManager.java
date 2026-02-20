@@ -48,8 +48,7 @@ import com.android.launcher3.anim.PropertyResetListener;
 import com.android.launcher3.apppairs.AppPairIcon;
 import com.android.launcher3.celllayout.CellLayoutLayoutParams;
 import com.android.launcher3.graphics.ShapeDelegate;
-import com.android.launcher3.graphics.ThemeManager;
-import com.android.launcher3.util.Themes;
+import com.android.launcher3.settings.FolderSettingsHelper;
 import com.android.launcher3.views.BaseDragLayer;
 
 import java.util.List;
@@ -134,22 +133,49 @@ public class FolderAnimationManager {
     public AnimatorSet getAnimator() {
         final BaseDragLayer.LayoutParams lp =
                 (BaseDragLayer.LayoutParams) mFolder.getLayoutParams();
-        mFolderIcon.getPreviewItemManager().recomputePreviewDrawingParams();
+
+        // Detect non-standard folder types that don't use preview item animations
+        boolean isCoverOrExpanded = mFolderIcon.mCoverDrawable != null
+                || mFolderIcon.isExpanded();
+
+        if (!isCoverOrExpanded) {
+            mFolderIcon.getPreviewItemManager().recomputePreviewDrawingParams();
+        }
         ClippedFolderIconLayoutRule rule = mFolderIcon.getLayoutRule();
-        final List<View> itemsInPreview = getPreviewIconsOnPage(0);
+        final List<View> itemsInPreview = isCoverOrExpanded
+                ? java.util.Collections.emptyList()
+                : getPreviewIconsOnPage(0);
 
         // Match position of the FolderIcon
         final Rect folderIconPos = new Rect();
         float scaleRelativeToDragLayer = mFolder.mActivityContext.getDragLayer()
                 .getDescendantRectRelativeToSelf(mFolderIcon, folderIconPos);
-        int scaledRadius = mPreviewBackground.getScaledRadius();
-        float initialSize = (scaledRadius * 2) * scaleRelativeToDragLayer;
+        float initialSize;
+        if (isCoverOrExpanded) {
+            // For cover/expanded folders, animate from actual view size, not preview circle
+            float viewSize = Math.min(mFolderIcon.getWidth(), mFolderIcon.getHeight())
+                    * scaleRelativeToDragLayer;
+            initialSize = viewSize > 0 ? viewSize
+                    : (mPreviewBackground.getScaledRadius() * 2) * scaleRelativeToDragLayer;
+        } else {
+            int scaledRadius = mPreviewBackground.getScaledRadius();
+            initialSize = (scaledRadius * 2) * scaleRelativeToDragLayer;
+        }
 
         // Match size/scale of icons in the preview
-        float previewScale = rule.scaleForItem(itemsInPreview.size());
-        float previewSize = rule.getIconSize() * previewScale;
-        float baseIconSize = getBubbleTextView(itemsInPreview.get(0)).getIconSize();
-        float initialScale = previewSize / baseIconSize * scaleRelativeToDragLayer;
+        final float initialScale;
+        if (isCoverOrExpanded) {
+            // For cover/expanded folders, scale based on icon view size vs folder panel size
+            float iconViewSize = Math.min(mFolderIcon.getWidth(), mFolderIcon.getHeight());
+            if (iconViewSize <= 0) iconViewSize = mDeviceProfile.folderIconSizePx;
+            initialScale = (iconViewSize / (float) Math.max(lp.width, 1))
+                    * scaleRelativeToDragLayer;
+        } else {
+            float previewScale = rule.scaleForItem(itemsInPreview.size());
+            float previewSize = rule.getIconSize() * previewScale;
+            float baseIconSize = getBubbleTextView(itemsInPreview.get(0)).getIconSize();
+            initialScale = previewSize / baseIconSize * scaleRelativeToDragLayer;
+        }
         final float finalScale = 1f;
         float scale = mIsOpening ? initialScale : finalScale;
         mFolder.setPivotX(0);
@@ -173,28 +199,45 @@ public class FolderAnimationManager {
         final int paddingOffsetX = (int) (mContent.getPaddingLeft() * initialScale);
         final int paddingOffsetY = (int) (mContent.getPaddingTop() * initialScale);
 
+        // For cover/expanded, the shape fills the entire view, so no preview offset needed
+        int bgOffsetX = isCoverOrExpanded ? 0
+                : Math.round(mPreviewBackground.getOffsetX() * scaleRelativeToDragLayer);
+        int bgOffsetY = isCoverOrExpanded ? 0
+                : Math.round(mPreviewBackground.getOffsetY() * scaleRelativeToDragLayer);
         int initialX = folderIconPos.left + mFolder.getPaddingLeft()
-                + Math.round(mPreviewBackground.getOffsetX() * scaleRelativeToDragLayer)
-                - paddingOffsetX - previewItemOffsetX;
+                + bgOffsetX - paddingOffsetX - previewItemOffsetX;
         int initialY = folderIconPos.top + mFolder.getPaddingTop()
-                + Math.round(mPreviewBackground.getOffsetY() * scaleRelativeToDragLayer)
-                - paddingOffsetY;
+                + bgOffsetY - paddingOffsetY;
         final float xDistance = initialX - lp.x;
         final float yDistance = initialY - lp.y;
 
         // Set up the Folder background.
-        final int initialColor = Themes.getAttrColor(mContext, R.attr.folderPreviewColor);
-        final int finalColor = Themes.getAttrColor(mContext, R.attr.folderBackgroundColor);
+        boolean hasCover = mFolderIcon.mCoverDrawable != null;
+        int initialColor = hasCover
+                ? FolderSettingsHelper.getEffectiveCoverBgColor(mContext)
+                : FolderSettingsHelper.getEffectiveFolderBgColor(mContext);
+        int finalColor = FolderSettingsHelper.getEffectivePanelColor(mContext);
 
         mFolderBackground.mutate();
         mFolderBackground.setColor(mIsOpening ? initialColor : finalColor);
 
         // Set up the reveal animation that clips the Folder.
         int totalOffsetX = paddingOffsetX + previewItemOffsetX;
-        Rect startRect = new Rect(totalOffsetX,
-                paddingOffsetY,
-                Math.round((totalOffsetX + initialSize)),
-                Math.round((paddingOffsetY + initialSize)));
+        Rect startRect;
+        if (isCoverOrExpanded) {
+            // Use actual view dimensions for cover/expanded folders (may be rectangular)
+            float viewW = mFolderIcon.getWidth() * scaleRelativeToDragLayer;
+            float viewH = mFolderIcon.getHeight() * scaleRelativeToDragLayer;
+            if (viewW <= 0) viewW = initialSize;
+            if (viewH <= 0) viewH = initialSize;
+            startRect = new Rect(totalOffsetX, paddingOffsetY,
+                    Math.round(totalOffsetX + viewW),
+                    Math.round(paddingOffsetY + viewH));
+        } else {
+            startRect = new Rect(totalOffsetX, paddingOffsetY,
+                    Math.round(totalOffsetX + initialSize),
+                    Math.round(paddingOffsetY + initialSize));
+        }
         Rect endRect = new Rect(0, 0, lp.width, lp.height);
         float finalRadius = mFolderBackground.getCornerRadius();
 
@@ -238,7 +281,25 @@ public class FolderAnimationManager {
         }
         play(a, getAnimator(mFolder.mFooter, ALPHA, 0, 1f), footerStartDelay, footerAlphaDuration);
 
-        ShapeDelegate shapeDelegate = ThemeManager.INSTANCE.get(mContext).getFolderShape();
+        ShapeDelegate shapeDelegate;
+        if (mFolderIcon.isExpanded() && mFolderIcon.mCoverDrawable == null) {
+            // Expanded uncovered: use FolderIcon's cached M3 Large shape
+            shapeDelegate = mFolderIcon.getCachedExpandedShape();
+            if (shapeDelegate == null) {
+                // Fallback if shape hasn't been computed yet
+                float cornerPx = mContext.getResources().getDimension(R.dimen.m3_shape_large);
+                int minDim = Math.min(mFolderIcon.getWidth(), mFolderIcon.getHeight());
+                float halfEdge = minDim / 2f;
+                float ratio = Math.min(cornerPx / halfEdge, 1f);
+                shapeDelegate = new ShapeDelegate.RoundedSquare(ratio);
+            }
+        } else if (isCoverOrExpanded) {
+            // Covered folder (1x1 or expanded): use FolderIcon's resolved shape
+            shapeDelegate = mFolderIcon.resolveCurrentShape();
+        } else {
+            // Normal 1x1: use PreviewBackground's shape (single source of truth)
+            shapeDelegate = mPreviewBackground.getShape();
+        }
         // Create reveal animator for the folder background
         play(a, shapeDelegate.createRevealAnimator(
                 mFolder, startRect, endRect, finalRadius, !mIsOpening));
@@ -345,11 +406,20 @@ public class FolderAnimationManager {
             );
         }
 
-        int radiusDiff = scaledRadius - mPreviewBackground.getRadius();
-        addPreviewItemAnimators(a, initialScale / scaleRelativeToDragLayer,
-                // Background can have a scaled radius in drag and drop mode, so we need to add the
-                // difference to keep the preview items centered.
-                (int) (previewItemOffsetX / scaleRelativeToDragLayer) + radiusDiff, radiusDiff);
+        // Skip preview item animations for cover/expanded folders — their visuals
+        // don't use the mini-icon preview layout, so animating preview items is wrong.
+        if (!isCoverOrExpanded) {
+            int scaledRadius = mPreviewBackground.getScaledRadius();
+            int radiusDiff = scaledRadius - mPreviewBackground.getRadius();
+            addPreviewItemAnimators(a, initialScale / scaleRelativeToDragLayer,
+                    // Background can have a scaled radius in drag and drop mode, so we need to add
+                    // the difference to keep the preview items centered.
+                    (int) (previewItemOffsetX / scaleRelativeToDragLayer) + radiusDiff, radiusDiff);
+        } else {
+            // For cover/expanded folders: fade content items in/out
+            // This prevents them from glitching during the reveal animation
+            addCoverExpandedItemFade(a);
+        }
         return a;
     }
 
@@ -461,6 +531,34 @@ public class FolderAnimationManager {
                 }
             });
         }
+    }
+
+    /**
+     * For cover/expanded folders: fade content items in on open, fade out on close.
+     * This replaces the preview-item translate animation used by normal folders.
+     */
+    private void addCoverExpandedItemFade(AnimatorSet animatorSet) {
+        List<View> icons = mFolder.getItemsOnPage(mFolder.mContent.getCurrentPage());
+        for (View icon : icons) {
+            // Fade: 0 → 1 on open, 1 → 0 on close
+            float fromAlpha = mIsOpening ? 0f : 1f;
+            float toAlpha = mIsOpening ? 1f : 0f;
+            icon.setAlpha(fromAlpha);
+            ObjectAnimator alphaAnim = ObjectAnimator.ofFloat(icon, View.ALPHA, fromAlpha, toAlpha);
+            alphaAnim.setInterpolator(mIsOpening ? mFolderOpenInterpolator
+                    : mFolderCloseInterpolator);
+            play(animatorSet, alphaAnim);
+        }
+        // Single listener to reset all icon alphas (not one per icon)
+        animatorSet.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                super.onAnimationEnd(animation);
+                for (View icon : icons) {
+                    icon.setAlpha(1f);
+                }
+            }
+        });
     }
 
     private void play(AnimatorSet as, Animator a) {

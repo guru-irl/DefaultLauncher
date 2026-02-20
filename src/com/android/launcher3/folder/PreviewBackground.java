@@ -42,6 +42,7 @@ import android.util.Property;
 import android.view.View;
 import android.view.animation.Interpolator;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.launcher3.CellLayout;
@@ -51,6 +52,7 @@ import com.android.launcher3.anim.SpringAnimationBuilder;
 import com.android.launcher3.celllayout.DelegatedCellDrawing;
 import com.android.launcher3.graphics.ShapeDelegate;
 import com.android.launcher3.graphics.ThemeManager;
+import com.android.launcher3.settings.FolderSettingsHelper;
 import com.android.launcher3.util.Themes;
 import com.android.launcher3.views.ActivityContext;
 
@@ -90,6 +92,8 @@ public class PreviewBackground extends DelegatedCellDrawing {
     int previewSize;
     int basePreviewOffsetX;
     int basePreviewOffsetY;
+
+    @Nullable private ShapeDelegate mResolvedShape;
 
     private CellLayout mDrawingDelegate;
 
@@ -173,8 +177,10 @@ public class PreviewBackground extends DelegatedCellDrawing {
         TypedArray ta = context.getTheme().obtainStyledAttributes(R.styleable.FolderIconPreview);
         mDotColor = Themes.getAttrColor(context, R.attr.notificationDotColor);
         mStrokeColor = ta.getColor(R.styleable.FolderIconPreview_folderIconBorderColor, 0);
-        mBgColor = ta.getColor(R.styleable.FolderIconPreview_folderPreviewColor, 0);
         ta.recycle();
+
+        // Folder bg color: centralized resolve + fallback + opacity
+        mBgColor = FolderSettingsHelper.getEffectiveFolderBgColor(context);
 
         DeviceProfile grid = activity.getDeviceProfile();
         previewSize = grid.folderIconSizePx;
@@ -261,8 +267,28 @@ public class PreviewBackground extends DelegatedCellDrawing {
         drawShadow(canvas);
     }
 
-    private ShapeDelegate getShape() {
-        return ThemeManager.INSTANCE.get(mContext).getFolderShape();
+    /** Draws the background with a color override (used for cover folders). */
+    public void drawBackground(Canvas canvas, int colorOverride) {
+        mPaint.setStyle(Paint.Style.FILL);
+        mPaint.setColor(colorOverride);
+        getShape().drawShape(canvas, getOffsetX(), getOffsetY(), getScaledRadius(), mPaint);
+        drawShadow(canvas);
+    }
+
+    /**
+     * Sets the resolved shape for this folder icon background.
+     * Called by FolderIcon after resolving per-folder → global → theme priority.
+     * When null, falls back to global/theme resolution (for standalone use during
+     * folder creation animations).
+     */
+    public void setResolvedShape(@Nullable ShapeDelegate shape) {
+        mResolvedShape = shape;
+    }
+
+    ShapeDelegate getShape() {
+        if (mResolvedShape != null) return mResolvedShape;
+        ShapeDelegate custom = FolderSettingsHelper.resolveFolderIconShape(mContext);
+        return custom != null ? custom : ThemeManager.INSTANCE.get(mContext).getFolderShape();
     }
 
     public void drawShadow(Canvas canvas) {

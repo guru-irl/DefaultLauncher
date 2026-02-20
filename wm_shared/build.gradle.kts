@@ -28,7 +28,7 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core:1.16.0")
+    implementation("androidx.core:core:1.17.0")
     implementation("androidx.annotation:annotation:1.9.1")
     implementation("androidx.core:core-animation:1.0.0")
     implementation("androidx.dynamicanimation:dynamicanimation-ktx:1.1.0")

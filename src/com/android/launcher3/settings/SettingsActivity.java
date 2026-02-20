@@ -270,7 +270,7 @@ public class SettingsActivity extends AppCompatActivity
      * Icon pack/shape/size dialogs have been moved to sub-page fragments
      * (HomeScreenFragment, AppDrawerFragment) via IconSettingsHelper.
      */
-    public static class LauncherSettingsFragment extends PreferenceFragmentCompat implements
+    public static class LauncherSettingsFragment extends SettingsBaseFragment implements
             SettingsCache.OnChangeListener {
 
         private static final int REQUEST_CODE_SET_DEFAULT = 1001;
@@ -388,23 +388,6 @@ public class SettingsActivity extends AppCompatActivity
         @Override
         public void onViewCreated(View view, Bundle savedInstanceState) {
             super.onViewCreated(view, savedInstanceState);
-            View listView = getListView();
-            final int bottomPadding = listView.getPaddingBottom();
-            listView.setOnApplyWindowInsetsListener((v, insets) -> {
-                v.setPadding(
-                        v.getPaddingLeft(),
-                        v.getPaddingTop(),
-                        v.getPaddingRight(),
-                        bottomPadding + insets.getSystemWindowInsetBottom());
-                return insets.consumeSystemWindowInsets();
-            });
-
-            // Overriding Text Direction in the Androidx preference library to support RTL
-            view.setTextDirection(View.TEXT_DIRECTION_LOCALE);
-
-            // Card group decoration for Lawnchair-style sectioned cards
-            RecyclerView rv = getListView();
-            rv.addItemDecoration(new CardGroupItemDecoration(getContext()));
 
             // Fix icon centering: equalize card-edge-to-icon and icon-to-text gaps.
             // Library image_frame.xml uses @+id/icon_frame (R.id, NOT android.R.id)
@@ -414,6 +397,7 @@ public class SettingsActivity extends AppCompatActivity
             final Resources res = getResources();
             final int iconPad = res.getDimensionPixelSize(R.dimen.settings_icon_padding);
             final int endPad = res.getDimensionPixelSize(R.dimen.settings_icon_end_padding);
+            RecyclerView rv = getListView();
             rv.addOnChildAttachStateChangeListener(
                     new RecyclerView.OnChildAttachStateChangeListener() {
                 @Override

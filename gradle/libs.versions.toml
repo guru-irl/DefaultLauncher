@@ -61,7 +61,7 @@ maven-plugin-annotations = "3.15.2"
 # https://mvnrepository.com/artifact/org.codehaus.plexus/plexus-utils
 plexus-utils = "4.0.0"
 # https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
-jacson-databind = "2.16.1"
+jackson-databind = "2.16.1"
 # https://mvnrepository.com/artifact/org.apache.maven/maven-plugin-api
 maven-plugin-api = "3.9.11"
 richeditor-compose = "1.0.0-beta02"
@@ -112,7 +112,7 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 dom4j = { module = "org.dom4j:dom4j", version.ref = "dom4j" }
 json = { module = "org.json:json", version.ref = "json" }
 maven-plugin-annotations = { module = "org.apache.maven.plugin-tools:maven-plugin-annotations", version.ref = "maven-plugin-annotations" }
-jacson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jacson-databind" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson-databind" }
 maven-plugin-api = { module = "org.apache.maven:maven-plugin-api", version.ref = "maven-plugin-api" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }

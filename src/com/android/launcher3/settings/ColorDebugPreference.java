@@ -151,15 +151,21 @@ public class ColorDebugPreference extends Preference {
     private void updateGridColors(GridLayout grid) {
         Context ctx = getContext();
         for (int i = 0; i < grid.getChildCount() && i < COLOR_RESOURCES.length; i++) {
+            View child = grid.getChildAt(i);
+            if (!(child instanceof LinearLayout)) continue;
+            LinearLayout swatch = (LinearLayout) child;
             int color = ctx.getColor(COLOR_RESOURCES[i]);
-            LinearLayout swatch = (LinearLayout) grid.getChildAt(i);
             // Update color rect background
             View colorRect = swatch.getChildAt(0);
-            GradientDrawable bg = (GradientDrawable) colorRect.getBackground();
-            bg.setColor(color);
+            if (colorRect != null && colorRect.getBackground() instanceof GradientDrawable) {
+                ((GradientDrawable) colorRect.getBackground()).setColor(color);
+            }
             // Update label text
-            TextView tv = (TextView) swatch.getChildAt(1);
-            tv.setText(COLOR_NAMES[i] + "\n" + String.format("#%06X", 0xFFFFFF & color));
+            View labelChild = swatch.getChildAt(1);
+            if (labelChild instanceof TextView) {
+                ((TextView) labelChild).setText(
+                        COLOR_NAMES[i] + "\n" + String.format("#%06X", 0xFFFFFF & color));
+            }
         }
     }
 }

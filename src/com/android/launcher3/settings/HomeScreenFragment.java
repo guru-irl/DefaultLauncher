@@ -22,10 +22,8 @@ import android.content.Context;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.View;
-import android.widget.Toast;
 
 import androidx.preference.Preference;
-import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -41,7 +39,6 @@ import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.dagger.LauncherComponentProvider;
 import com.android.launcher3.graphics.ThemeManager;
-import com.android.launcher3.icons.DrawerIconResolver;
 import com.android.launcher3.icons.LauncherIcons;
 import com.android.launcher3.icons.PerAppHomeIconResolver;
 import com.android.launcher3.icons.pack.IconPackManager;
@@ -52,7 +49,7 @@ import com.android.launcher3.util.Executors;
  * Fragment for the Home Screen settings sub-page.
  * Contains: icon pack, adaptive shape switch, icon shape, icon size, reset all custom icons.
  */
-public class HomeScreenFragment extends PreferenceFragmentCompat {
+public class HomeScreenFragment extends SettingsBaseFragment {
 
     private boolean mIconSizeBound = false;
     private int mLastPresetButtonId = View.NO_ID;
@@ -149,25 +146,8 @@ public class HomeScreenFragment extends PreferenceFragmentCompat {
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Edge-to-edge insets
-        View listView = getListView();
-        final int bottomPadding = listView.getPaddingBottom();
-        listView.setOnApplyWindowInsetsListener((v, insets) -> {
-            v.setPadding(
-                    v.getPaddingLeft(),
-                    v.getPaddingTop(),
-                    v.getPaddingRight(),
-                    bottomPadding + insets.getSystemWindowInsetBottom());
-            return insets.consumeSystemWindowInsets();
-        });
-
-        view.setTextDirection(View.TEXT_DIRECTION_LOCALE);
-
-        // Card group decoration
-        RecyclerView rv = getListView();
-        rv.addItemDecoration(new CardGroupItemDecoration(getContext()));
-
         // Bind icon size toggle when its view attaches
+        RecyclerView rv = getListView();
         rv.addOnChildAttachStateChangeListener(
                 new RecyclerView.OnChildAttachStateChangeListener() {
             @Override

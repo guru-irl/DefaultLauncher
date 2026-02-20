@@ -19,6 +19,7 @@
 package com.android.launcher3.settings;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Canvas;
@@ -26,6 +27,8 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.view.View;
 
 import com.android.launcher3.R;
@@ -61,6 +64,7 @@ public class CardGroupItemDecoration extends RecyclerView.ItemDecoration {
     private final int mGroupBottomMargin;
     private final Path mTempPath = new Path();
     private final RectF mTempRect = new RectF();
+    private final int mRippleColor;
 
     public CardGroupItemDecoration(Context ctx) {
         Resources res = ctx.getResources();
@@ -78,6 +82,7 @@ public class CardGroupItemDecoration extends RecyclerView.ItemDecoration {
                 ? com.google.android.material.R.attr.colorSurfaceContainer
                 : com.google.android.material.R.attr.colorSurface);
         mCardPaint.setColor(cardColor);
+        mRippleColor = Themes.getAttrColor(ctx, android.R.attr.colorControlHighlight);
     }
 
     @Override
@@ -125,7 +130,36 @@ public class CardGroupItemDecoration extends RecyclerView.ItemDecoration {
                     bottomRight, bottomRight, bottomLeft, bottomLeft
             }, Path.Direction.CW);
             c.drawPath(mTempPath, mCardPaint);
+
+            applyRipple(child, topLeft, topRight, bottomRight, bottomLeft);
         }
+    }
+
+    private void applyRipple(View child,
+            float topLeft, float topRight, float bottomRight, float bottomLeft) {
+        Object tag = child.getTag(R.id.card_ripple_tag);
+        float[] radii = {
+                topLeft, topLeft, topRight, topRight,
+                bottomRight, bottomRight, bottomLeft, bottomLeft
+        };
+        if (tag instanceof RippleDrawable) {
+            // Update existing mask radii without recreating
+            RippleDrawable rd = (RippleDrawable) tag;
+            GradientDrawable mask = (GradientDrawable) rd.findDrawableByLayerId(
+                    android.R.id.mask);
+            if (mask != null) {
+                mask.setCornerRadii(radii);
+            }
+            return;
+        }
+        GradientDrawable mask = new GradientDrawable();
+        mask.setShape(GradientDrawable.RECTANGLE);
+        mask.setCornerRadii(radii);
+        mask.setColor(0xFFFFFFFF);
+        RippleDrawable ripple = new RippleDrawable(
+                ColorStateList.valueOf(mRippleColor), null, mask);
+        child.setBackground(ripple);
+        child.setTag(R.id.card_ripple_tag, ripple);
     }
 
     @Override

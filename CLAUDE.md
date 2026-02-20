@@ -89,6 +89,13 @@ Three patterns used in the codebase:
 
 For settings that trigger grid reconfiguration from `SettingsActivity`, use `getListView().post()` to ensure the preference value is persisted before `onConfigChanged()` reads it.
 
+### Debug Logging
+- Guard pattern: `private static final boolean DEBUG_* = BuildConfig.DEBUG;` + `if (DEBUG_*) Log.d(TAG, ...);`
+- TAG constant: `private static final String TAG = "ClassName";`
+- Never use hardcoded string tags in Log calls
+- Never remove diagnostic logging -- wrap it in guards instead
+- Default to `BuildConfig.DEBUG` so logs auto-enable in debug builds
+
 ## Known Build Issues
 
 - `framework-16.jar` is applied to all subprojects via `subprojects {}` block in root `build.gradle`

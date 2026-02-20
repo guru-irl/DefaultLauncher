@@ -137,9 +137,11 @@ public class ItemClickHandler {
      * @param v The view that was clicked. Must be an instance of {@link FolderIcon}.
      */
     private static void onClickFolderIcon(View v) {
-        Folder folder = ((FolderIcon) v).getFolder();
+        FolderIcon folderIcon = (FolderIcon) v;
+        Folder folder = folderIcon.getFolder();
         if (!folder.isOpen() && !folder.isDestroyed()) {
-            // Open the requested folder
+            // For expanded folders, sub-icon taps are handled in FolderIcon.onTouchEvent;
+            // this click handler only fires for general area taps → always open.
             folder.animateOpen();
             StatsLogManager.newInstance(v.getContext()).logger().withItemInfo(folder.mInfo)
                     .log(LAUNCHER_FOLDER_OPEN);

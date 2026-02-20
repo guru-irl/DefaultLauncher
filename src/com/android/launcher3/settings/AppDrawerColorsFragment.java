@@ -20,12 +20,9 @@ package com.android.launcher3.settings;
 
 import android.os.Bundle;
 import android.os.UserManager;
-import android.view.View;
 
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
-import androidx.preference.PreferenceFragmentCompat;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.LauncherFiles;
@@ -35,7 +32,7 @@ import com.android.launcher3.R;
 /**
  * Fragment for the App Drawer Colors settings sub-page.
  */
-public class AppDrawerColorsFragment extends PreferenceFragmentCompat {
+public class AppDrawerColorsFragment extends SettingsBaseFragment {
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -55,6 +52,14 @@ public class AppDrawerColorsFragment extends PreferenceFragmentCompat {
         configureColorPicker("pref_drawer_tab_unselected_color",
                 LauncherPrefs.DRAWER_TAB_UNSELECTED_COLOR, R.color.materialColorOnSurfaceVariant);
 
+        // Folder color pickers — defaults from FolderSettingsHelper (single source of truth)
+        configureColorPickerWithDefault("pref_folder_icon_color",
+                LauncherPrefs.FOLDER_COVER_BG_COLOR,
+                FolderSettingsHelper.getDefaultCoverBgColor(getContext()));
+        configureColorPickerWithDefault("pref_folder_bg_color",
+                LauncherPrefs.FOLDER_BG_COLOR,
+                FolderSettingsHelper.getDefaultFolderBgColor(getContext()));
+
         // Wire opacity slider changes to trigger recreation
         Preference opacityPref = findPreference("pref_drawer_bg_opacity");
         if (opacityPref != null) {
@@ -68,6 +73,15 @@ public class AppDrawerColorsFragment extends PreferenceFragmentCompat {
         Preference searchOpacityPref = findPreference("pref_drawer_search_bg_opacity");
         if (searchOpacityPref != null) {
             searchOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> {
+                getListView().post(() ->
+                        InvariantDeviceProfile.INSTANCE.get(getContext())
+                                .onConfigChanged(getContext()));
+                return true;
+            });
+        }
+        Preference folderOpacityPref = findPreference("pref_folder_bg_opacity");
+        if (folderOpacityPref != null) {
+            folderOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> {
                 getListView().post(() ->
                         InvariantDeviceProfile.INSTANCE.get(getContext())
                                 .onConfigChanged(getContext()));
@@ -121,26 +135,4 @@ public class AppDrawerColorsFragment extends PreferenceFragmentCompat {
         }
     }
 
-    @Override
-    public void onViewCreated(View view, Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-
-        // Edge-to-edge insets
-        View listView = getListView();
-        final int bottomPadding = listView.getPaddingBottom();
-        listView.setOnApplyWindowInsetsListener((v, insets) -> {
-            v.setPadding(
-                    v.getPaddingLeft(),
-                    v.getPaddingTop(),
-                    v.getPaddingRight(),
-                    bottomPadding + insets.getSystemWindowInsetBottom());
-            return insets.consumeSystemWindowInsets();
-        });
-
-        view.setTextDirection(View.TEXT_DIRECTION_LOCALE);
-
-        // Card group decoration
-        RecyclerView rv = getListView();
-        rv.addItemDecoration(new CardGroupItemDecoration(getContext()));
-    }
 }

@@ -19,12 +19,10 @@
 package com.android.launcher3.settings;
 
 import android.os.Bundle;
-import android.view.View;
 
 import androidx.preference.Preference;
-import androidx.preference.PreferenceFragmentCompat;
-import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.launcher3.BuildConfig;
 import com.android.launcher3.LauncherFiles;
 import com.android.launcher3.R;
 
@@ -32,12 +30,18 @@ import com.android.launcher3.R;
  * Fragment for the Debug settings sub-page.
  * Contains: theme color debug swatches.
  */
-public class DebugFragment extends PreferenceFragmentCompat {
+public class DebugFragment extends SettingsBaseFragment {
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         getPreferenceManager().setSharedPreferencesName(LauncherFiles.SHARED_PREFERENCES_KEY);
         setPreferencesFromResource(R.xml.debug_preferences, rootKey);
+
+        Preference versionPref = findPreference("pref_app_version");
+        if (versionPref != null) {
+            versionPref.setSummary(BuildConfig.VERSION_NAME
+                    + " (" + BuildConfig.VERSION_CODE + ")");
+        }
 
         Preference restartPref = findPreference("pref_restart_launcher");
         if (restartPref != null) {
@@ -46,28 +50,5 @@ public class DebugFragment extends PreferenceFragmentCompat {
                 return true;
             });
         }
-    }
-
-    @Override
-    public void onViewCreated(View view, Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-
-        // Edge-to-edge insets
-        View listView = getListView();
-        final int bottomPadding = listView.getPaddingBottom();
-        listView.setOnApplyWindowInsetsListener((v, insets) -> {
-            v.setPadding(
-                    v.getPaddingLeft(),
-                    v.getPaddingTop(),
-                    v.getPaddingRight(),
-                    bottomPadding + insets.getSystemWindowInsetBottom());
-            return insets.consumeSystemWindowInsets();
-        });
-
-        view.setTextDirection(View.TEXT_DIRECTION_LOCALE);
-
-        // Card group decoration
-        RecyclerView rv = getListView();
-        rv.addItemDecoration(new CardGroupItemDecoration(getContext()));
     }
 }

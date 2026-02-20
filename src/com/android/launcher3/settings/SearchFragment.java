@@ -30,16 +30,12 @@ import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
 import androidx.preference.Preference;
-import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.launcher3.LauncherFiles;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
-import com.android.launcher3.settings.CardGroupItemDecoration;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import java.util.ArrayList;
@@ -49,7 +45,7 @@ import java.util.List;
  * Settings sub-page for configuring universal search.
  * Provides per-category toggles and web search app chooser.
  */
-public class SearchFragment extends PreferenceFragmentCompat {
+public class SearchFragment extends SettingsBaseFragment {
 
     private static final int REQUEST_READ_CONTACTS = 100;
     private static final int REQUEST_READ_CALENDAR = 101;
@@ -146,16 +142,6 @@ public class SearchFragment extends PreferenceFragmentCompat {
                 showWebSearchAppChooser(pref);
                 return true;
             });
-        }
-    }
-
-    @Override
-    public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-        RecyclerView recyclerView = getListView();
-        if (recyclerView != null) {
-            recyclerView.addItemDecoration(
-                    new CardGroupItemDecoration(requireContext()));
         }
     }
 
