@@ -47,8 +47,13 @@ public class LauncherRootView extends InsettableFrameLayout {
     }
 
     private void handleSystemWindowInsets(Rect insets) {
+        DeviceProfile dp = mStatefulContainer.getDeviceProfile();
+        if (DEBUG_WS_PAD && !insets.equals(dp.getInsets())) {
+            Log.d(TAG, "handleSystemWindowInsets: insets changed!"
+                    + " profile=" + dp.getInsets() + " incoming=" + insets);
+        }
         // Update device profile before notifying the children.
-        mStatefulContainer.getDeviceProfile().updateInsets(insets);
+        dp.updateInsets(insets);
         boolean resetState = !insets.equals(mInsets);
         setInsets(insets);
 

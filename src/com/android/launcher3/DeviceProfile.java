@@ -1913,7 +1913,22 @@ public class DeviceProfile {
     }
 
     public void updateInsets(Rect insets) {
+        if (mInsets.equals(insets)) return;
+
+        if (DEBUG_SQUARE_GRID) {
+            Log.d(TAG, "updateInsets: " + mInsets + " → " + insets);
+        }
+
         mInsets.set(insets);
+
+        // Recalculate workspace padding — it references mInsets.bottom
+        // (square grid: workspacePadding.bottom = hotseatBarSizePx - mInsets.bottom)
+        updateWorkspacePadding();
+
+        if (DEBUG_SQUARE_GRID) {
+            Log.d(TAG, String.format("  wsPad=%s getCellLayoutH=%d",
+                    workspacePadding, getCellLayoutHeight()));
+        }
     }
 
     /**

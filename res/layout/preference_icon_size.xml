@@ -31,7 +31,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
         app:singleSelection="true"
-        app:selectionRequired="false">
+        app:selectionRequired="true">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_size_s"
