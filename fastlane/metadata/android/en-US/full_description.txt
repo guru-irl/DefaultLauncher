@@ -1,0 +1,50 @@
+Default Launcher is a clean, customizable home screen built on AOSP Launcher3 from Android 16. No bloat, no tracking, no internet connections. Just a fast, beautiful launcher that respects your privacy.
+
+
+PRIVACY FIRST
+
+Fully offline. No internet permissions, no telemetry, no analytics, no ads. Your home screen data never leaves your device. The source code is open for anyone to verify.
+
+
+SMART CONFIGURABLE GRID
+
+Pick your columns (4 to 10) and rows are calculated automatically so every cell is a perfect square. Icons rearrange themselves when you change the grid, so nothing gets deleted. The dock is part of the grid with consistent spacing, not a separate floating bar.
+
+
+ICON CUSTOMIZATION
+
+Thousands of icon packs supported in ADW format. Choose a global icon shape: circle, square, cookie, arch, or raw. Customize individual app icons from the long-press menu with different icons for the home screen and app drawer.
+
+
+ADVANCED FOLDERS
+
+- Cover icons: replace the mini-icon preview with a monochrome emoji from a searchable picker
+- Expanded folders: display folder contents directly on the home screen as a 2x2 or 3x3 grid
+- Resize: drag corner handles to grow or shrink folders on the workspace
+- Per-folder shapes: override the global icon shape on individual folders
+- Customizable colors: separate background colors for folder icons, open panels, and covers
+
+
+APP DRAWER
+
+Adjustable label size with two-line labels for long app names. Configurable row spacing. Background color and opacity controls. Custom scrollbar color.
+
+
+UNIVERSAL SEARCH
+
+Search apps, shortcuts, contacts, calendar events, and files from one place. Built-in calculator and unit converter. Choose your preferred web search app. Filter results with category chips.
+
+
+MATERIAL 3 DESIGN
+
+Dynamic colors that adapt to your wallpaper. Full dark mode support. Customizable colors for the drawer background, search bar, tabs, and folders.
+
+
+GESTURES
+
+Swipe down for notifications. Swipe up for the app drawer.
+
+
+BUILT ON AOSP
+
+Based directly on Android 16's Launcher3 source code. No proprietary Google dependencies. Reliable and lightweight.
