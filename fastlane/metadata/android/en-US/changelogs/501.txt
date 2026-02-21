@@ -1,0 +1,5 @@
+- Fix workspace bottom row clipping on inset changes
+- Fix icon size selector allowing empty selection
+- Refreshed app icon with monochrome layer for themed icons
+- New scale-icon-path script for SVG/VectorDrawable paths
+- Scripts reorganized into scripts/ directory
