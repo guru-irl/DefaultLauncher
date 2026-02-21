@@ -1,0 +1,1 @@
+A privacy-first Android launcher built on AOSP Launcher3 with Material 3 design.

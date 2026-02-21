@@ -1,0 +1,5 @@
+- Advanced folders: cover icons with emoji picker, expanded folder display, resize handles, per-folder icon shapes, customizable folder colors
+- App icon refresh and workspace clipping fix
+- Code quality refactoring and dead code cleanup
+- Material 3 Expressive typography migration
+- Settings visual polish and bug fixes

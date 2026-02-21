@@ -18,6 +18,15 @@
   <img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-orange">
 </p>
 
+<p align="center">
+  <a href="https://github.com/guru-irl/DefaultLauncher/releases/latest">
+    <img src="https://img.shields.io/github/v/release/guru-irl/DefaultLauncher?logo=github&label=GitHub%20Release" alt="GitHub Release" height="28">
+  </a>
+  <a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/guru-irl/DefaultLauncher">
+    <img src="https://img.shields.io/badge/Obtainium-Auto--Update-teal" alt="Add to Obtainium" height="28">
+  </a>
+</p>
+
 ---
 
 ## Features
@@ -74,7 +83,23 @@
 
 ## Screenshots
 
-*Coming soon*
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01_home_screen.png" alt="Home Screen" width="240">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/02_app_drawer.png" alt="App Drawer" width="240">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03_search.png" alt="Search" width="240">
+</p>
+
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/06_folder_open.png" alt="Folder Open" width="240">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/07_icon_customization.png" alt="Icon Customization" width="240">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/08_settings.png" alt="Settings" width="240">
+</p>
+
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/04_calculator.png" alt="Calculator" width="240">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/05_unit_converter.png" alt="Unit Converter" width="240">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/09_dark_mode.png" alt="Dark Mode" width="240">
+</p>
 
 ## Documentation
 
