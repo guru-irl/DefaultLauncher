@@ -19,7 +19,7 @@ Custom Android launcher based on AOSP Launcher3 (Android 16 s2-release).
 
 | Guide | Description |
 |-------|-------------|
-| [Adding Settings](guides/adding-settings) | Step-by-step guide for adding new preferences |
+| [Adding Settings](adding-settings) | Step-by-step guide for adding new preferences |
 
 ## Change Log
 
@@ -27,34 +27,34 @@ Numbered implementation docs tracking each feature and fix:
 
 | # | Change |
 |---|--------|
-| [031](changes/031-app-icon-refresh-and-workspace-clipping-fix) | App icon refresh & workspace clipping fix |
-| [030](changes/030-folder-refactoring) | Folder refactoring |
-| [029](changes/029-folder-features) | Folder features |
-| [028](changes/028-settings-visual-polish-and-fixes) | Settings visual polish |
-| [027](changes/027-m3-expressive-migration) | M3 Expressive migration |
-| [026](changes/026-code-quality-refactoring) | Code quality refactoring |
-| [025](changes/025-wallpaper-scroll-toggle-adaptive-refresh-close-anim) | Wallpaper scroll, adaptive refresh, close animation |
-| [024](changes/024-dead-code-cleanup) | Dead code cleanup |
-| [023](changes/023-search-perf-drawer-cache-crash-fixes) | Search performance & crash fixes |
-| [022](changes/022-settings-surface-colors-and-ui-polish) | Settings surface colors & UI polish |
-| [021](changes/021-per-app-render-overrides-and-sentinel-redesign) | Per-app render overrides & sentinel redesign |
-| [020](changes/020-per-app-icon-customization) | Per-app icon customization |
-| [019](changes/019-settings-toolbar-grid-preview) | Settings toolbar & grid preview |
-| [018](changes/018-colors-page-reorganization) | Colors page reorganization |
-| [017](changes/017-search-animation-home-transition-work-fab) | Search animation & home transition |
-| [016](changes/016-universal-search) | Universal search |
-| [015](changes/015-app-visibility-default-banner-restart) | App visibility & default banner |
-| [014](changes/014-settings-ui-polish) | Settings UI polish |
-| [013](changes/013-app-drawer-colors-fixes) | App drawer colors fixes |
-| [012](changes/012-app-drawer-colors) | App drawer colors |
-| [011](changes/011-swipe-down-notification-shade) | Swipe down notification shade |
-| [010](changes/010-app-drawer-label-settings) | App drawer label settings |
-| [009](changes/009-m3-app-drawer-polish) | M3 app drawer polish |
-| [008](changes/008-m3-settings-redesign) | M3 settings redesign |
-| [007](changes/007-icon-size-selector) | Icon size selector |
-| [006](changes/006-adw-icon-pack-support) | ADW icon pack support |
-| [005](changes/005-app-drawer-cleanup) | App drawer cleanup |
-| [004](changes/004-opinionated-defaults-and-gap-constants) | Opinionated defaults & gap constants |
-| [003](changes/003-grid-reflow-on-column-decrease) | Grid reflow on column decrease |
-| [002](changes/002-hotseat-as-workspace-row) | Hotseat as workspace row |
-| [001](changes/001-square-grid-system) | Square grid system |
+| [031](031-app-icon-refresh-and-workspace-clipping-fix) | App icon refresh & workspace clipping fix |
+| [030](030-folder-refactoring) | Folder refactoring |
+| [029](029-folder-features) | Folder features |
+| [028](028-settings-visual-polish-and-fixes) | Settings visual polish |
+| [027](027-m3-expressive-migration) | M3 Expressive migration |
+| [026](026-code-quality-refactoring) | Code quality refactoring |
+| [025](025-wallpaper-scroll-toggle-adaptive-refresh-close-anim) | Wallpaper scroll, adaptive refresh, close animation |
+| [024](024-dead-code-cleanup) | Dead code cleanup |
+| [023](023-search-perf-drawer-cache-crash-fixes) | Search performance & crash fixes |
+| [022](022-settings-surface-colors-and-ui-polish) | Settings surface colors & UI polish |
+| [021](021-per-app-render-overrides-and-sentinel-redesign) | Per-app render overrides & sentinel redesign |
+| [020](020-per-app-icon-customization) | Per-app icon customization |
+| [019](019-settings-toolbar-grid-preview) | Settings toolbar & grid preview |
+| [018](018-colors-page-reorganization) | Colors page reorganization |
+| [017](017-search-animation-home-transition-work-fab) | Search animation & home transition |
+| [016](016-universal-search) | Universal search |
+| [015](015-app-visibility-default-banner-restart) | App visibility & default banner |
+| [014](014-settings-ui-polish) | Settings UI polish |
+| [013](013-app-drawer-colors-fixes) | App drawer colors fixes |
+| [012](012-app-drawer-colors) | App drawer colors |
+| [011](011-swipe-down-notification-shade) | Swipe down notification shade |
+| [010](010-app-drawer-label-settings) | App drawer label settings |
+| [009](009-m3-app-drawer-polish) | M3 app drawer polish |
+| [008](008-m3-settings-redesign) | M3 settings redesign |
+| [007](007-icon-size-selector) | Icon size selector |
+| [006](006-adw-icon-pack-support) | ADW icon pack support |
+| [005](005-app-drawer-cleanup) | App drawer cleanup |
+| [004](004-opinionated-defaults-and-gap-constants) | Opinionated defaults & gap constants |
+| [003](003-grid-reflow-on-column-decrease) | Grid reflow on column decrease |
+| [002](002-hotseat-as-workspace-row) | Hotseat as workspace row |
+| [001](001-square-grid-system) | Square grid system |
