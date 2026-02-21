@@ -74,7 +74,7 @@ android {
     sourceSets {
         main {
             res.srcDirs = ['res']
-            java.srcDirs = ['src', 'shared/src']
+            java.srcDirs = ['src']
             assets.srcDirs = ['assets']
             manifest.srcFile 'AndroidManifest-common.xml'
             proto {
@@ -88,6 +88,10 @@ android {
 
     buildFeatures {
         buildConfig = true
+    }
+
+    lint {
+        checkReleaseBuilds false
     }
 
 }
@@ -188,9 +192,9 @@ dependencies {
     implementation files('prebuilts/libs/SystemUI-statsd.jar')
     implementation files('prebuilts/libs/am_flags_lib.jar')
     implementation files('prebuilts/libs/com_android_window_flags.jar')
-    implementation files('prebuilts/libs/com_android_systemui_flags.jar')
-    implementation files('prebuilts/libs/com_android_systemui_shared_flags.jar')
-    implementation files('prebuilts/libs/com_android_wm_shell_flags.jar')
+    compileOnly files('prebuilts/libs/com_android_systemui_flags.jar')
+    compileOnly files('prebuilts/libs/com_android_systemui_shared_flags.jar')
+    compileOnly files('prebuilts/libs/com_android_wm_shell_flags.jar')
     implementation files('prebuilts/libs/PlatformAnimationLib.jar')
     implementation files('prebuilts/libs/PlatformAnimationLib_kotlin.jar')
     implementation files('prebuilts/libs/PluginAnnotationLib.jar')
