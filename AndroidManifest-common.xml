@@ -79,6 +79,7 @@
         android:fullBackupContent="@xml/backupscheme"
         android:hardwareAccelerated="true"
         android:icon="@drawable/ic_launcher_home"
+        android:roundIcon="@drawable/ic_launcher_home"
         android:label="@string/derived_app_name"
         android:theme="@style/AppTheme"
         android:largeHeap="@bool/config_largeHeap"
@@ -121,6 +122,7 @@
             android:name="com.android.launcher3.LauncherAppDrawerAlias"
             android:targetActivity="com.android.launcher3.Launcher"
             android:icon="@drawable/ic_launcher_home"
+            android:roundIcon="@drawable/ic_launcher_home"
             android:label="@string/derived_app_name"
             android:exported="true">
             <intent-filter>
