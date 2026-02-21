@@ -15,11 +15,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Prepare wiki content
+        run: |
+          # Copy docs to a staging directory
+          cp -r docs wiki-stage
+
+          # GitHub wiki flattens all pages to root level, so links like
+          # (changes/001-foo) must become (001-foo) for the wiki.
+          # Rewrite markdown links: strip known subdirectory prefixes.
+          find wiki-stage -name '*.md' -exec sed -i -E \
+            's/\]\((changes|guides)\//](/g' {} +
+
+          # Remove non-wiki files
+          rm -rf wiki-stage/changes/banner*.svg \
+                 wiki-stage/changes/GlyphToPath.java \
+                 wiki-stage/changes/workflows/
+
       - uses: Andrew-Chen-Wang/github-wiki-action@v4
         with:
           strategy: init
-          path: docs
-          ignore: |
-            changes/banner*.svg
-            changes/GlyphToPath.java
-            changes/workflows/
+          path: wiki-stage
