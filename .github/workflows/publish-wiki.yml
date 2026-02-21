@@ -18,14 +18,19 @@ jobs:
 
       - name: Prepare wiki content
         run: |
-          # Copy docs to a staging directory
           cp -r docs wiki-stage
 
-          # GitHub wiki flattens all pages to root level, so links like
-          # (changes/001-foo) must become (001-foo) for the wiki.
-          # Rewrite markdown links: strip known subdirectory prefixes.
+          # README.md → Home.md (wiki landing page)
+          mv wiki-stage/README.md wiki-stage/Home.md
+
+          # GitHub wiki flattens pages to root level and doesn't use .md in links.
+          # Rewrite markdown links: strip subdirectory prefixes and .md suffixes.
+          # Also rewrite the Home link from README.md → Home.
           find wiki-stage -name '*.md' -exec sed -i -E \
-            's/\]\((changes|guides)\//](/g' {} +
+            -e 's/\]\(README\.md\)/](Home)/g' \
+            -e 's/\]\((changes|guides)\//](/g' \
+            -e 's/\.md\)/)/' \
+            {} +
 
           # Remove non-wiki files
           rm -rf wiki-stage/changes/banner*.svg \
