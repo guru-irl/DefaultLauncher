@@ -1,0 +1,25 @@
+name: Publish wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - .github/workflows/publish-wiki.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Andrew-Chen-Wang/github-wiki-action@v4
+        with:
+          strategy: init
+          path: docs
+          ignore: |
+            changes/banner*.svg
+            changes/GlyphToPath.java
+            changes/workflows/
