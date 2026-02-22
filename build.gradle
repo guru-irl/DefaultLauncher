@@ -58,8 +58,11 @@ android {
             minifyEnabled false
         }
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard.flags'
             def keystorePath = project.hasProperty('KEYSTORE_FILE') ? project.property('KEYSTORE_FILE') : null
+            signingConfig signingConfigs.release
             if (keystorePath != null) {
                 signingConfig signingConfigs.release
             }
