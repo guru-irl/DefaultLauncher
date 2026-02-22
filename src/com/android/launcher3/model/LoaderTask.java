@@ -30,7 +30,7 @@ import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_PRIVATE_PRO
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_QUIET_MODE_CHANGE_PERMISSION;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_QUIET_MODE_ENABLED;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_WORK_PROFILE_QUIET_MODE_ENABLED;
-import static com.android.launcher3.model.ModelUtils.WIDGET_FILTER;
+import static com.android.launcher3.model.ModelUtils.APP_WIDGET_FILTER;
 import static com.android.launcher3.model.ModelUtils.currentScreenContentFilter;
 import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_INSTALL_SESSION_ACTIVE;
 import static com.android.launcher3.util.Executors.MODEL_EXECUTOR;
@@ -84,6 +84,7 @@ import com.android.launcher3.logging.FileLog;
 import com.android.launcher3.model.LoaderCursor.LoaderCursorFactory;
 import com.android.launcher3.model.data.AppInfo;
 import com.android.launcher3.model.data.AppPairInfo;
+import com.android.launcher3.model.data.WidgetStackInfo;
 import com.android.launcher3.model.data.FolderInfo;
 import com.android.launcher3.model.data.IconRequestInfo;
 import com.android.launcher3.model.data.ItemInfo;
@@ -246,7 +247,8 @@ public class LoaderTask implements Runnable {
                             mPmHelper,
                             firstScreenItems,
                             mInstallingPkgsCached,
-                            mBgDataModel.itemsIdMap.stream().filter(WIDGET_FILTER).toList()
+                            mBgDataModel.itemsIdMap.stream().filter(APP_WIDGET_FILTER)
+                                    .toList()
                     );
             logASplit("Sending first screen broadcast with additional archiving Extras");
             FirstScreenBroadcastHelper.sendBroadcastsForModels(mContext, broadcastModels);
@@ -535,6 +537,7 @@ public class LoaderTask implements Runnable {
 
             processFolderItems();
             processAppPairItems();
+            processWidgetStackItems();
 
             c.commitRestoredItems();
         }
@@ -552,6 +555,16 @@ public class LoaderTask implements Runnable {
                     appPair.getContents().sort(Folder.ITEM_POS_COMPARATOR);
                     appPair.fetchHiResIconsIfNeeded(mIconCache);
                 });
+    }
+
+    /**
+     * After all items have been processed, sort widget stack contents by rank to ensure
+     * consistent ordering when stacks are inflated.
+     */
+    private void processWidgetStackItems() {
+        mBgDataModel.itemsIdMap.stream()
+                .filter(item -> item instanceof WidgetStackInfo)
+                .forEach(item -> ((WidgetStackInfo) item).sortByRank());
     }
 
     /**

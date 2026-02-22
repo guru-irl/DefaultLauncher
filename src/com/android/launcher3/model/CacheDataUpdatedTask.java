@@ -16,7 +16,7 @@
 package com.android.launcher3.model;
 
 import static com.android.launcher3.icons.cache.CacheLookupFlag.DEFAULT_LOOKUP_FLAG;
-import static com.android.launcher3.model.ModelUtils.WIDGET_FILTER;
+import static com.android.launcher3.model.ModelUtils.APP_WIDGET_FILTER;
 
 import android.content.ComponentName;
 import android.os.UserHandle;
@@ -74,7 +74,7 @@ public class CacheDataUpdatedTask implements ModelUpdateTask {
             });
 
             dataModel.itemsIdMap.stream()
-                    .filter(WIDGET_FILTER)
+                    .filter(APP_WIDGET_FILTER)
                     .filter(item -> mUser.equals(item.user))
                     .map(item -> (LauncherAppWidgetInfo) item)
                     .filter(widget -> mPackages.contains(widget.providerName.getPackageName())

@@ -751,4 +751,8 @@
     <string name="folder_emoji_travel">Travel</string>
     <string name="folder_emoji_objects">Objects</string>
     <string name="folder_emoji_symbols">Symbols</string>
+
+    <!-- Widget stack -->
+    <string name="widget_stack_description">Widget stack with %1$d widgets</string>
+    <string name="widget_stack_page_description">Widget %1$d of %2$d</string>
 </resources>

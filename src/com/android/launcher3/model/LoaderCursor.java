@@ -19,7 +19,9 @@ package com.android.launcher3.model;
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_DESKTOP;
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_HOTSEAT;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APPLICATION;
+import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APPWIDGET;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APP_PAIR;
+import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_CUSTOM_APPWIDGET;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_DEEP_SHORTCUT;
 import static com.android.launcher3.Utilities.SHOULD_SHOW_FIRST_PAGE_WIDGET;
 import static com.android.launcher3.icons.cache.CacheLookupFlag.DEFAULT_LOOKUP_FLAG;
@@ -60,6 +62,7 @@ import com.android.launcher3.model.data.CollectionInfo;
 import com.android.launcher3.model.data.FolderInfo;
 import com.android.launcher3.model.data.IconRequestInfo;
 import com.android.launcher3.model.data.ItemInfo;
+import com.android.launcher3.model.data.WidgetStackInfo;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.pm.UserCache;
 import com.android.launcher3.shortcuts.ShortcutKey;
@@ -531,21 +534,34 @@ public class LoaderCursor extends CursorWrapper {
      * or make a new one.
      */
     public CollectionInfo findOrMakeFolder(int id, BgDataModel dataModel) {
-        // See if a placeholder was created for us already
+        return findOrMakeCollection(id, dataModel, CollectionInfo.class, () -> new FolderInfo());
+    }
+
+    /**
+     * Return an existing WidgetStackInfo if we have encountered this ID previously,
+     * or make a new placeholder. Mirrors {@link #findOrMakeFolder} for widget stacks.
+     */
+    public WidgetStackInfo findOrMakeWidgetStack(int id, BgDataModel dataModel) {
+        return findOrMakeCollection(id, dataModel, WidgetStackInfo.class, WidgetStackInfo::new);
+    }
+
+    /**
+     * Generic helper that looks up an existing collection by ID in the data model or
+     * pending map, or creates a new one using the supplied factory.
+     */
+    @SuppressWarnings("unchecked")
+    private <T extends CollectionInfo> T findOrMakeCollection(int id, BgDataModel dataModel,
+            Class<T> type, java.util.function.Supplier<T> factory) {
         ItemInfo info = dataModel.itemsIdMap.get(id);
-        if (info instanceof CollectionInfo c) return c;
+        if (type.isInstance(info)) return type.cast(info);
 
         CollectionInfo pending = mPendingCollectionInfo.get(id);
-        if (pending != null) return pending;
+        if (type.isInstance(pending)) return type.cast(pending);
 
-        // No placeholder -- create a new blank folder instance. At this point, we don't know
-        // if the desired container is supposed to be a folder or an app pair. In the case that
-        // it is an app pair, the blank folder will be replaced by a blank app pair when the app
-        // pair is getting processed, in WorkspaceItemProcessor.processFolderOrAppPair().
-        pending = new FolderInfo();
-        pending.id = id;
-        mPendingCollectionInfo.put(id, pending);
-        return pending;
+        T created = factory.get();
+        created.id = id;
+        mPendingCollectionInfo.put(id, created);
+        return created;
     }
 
     /**
@@ -574,6 +590,15 @@ public class LoaderCursor extends CursorWrapper {
                     && info.container != CONTAINER_DESKTOP
                     && info.container != CONTAINER_HOTSEAT) {
                 findOrMakeFolder(info.container, dataModel).add(info);
+            }
+            // Associate widgets with their parent widget stack.
+            // Uses findOrMakeWidgetStack to handle child widgets loaded before their
+            // parent stack row (since child widgets have lower database IDs).
+            if ((info.itemType == ITEM_TYPE_APPWIDGET
+                    || info.itemType == ITEM_TYPE_CUSTOM_APPWIDGET)
+                    && info.container != CONTAINER_DESKTOP
+                    && info.container != CONTAINER_HOTSEAT) {
+                findOrMakeWidgetStack(info.container, dataModel).add(info);
             }
             if (mRestoreEventLogger != null) {
                 mRestoreEventLogger.logSingleFavoritesItemRestored(itemType);

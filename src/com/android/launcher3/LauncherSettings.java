@@ -151,6 +151,11 @@ public class LauncherSettings {
         public static final int ITEM_TYPE_PRIVATE_SPACE_INSTALL_APP_BUTTON = 11;
 
         /**
+         * The favorite is a widget stack (multiple widgets stacked in one cell).
+         */
+        public static final int ITEM_TYPE_WIDGET_STACK = 12;
+
+        /**
          * The custom icon bitmap.
          * <P>Type: BLOB</P>
          */
@@ -197,6 +202,15 @@ public class LauncherSettings {
 
         public static final int CONTAINER_UNKNOWN = -1;
 
+        /**
+         * Returns true if the container ID refers to a collection item (folder, widget stack,
+         * etc.) rather than a well-known container like desktop or hotseat. Collection IDs
+         * are positive integers representing the _id of the parent row.
+         */
+        public static boolean isInsideCollection(int container) {
+            return container > 0;
+        }
+
         public static final String containerToString(int container) {
             switch (container) {
                 case CONTAINER_DESKTOP: return "desktop";
@@ -221,6 +235,7 @@ public class LauncherSettings {
                 case ITEM_TYPE_APP_PAIR: return "APP_PAIR";
                 case ITEM_TYPE_PRIVATE_SPACE_INSTALL_APP_BUTTON:
                     return "PRIVATE_SPACE_INSTALL_APP_BUTTON";
+                case ITEM_TYPE_WIDGET_STACK: return "WIDGET_STACK";
                 default: return String.valueOf(type);
             }
         }

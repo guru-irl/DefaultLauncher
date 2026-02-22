@@ -19,6 +19,7 @@ import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_DESKTOP
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_HOTSEAT;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APPWIDGET;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_CUSTOM_APPWIDGET;
+import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_WIDGET_STACK;
 
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.util.IntSet;
@@ -40,8 +41,17 @@ public class ModelUtils {
     }
 
     /**
-     * Returns a filter for widget items
+     * Matches only actual widget items (not stacks).
      */
-    public static final Predicate<ItemInfo> WIDGET_FILTER = item ->
-            item.itemType == ITEM_TYPE_APPWIDGET || item.itemType == ITEM_TYPE_CUSTOM_APPWIDGET;
+    public static final Predicate<ItemInfo> APP_WIDGET_FILTER = item ->
+            item.itemType == ITEM_TYPE_APPWIDGET
+                    || item.itemType == ITEM_TYPE_CUSTOM_APPWIDGET;
+
+    /**
+     * Matches widgets AND widget stacks.
+     */
+    public static final Predicate<ItemInfo> WIDGET_OR_STACK_FILTER = item ->
+            item.itemType == ITEM_TYPE_APPWIDGET
+                    || item.itemType == ITEM_TYPE_CUSTOM_APPWIDGET
+                    || item.itemType == ITEM_TYPE_WIDGET_STACK;
 }
