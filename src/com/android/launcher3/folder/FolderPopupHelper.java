@@ -115,6 +115,8 @@ public class FolderPopupHelper {
         PopupContainerWithArrow<Launcher> container =
                 (PopupContainerWithArrow<Launcher>) launcher.getLayoutInflater()
                         .inflate(R.layout.popup_container, launcher.getDragLayer(), false);
+        // Position popup relative to the FolderIcon view (not the BubbleTextView label)
+        container.setPositionAnchor(folderIcon);
         // Use the two-arg populateAndShowRows: anchor as BubbleTextView, itemInfo separate
         container.populateAndShowRows(anchor, info, 0, shortcuts);
         // Register as drag listener so popup auto-closes when drag begins
@@ -136,8 +138,6 @@ public class FolderPopupHelper {
 
     static class CustomCover extends SystemShortcut<Launcher> {
 
-        private static Drawable sCachedEmojiDrawable;
-
         private final FolderIcon mFolderIcon;
         private final int mLabelRes;
 
@@ -151,20 +151,19 @@ public class FolderPopupHelper {
 
         @Override
         public void setIconAndLabelFor(View iconView, TextView labelView) {
-            iconView.setBackground(getEmojiDrawable(iconView.getContext()));
+            iconView.setBackground(createEmojiDrawable(iconView.getContext()));
             iconView.setBackgroundTintList(null);
             labelView.setText(mLabelRes);
         }
 
         @Override
         public void setIconAndContentDescriptionFor(ImageView view) {
-            view.setImageDrawable(getEmojiDrawable(view.getContext()));
+            view.setImageDrawable(createEmojiDrawable(view.getContext()));
             view.setImageTintList(null);
             view.setContentDescription(view.getContext().getText(mLabelRes));
         }
 
-        private static Drawable getEmojiDrawable(Context context) {
-            if (sCachedEmojiDrawable != null) return sCachedEmojiDrawable;
+        private static Drawable createEmojiDrawable(Context context) {
             float density = context.getResources().getDisplayMetrics().density;
             int sizePx = Math.round(24 * density);
             Bitmap bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888);
@@ -180,8 +179,7 @@ public class FolderPopupHelper {
             Paint.FontMetrics fm = paint.getFontMetrics();
             float baseline = sizePx / 2f - (fm.ascent + fm.descent) / 2f;
             canvas.drawText("\uD83E\uDD84", sizePx / 2f, baseline, paint);
-            sCachedEmojiDrawable = new BitmapDrawable(context.getResources(), bitmap);
-            return sCachedEmojiDrawable;
+            return new BitmapDrawable(context.getResources(), bitmap);
         }
 
         @Override

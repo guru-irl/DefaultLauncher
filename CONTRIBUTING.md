@@ -8,18 +8,20 @@ Thanks for your interest in contributing! This guide covers everything you need 
 
 1. Open the project in Android Studio (Meerkat 2024.3.1+)
 2. Set Gradle JDK to **jbr-21** (Settings > Build Tools > Gradle)
-3. Set build variant to **`aospWithoutQuickstepDebug`**
-4. Set Launch Activity to `com.android.launcher3.Launcher` (uses `HOME` category, not `LAUNCHER`)
-5. Run on a device/emulator with API 33+
+3. Select build variant: **debug** or **release** (Build > Select Build Variant)
+4. Run on a device/emulator with API 33+
+
+A shared run configuration (`DefaultLauncher`) is included in `.run/`.
 
 ### Command line
 
 ```bash
+# Debug build
 "/c/Program Files/Android/Android Studio/jbr/bin/java" \
   -Xmx64m -Xms64m \
   -Dorg.gradle.appname=gradlew \
   -classpath "gradle/wrapper/gradle-wrapper.jar" \
-  org.gradle.wrapper.GradleWrapperMain assembleAospWithoutQuickstepDebug
+  org.gradle.wrapper.GradleWrapperMain assembleDebug
 ```
 
 > **Note:** `gradlew` and `gradlew.bat` are gitignored. Always use the wrapper jar directly as shown above.
@@ -45,14 +47,15 @@ To contribute:
 - Use `LauncherPrefs` for new settings — register a `ConstantItem` with `backedUpItem()` and read via `LauncherPrefs.get(context).get(...)`
 - See [`docs/guides/adding-settings.md`](docs/guides/adding-settings.md) for the full guide on adding new preferences
 - For settings that affect the grid, call `InvariantDeviceProfile.onConfigChanged()` on change
+- Guard debug logging with `BuildConfig.DEBUG` — see [CLAUDE.md](CLAUDE.md#debug-logging) for the pattern
 
 ## Architecture Docs
 
-The [`docs/`](docs/) folder has detailed documentation on the grid system, settings architecture, icon pipeline, and more. Read these before making changes to core systems.
+The [`docs/`](docs/) folder has detailed documentation on the grid system, settings architecture, icon pipeline, and more. Read these before making changes to core systems. The docs are also published to the [GitHub Wiki](https://github.com/guru-irl/DefaultLauncher/wiki).
 
 ## Reporting Issues
 
-Open an issue on GitHub with steps to reproduce, your device model, and Android version.
+Use the [bug report template](https://github.com/guru-irl/DefaultLauncher/issues/new?template=bug_report.yml) to file issues. Include steps to reproduce, your device model, and Android version.
 
 ## License
 

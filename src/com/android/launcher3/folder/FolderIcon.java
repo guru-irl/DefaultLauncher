@@ -96,6 +96,7 @@ import com.android.launcher3.widget.PendingAddShortcutInfo;
 import com.android.launcher3.BuildConfig;
 import com.android.launcher3.graphics.ShapeDelegate;
 import com.android.launcher3.graphics.ThemeManager;
+import com.android.launcher3.util.Themes;
 import com.android.launcher3.popup.PopupContainerWithArrow;
 import com.android.launcher3.settings.FolderSettingsHelper;
 import com.android.launcher3.touch.ItemClickHandler;
@@ -913,19 +914,41 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
     public void drawDot(Canvas canvas) {
         if (!mForceHideDot && ((mDotInfo != null && mDotInfo.hasDot()) || mDotScale > 0)) {
             Rect iconBounds = mDotParams.iconBounds;
-            // FolderIcon draws the icon to be top-aligned (with padding) & horizontally-centered
-            int iconSize = mActivity.getDeviceProfile().iconSizePx;
-            iconBounds.left = (getWidth() - iconSize) / 2;
-            iconBounds.right = iconBounds.left + iconSize;
-            iconBounds.top = getPaddingTop();
-            iconBounds.bottom = iconBounds.top + iconSize;
 
-            float iconScale = (float) mBackground.previewSize / iconSize;
-            Utilities.scaleRectAboutCenter(iconBounds, iconScale);
+            if (mIsExpanded) {
+                // Expanded NxN folder: use the shape area (square centered in view)
+                int minDim = Math.min(getWidth(), getHeight());
+                iconBounds.set(
+                        (getWidth() - minDim) / 2, (getHeight() - minDim) / 2,
+                        (getWidth() + minDim) / 2, (getHeight() + minDim) / 2);
+            } else if (mCoverDrawable != null) {
+                // Covered folder: use the preview background area
+                iconBounds.set(
+                        mBackground.basePreviewOffsetX,
+                        mBackground.basePreviewOffsetY,
+                        mBackground.basePreviewOffsetX + mBackground.previewSize,
+                        mBackground.basePreviewOffsetY + mBackground.previewSize);
+            } else {
+                // Default 1x1 uncovered folder: original logic
+                int iconSize = mActivity.getDeviceProfile().iconSizePx;
+                iconBounds.left = (getWidth() - iconSize) / 2;
+                iconBounds.right = iconBounds.left + iconSize;
+                iconBounds.top = getPaddingTop();
+                iconBounds.bottom = iconBounds.top + iconSize;
+
+                float iconScale = (float) mBackground.previewSize / iconSize;
+                Utilities.scaleRectAboutCenter(iconBounds, iconScale);
+            }
 
             // If we are animating to the accepting state, animate the dot out.
             mDotParams.scale = Math.max(0, mDotScale - mBackground.getAcceptScaleProgress());
-            mDotParams.dotColor = mBackground.getDotColor();
+            // PreviewBackground.setup() may not have run for expanded/covered folders,
+            // leaving getDotColor() at 0 (transparent). Resolve from theme as fallback.
+            int dotColor = mBackground.getDotColor();
+            if (dotColor == 0) {
+                dotColor = Themes.getAttrColor(getContext(), R.attr.notificationDotColor);
+            }
+            mDotParams.dotColor = dotColor;
             mDotRenderer.draw(canvas, mDotParams);
         }
     }

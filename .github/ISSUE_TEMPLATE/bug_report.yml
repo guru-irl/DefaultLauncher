@@ -1,0 +1,73 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce the issue?
+      placeholder: |
+        1. Open the launcher
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / screen recordings
+      description: If applicable, add screenshots or recordings to help explain the problem.
+    validations:
+      required: false
+
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      placeholder: "Pixel 8 Pro"
+    validations:
+      required: true
+
+  - type: input
+    id: android-version
+    attributes:
+      label: Android version
+      placeholder: "Android 15 (API 35)"
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Found in Settings > Debug > App version
+      placeholder: "0.5.2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logcat
+    attributes:
+      label: Logcat output
+      description: If available, paste relevant logcat output. Filter by `com.guru.defaultlauncher`.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that might be relevant (other launchers installed, accessibility services, navigation mode, etc.)
+    validations:
+      required: false

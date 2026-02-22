@@ -47,11 +47,22 @@ jobs:
             -PKEY_ALIAS=${{ secrets.KEY_ALIAS }} \
             -PKEY_PASSWORD=${{ secrets.KEY_PASSWORD }}
 
-      - name: Create GitHub Release
+      - name: Prepare release notes
+        id: notes
+        run: |
+          VERSION="${{ steps.version.outputs.name }}"
+          # Find the previous tag for the changelog link
+          PREVIOUS=$(git tag --sort=-v:refname | grep '^v' | sed -n '2p' | sed 's/^v//')
+          sed -e "s/\${VERSION}/$VERSION/g" \
+              -e "s/\${PREVIOUS}/$PREVIOUS/g" \
+              .github/release-notes-template.md > release-notes.md
+
+      - name: Create GitHub Release (draft)
         uses: softprops/action-gh-release@v2
         with:
           name: v${{ steps.version.outputs.name }}
-          generate_release_notes: true
+          body_path: release-notes.md
+          draft: true
           files: |
             build/outputs/apk/release/*.apk
             build/outputs/apk/debug/*.apk
