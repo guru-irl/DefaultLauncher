@@ -42,7 +42,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.core.widget.NestedScrollView;
-import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
+import android.view.animation.Interpolator;
+
+import com.android.app.animation.Interpolators;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -77,7 +79,7 @@ public class PerAppIconSheet {
         void onIconSelected(String packPackage, String drawableName);
     }
 
-    private static final long SLIDE_DURATION = M3Durations.MEDIUM_2; // 300ms
+    private static final long SLIDE_DURATION = M3Durations.MEDIUM_4; // 400ms
     private static final long SEARCH_DEBOUNCE_MS = M3Durations.MEDIUM_2; // 300ms
 
     private static final Handler sMainHandler = new Handler(Looper.getMainLooper());
@@ -248,24 +250,26 @@ public class PerAppIconSheet {
 
         Resources res = ctx.getResources();
 
+        // Lock root height to prevent the bottom sheet from resizing
+        root.getLayoutParams().height = root.getHeight();
+        root.requestLayout();
+
         // Build icon picker page (starts off-screen right)
         LinearLayout iconPage = buildIconPickerPage(ctx, packPackage, pack,
                 appCn, mgr, sheet, root, packPage, callback,
                 colorOnSurface, colorSurfaceVar, onIconPage);
+
         iconPage.setAlpha(0f);
         iconPage.setTranslationX(root.getWidth() * 0.3f);
-
-        // Use the screen height for the icon picker so RecyclerView gets room
-        int screenHeight = res.getDisplayMetrics().heightPixels;
-        iconPage.setMinimumHeight((int) (screenHeight * 0.7f));
 
         root.addView(iconPage, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
         iconPageRef[0] = iconPage;
 
+        Interpolator interp = Interpolators.EMPHASIZED;
+
         // Slide pack page left + fade out
-        FastOutSlowInInterpolator interp = new FastOutSlowInInterpolator();
         packPage.animate()
                 .translationX(-root.getWidth() * 0.3f)
                 .alpha(0f)
@@ -565,7 +569,7 @@ public class PerAppIconSheet {
             boolean[] onIconPage, BottomSheetDialog sheet) {
         onIconPage[0] = false;
 
-        FastOutSlowInInterpolator interp = new FastOutSlowInInterpolator();
+        Interpolator interp = Interpolators.EMPHASIZED;
 
         // Slide icon page out to the right
         iconPage.animate()
@@ -573,7 +577,12 @@ public class PerAppIconSheet {
                 .alpha(0f)
                 .setDuration(SLIDE_DURATION)
                 .setInterpolator(interp)
-                .withEndAction(() -> root.removeView(iconPage))
+                .withEndAction(() -> {
+                    root.removeView(iconPage);
+                    // Unlock root height so the sheet can resize naturally
+                    root.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                    root.requestLayout();
+                })
                 .start();
 
         // Slide pack page back in from the left

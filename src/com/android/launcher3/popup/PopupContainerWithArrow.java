@@ -47,6 +47,7 @@ import androidx.annotation.LayoutRes;
 
 import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.BubbleTextView;
+import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.DragSource;
 import com.android.launcher3.DropTarget;
 import com.android.launcher3.DropTarget.DragObject;
@@ -59,6 +60,7 @@ import com.android.launcher3.dragndrop.DragController;
 import com.android.launcher3.dragndrop.DragOptions;
 import com.android.launcher3.dragndrop.DragView;
 import com.android.launcher3.dragndrop.DraggableView;
+import com.android.launcher3.folder.FolderIcon;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.ItemInfoWithIcon;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
@@ -100,6 +102,8 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
     private ViewGroup mWidgetContainer;
     private ViewGroup mDeepShortcutContainer;
     private ViewGroup mSystemShortcutContainer;
+
+    private View mPositionAnchor;
 
     protected PopupItemDragHandler mPopupItemDragHandler;
     protected LauncherAccessibilityDelegate mAccessibilityDelegate;
@@ -440,12 +444,36 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
         mWidgetContainer = widgetContainer;
     }
 
+    /**
+     * Sets an alternate view for popup positioning. When set to a {@link FolderIcon},
+     * {@link #getTargetObjectLocation} computes bounds based on the visual icon area
+     * at the top of the folder view, instead of using the BubbleTextView anchor.
+     */
+    public void setPositionAnchor(View anchor) {
+        mPositionAnchor = anchor;
+    }
+
     private String getTitleForAccessibility() {
         return getContext().getString(R.string.action_deep_shortcut);
     }
 
     @Override
     protected void getTargetObjectLocation(Rect outPos) {
+        if (mPositionAnchor instanceof FolderIcon folderIcon) {
+            // For folder popups: position based on the visual icon area at the top
+            // of the FolderIcon, not the BubbleTextView label (which may be huge
+            // for expanded NxN folders).
+            getPopupContainer().getDescendantRectRelativeToSelf(folderIcon, outPos);
+            DeviceProfile dp = mActivityContext.getDeviceProfile();
+            int iconSize = dp.iconSizePx;
+            int centerX = outPos.centerX();
+            int top = outPos.top + folderIcon.getPaddingTop();
+            outPos.left = centerX - iconSize / 2;
+            outPos.right = centerX + iconSize / 2;
+            outPos.top = top;
+            outPos.bottom = top + iconSize;
+            return;
+        }
         getPopupContainer().getDescendantRectRelativeToSelf(mOriginalIcon, outPos);
         outPos.top += mOriginalIcon.getPaddingTop();
         outPos.left += mOriginalIcon.getPaddingLeft();
