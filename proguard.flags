@@ -56,3 +56,41 @@
 -keep class com.android.internal.protolog.** {
   *;
 }
+
+# Protobuf Lite uses reflection to access fields by name (GeneratedMessageLite.reflectField)
+-keep class * extends com.google.protobuf.GeneratedMessageLite { *; }
+
+# Dagger generated components (different package: com.android.launcher3.dagger.Dagger*)
+-keep class com.android.launcher3.dagger.Dagger** { *; }
+-keep class * extends dagger.internal.Factory { *; }
+-keepattributes *Annotation*
+
+# Custom Preference subclasses (instantiated by AndroidX from XML class names)
+-keep class com.android.launcher3.settings.** extends androidx.preference.Preference {
+    public <init>(...);
+}
+
+# CustomWidgetPlugin implementations (loaded via Class.forName from resource array)
+-keep class * implements com.android.systemui.plugins.CustomWidgetPlugin {
+    public <init>(android.content.Context);
+}
+
+# Parcelable CREATOR fields
+-keepclassmembers class * implements android.os.Parcelable {
+    public static final ** CREATOR;
+}
+
+# Enums
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# Framework stub warnings (compileOnly, not in APK)
+-dontwarn com.android.wm.shell.**
+-dontwarn android.content.res.FontResourcesParser
+-dontwarn android.compat.annotation.UnsupportedAppUsage
+-dontwarn android.provider.DeviceConfig$OnPropertiesChangedListener
+-dontwarn com.android.aconfig.annotations.AconfigFlagAccessor
+-dontwarn com.android.aconfig.annotations.AssumeTrueForR8
+-dontwarn dalvik.system.CloseGuard
