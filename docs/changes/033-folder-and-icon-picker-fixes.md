@@ -29,8 +29,10 @@ Added `mPositionAnchor` field to `PopupContainerWithArrow`. When set to a `Folde
 
 - Replaced `FastOutSlowInInterpolator` with `Interpolators.EMPHASIZED` (M3 expressive)
 - Changed `SLIDE_DURATION` from `MEDIUM_2` (300ms) to `MEDIUM_4` (400ms)
-- Locked root `FrameLayout` height before adding icon page to prevent bottom sheet from expanding to fullscreen
-- Unlocked root height on back transition after icon page is removed
+- Removed all programmatic `peekHeight`/`setState` manipulation during page transitions — sheet size is now 100% user-controlled via drag
+- Removed `naturalPeek` parameter threading from all method signatures (5 methods, was only used by the deleted peekHeight animations)
+- Removed `ValueAnimator` import (no longer needed)
+- Set `design_bottom_sheet` container to `MATCH_PARENT` height so the sheet can always expand to full screen via drag, even with few icon packs
 
 ## Files Modified
 

@@ -32,7 +32,6 @@ import android.text.InputType;
 import android.text.TextWatcher;
 import android.util.TypedValue;
 import android.view.Gravity;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
@@ -41,6 +40,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.core.widget.NestedScrollView;
 import android.view.animation.Interpolator;
 
@@ -48,6 +48,7 @@ import com.android.app.animation.Interpolators;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import com.android.launcher3.R;
@@ -94,11 +95,13 @@ public class PerAppIconSheet {
 
         BottomSheetDialog sheet = new BottomSheetDialog(ctx);
 
-        // Root is a FrameLayout for page layering + overlay transitions
+        // Root is a FrameLayout for page layering + overlay transitions.
+        // MATCH_PARENT height so the bottom sheet's design_bottom_sheet measures
+        // to screen height; the behavior controls how much is visible via peekHeight.
         FrameLayout root = new FrameLayout(ctx);
         root.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
+                ViewGroup.LayoutParams.MATCH_PARENT));
 
         // Track whether we're on the icon picker page (for back-key handling)
         final boolean[] onIconPage = {false};
@@ -110,22 +113,58 @@ public class PerAppIconSheet {
                 colorOnSurface, colorSurfaceVar, callback, onIconPage, iconPageRef);
         root.addView(packPage, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
+                ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // Intercept back key to navigate back from icon picker to pack list
-        sheet.setOnKeyListener((dialog, keyCode, event) -> {
-            if (keyCode == KeyEvent.KEYCODE_BACK
-                    && event.getAction() == KeyEvent.ACTION_UP
-                    && onIconPage[0] && iconPageRef[0] != null) {
-                transitionBackToPackPage(root, iconPageRef[0], packPage, onIconPage, sheet);
-                return true;
+        // Intercept back (gesture + hardware key) to navigate back
+        // from icon picker to pack list instead of dismissing.
+        sheet.getOnBackPressedDispatcher().addCallback(new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (onIconPage[0] && iconPageRef[0] != null) {
+                    transitionBackToPackPage(root, iconPageRef[0],
+                            packPage, onIconPage);
+                } else {
+                    // On pack list page — dismiss the sheet
+                    setEnabled(false);
+                    sheet.getOnBackPressedDispatcher().onBackPressed();
+                }
             }
-            return false;
         });
 
         sheet.setContentView(root);
-        sheet.getBehavior().setSkipCollapsed(true);
+
+        // Force the internal sheet container to full screen so the behavior
+        // allows expanding even when content is short (e.g. only 2 icon packs).
+        View sheetView = sheet.findViewById(
+                com.google.android.material.R.id.design_bottom_sheet);
+        if (sheetView != null) {
+            sheetView.getLayoutParams().height = ViewGroup.LayoutParams.MATCH_PARENT;
+        }
+
+        BottomSheetBehavior<?> behavior = sheet.getBehavior();
+        behavior.setSkipCollapsed(false);
         sheet.show();
+
+        // After layout, set peekHeight to pack page's natural content height.
+        // At this point children are measured at natural sizes (scroll view has
+        // no weight yet), so summing them gives the "rest" height for the sheet.
+        root.post(() -> {
+            int naturalHeight = packPage.getPaddingTop() + packPage.getPaddingBottom();
+            for (int i = 0; i < packPage.getChildCount(); i++) {
+                naturalHeight += packPage.getChildAt(i).getHeight();
+            }
+            behavior.setPeekHeight(naturalHeight);
+
+            // Switch scroll view to weight=1 so it scrolls when constrained
+            View lastChild = packPage.getChildAt(packPage.getChildCount() - 1);
+            if (lastChild instanceof NestedScrollView) {
+                LinearLayout.LayoutParams lp =
+                        (LinearLayout.LayoutParams) lastChild.getLayoutParams();
+                lp.height = 0;
+                lp.weight = 1f;
+                lastChild.setLayoutParams(lp);
+            }
+        });
     }
 
     // ---- Page 1: Pack list ----
@@ -224,7 +263,7 @@ public class PerAppIconSheet {
             });
 
             card.setOnClickListener(v ->
-                    transitionToIconPicker(ctx, root, packPage, card,
+                    transitionToIconPicker(ctx, root, packPage,
                             pkg, pack, appCn, mgr, sheet, callback,
                             colorOnSurface, colorSurfaceVar, onIconPage, iconPageRef));
 
@@ -242,17 +281,11 @@ public class PerAppIconSheet {
     // ---- Transition: pack card expands → icon picker ----
 
     private static void transitionToIconPicker(Context ctx,
-            FrameLayout root, LinearLayout packPage, View selectedCard,
+            FrameLayout root, LinearLayout packPage,
             String packPackage, IconPack pack, ComponentName appCn,
             IconPackManager mgr, BottomSheetDialog sheet,
             Callback callback, int colorOnSurface, int colorSurfaceVar,
             boolean[] onIconPage, View[] iconPageRef) {
-
-        Resources res = ctx.getResources();
-
-        // Lock root height to prevent the bottom sheet from resizing
-        root.getLayoutParams().height = root.getHeight();
-        root.requestLayout();
 
         // Build icon picker page (starts off-screen right)
         LinearLayout iconPage = buildIconPickerPage(ctx, packPackage, pack,
@@ -335,7 +368,7 @@ public class PerAppIconSheet {
         backBtn.setBackgroundResource(ripple.resourceId);
 
         backBtn.setOnClickListener(v ->
-                transitionBackToPackPage(root, page, packPage, onIconPage, sheet));
+                transitionBackToPackPage(root, page, packPage, onIconPage));
         header.addView(backBtn);
 
         // Title
@@ -566,7 +599,7 @@ public class PerAppIconSheet {
 
     private static void transitionBackToPackPage(FrameLayout root,
             View iconPage, LinearLayout packPage,
-            boolean[] onIconPage, BottomSheetDialog sheet) {
+            boolean[] onIconPage) {
         onIconPage[0] = false;
 
         Interpolator interp = Interpolators.EMPHASIZED;
@@ -577,12 +610,7 @@ public class PerAppIconSheet {
                 .alpha(0f)
                 .setDuration(SLIDE_DURATION)
                 .setInterpolator(interp)
-                .withEndAction(() -> {
-                    root.removeView(iconPage);
-                    // Unlock root height so the sheet can resize naturally
-                    root.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
-                    root.requestLayout();
-                })
+                .withEndAction(() -> root.removeView(iconPage))
                 .start();
 
         // Slide pack page back in from the left
