@@ -755,4 +755,10 @@
     <!-- Widget stack -->
     <string name="widget_stack_description">Widget stack with %1$d widgets</string>
     <string name="widget_stack_page_description">Widget %1$d of %2$d</string>
+    <string name="widget_stack_edit">Edit stack</string>
+    <string name="widget_stack_remove">Remove stack</string>
+    <string name="widget_stack_editor_title">Edit Widget Stack</string>
+    <string name="widget_stack_add_widget">Add widget</string>
+    <string name="widget_stack_remove_widget">Remove</string>
+    <string name="widget_stack_drag_handle">Reorder</string>
 </resources>

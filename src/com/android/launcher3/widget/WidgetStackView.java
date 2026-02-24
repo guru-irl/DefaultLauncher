@@ -43,8 +43,12 @@ import androidx.core.content.ContextCompat;
 import com.android.app.animation.Interpolators;
 import com.android.launcher3.celllayout.CellLayoutLayoutParams;
 import com.android.launcher3.CheckLongPressHelper;
+import com.android.launcher3.Launcher;
 import com.android.launcher3.R;
 import com.android.launcher3.Reorderable;
+import com.android.launcher3.dragndrop.DragOptions;
+import com.android.launcher3.DropTarget.DragObject;
+import com.android.launcher3.popup.PopupContainerWithArrow;
 import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.dragndrop.DraggableView;
 import com.android.launcher3.model.ModelWriter;
@@ -286,7 +290,16 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
         WidgetStackInfo info = getStackInfo();
         if (info == null) return;
 
-        // Build set of ItemInfo IDs that are still in the stack
+        // Build map of ItemInfo ID -> child view for quick lookup
+        java.util.HashMap<Integer, View> viewById = new java.util.HashMap<>();
+        for (View child : mWidgetViews) {
+            Object tag = child.getTag();
+            if (tag instanceof ItemInfo itemInfo) {
+                viewById.put(itemInfo.id, child);
+            }
+        }
+
+        // Build set of valid IDs from the current contents
         Set<Integer> validIds = new HashSet<>();
         for (ItemInfo item : info.getContents()) {
             validIds.add(item.id);
@@ -300,6 +313,20 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
                 mWidgetViews.remove(i);
                 removeView(child);
             }
+        }
+
+        // Reorder mWidgetViews to match the order in info.getContents()
+        ArrayList<View> reordered = new ArrayList<>();
+        for (ItemInfo item : info.getContents()) {
+            View v = viewById.get(item.id);
+            if (v != null && validIds.contains(item.id)) {
+                reordered.add(v);
+            }
+        }
+        // Only replace if sizes match (all views accounted for)
+        if (reordered.size() == mWidgetViews.size()) {
+            mWidgetViews.clear();
+            mWidgetViews.addAll(reordered);
         }
 
         // Clamp and sync active index
@@ -317,6 +344,44 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
     public WidgetStackInfo getStackInfo() {
         Object tag = getTag();
         return tag instanceof WidgetStackInfo ? (WidgetStackInfo) tag : null;
+    }
+
+    /**
+     * Shows the widget stack popup and returns a PreDragCondition so the drag system
+     * can start a deferred drag (same pattern as FolderIcon.startLongPressAction).
+     */
+    public DragOptions.PreDragCondition startLongPressAction() {
+        Launcher launcher = Launcher.getLauncher(getContext());
+
+        PopupContainerWithArrow<Launcher> container =
+                WidgetStackPopupHelper.showForWidgetStackWithDrag(this, launcher);
+        if (container != null) {
+            DragOptions.PreDragCondition inner = container.createPreDragCondition(false);
+            final WidgetStackView self = this;
+            return new DragOptions.PreDragCondition() {
+                @Override
+                public boolean shouldStartDrag(double distanceDragged) {
+                    return inner.shouldStartDrag(distanceDragged);
+                }
+                @Override
+                public void onPreDragStart(DragObject dragObject) {
+                    inner.onPreDragStart(dragObject);
+                    // Undo the INVISIBLE set by Workspace.startDrag().
+                    // The popup covers the stack during pre-drag.
+                    self.setVisibility(VISIBLE);
+                }
+                @Override
+                public void onPreDragEnd(DragObject dragObject, boolean dragStarted) {
+                    inner.onPreDragEnd(dragObject, dragStarted);
+                    if (dragStarted) {
+                        // Actual drag in progress — hide stack (DragView shows shadow)
+                        self.setVisibility(INVISIBLE);
+                    }
+                    // If !dragStarted: stack already VISIBLE from onPreDragStart
+                }
+            };
+        }
+        return null;
     }
 
     // --- Drop highlight (delegates to shared WidgetDropHighlight) ---
@@ -607,7 +672,17 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
                 break;
         }
 
-        return mIntercepting || mLongPressHelper.hasPerformedLongPress();
+        if (mLongPressHelper.hasPerformedLongPress()) {
+            // Long-press triggered workspace drag (pre-drag mode). Allow the DragLayer
+            // to intercept so the DragController receives ACTION_UP and properly ends
+            // the pre-drag. Without this, the stale DragController state eats the first
+            // tap on the popup menu.
+            if (hasMultipleWidgets) {
+                getParent().requestDisallowInterceptTouchEvent(false);
+            }
+            return true;
+        }
+        return mIntercepting;
     }
 
     @Override

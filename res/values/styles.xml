@@ -201,10 +201,10 @@
 
     <!-- Theme for the widget container. -->
     <style name="WidgetContainerTheme" parent="@android:style/Theme.DeviceDefault.Settings">
-        <item name="android:colorPrimaryDark">@color/materialColorSurfaceContainerHigh</item>
+        <item name="android:colorPrimaryDark">@color/materialColorSurfaceContainerLow</item>
         <item name="android:textColorSecondary">?android:attr/textColorPrimary</item>
         <item name="android:colorEdgeEffect">?android:attr/textColorSecondary</item>
-        <item name="widgetPickerPrimarySurfaceColor">@color/materialColorSurfaceContainerHigh</item>
+        <item name="widgetPickerPrimarySurfaceColor">@color/materialColorSurfaceContainerLow</item>
         <item name="widgetPickerSecondarySurfaceColor">@color/materialColorSurfaceContainer</item>
         <item name="widgetPickerTitleColor">@color/materialColorOnSurface</item>
         <item name="widgetPickerDescriptionColor">@color/materialColorOnSurfaceVariant</item>
@@ -229,8 +229,8 @@
     </style>
     <style name="WidgetContainerTheme.Dark" parent="AppTheme.Dark">
         <item name="android:colorEdgeEffect">?android:attr/textColorSecondary</item>
-        <item name="android:colorPrimaryDark">@color/materialColorSurfaceContainerHigh</item>
-        <item name="widgetPickerPrimarySurfaceColor">@color/materialColorSurfaceContainerHigh</item>
+        <item name="android:colorPrimaryDark">@color/materialColorSurfaceContainerLow</item>
+        <item name="widgetPickerPrimarySurfaceColor">@color/materialColorSurfaceContainerLow</item>
         <item name="widgetPickerSecondarySurfaceColor">@color/materialColorSurfaceContainer</item>
         <item name="widgetPickerTitleColor">@color/materialColorOnSurface</item>
         <item name="widgetPickerDescriptionColor">@color/materialColorOnSurfaceVariant</item>

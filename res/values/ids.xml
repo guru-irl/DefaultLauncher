@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <item type="id" name="card_ripple_tag" />
+    <item type="id" name="editor_drag_state_tag" />
+    <item type="id" name="editor_ripple_tag" />
 </resources>

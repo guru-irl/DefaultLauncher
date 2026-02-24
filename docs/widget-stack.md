@@ -386,15 +386,125 @@ When a package is uninstalled, `Workspace.removeItemsByMatcher()` handles widget
 
 ---
 
+## Widget Stack Editor
+
+A bottom sheet for reordering, removing, and adding widgets within a stack.
+
+### Architecture
+
+The editor extends `AbstractSlideInView<Launcher>` (the same base class as `WidgetsBottomSheet`) and implements `Insettable` for system bar inset handling.
+
+```
+WidgetStackEditorView          (AbstractSlideInView + Insettable)
+        |
+        v
+WidgetStackEditorAdapter       (RecyclerView.Adapter with 2 view types)
+        |
+        v
+WidgetStackEditorItemDecoration (position-aware rounded card backgrounds)
+```
+
+**Entry point:** Long-press a widget stack on the workspace, then tap "Edit stack" in the popup menu. This calls `WidgetStackEditorView.show(Launcher, WidgetStackView)`.
+
+### Layout
+
+The editor is a standard M3 modal bottom sheet:
+- Drag handle (32x4dp, `outlineVariant`)
+- Centered title (`MaterialToolbar` with `titleCentered="true"`)
+- `RecyclerView` with card-grouped items
+- Last item is an "Add widget" action row (not a separate button)
+
+### Adapter View Types
+
+| Type | Layout | Description |
+|------|--------|-------------|
+| `TYPE_WIDGET` (0) | `widget_stack_editor_item` | Widget row: 88dp min height, 64dp preview, drag handle, remove button |
+| `TYPE_ADD` (1) | Same layout, reconfigured | Action row: 56dp min height, 40dp `+` icon, no drag/remove |
+
+The add row is hidden when the stack is full (`MAX_STACK_SIZE`).
+
+### Item Decoration
+
+`WidgetStackEditorItemDecoration` draws position-aware rounded-rect card backgrounds behind each item:
+
+| Position | Top corners | Bottom corners |
+|----------|-------------|----------------|
+| First (solo) | 28dp | 28dp |
+| First | 28dp | 4dp |
+| Middle | 4dp | 4dp |
+| Last (add row) | 4dp | 28dp |
+
+Items being dragged are skipped by the decoration -- the drag animation draws their background instead.
+
+Ripple drawables with matching corner radii are applied per-item for touch feedback.
+
+### Drag Reorder
+
+Uses `ItemTouchHelper` with guards to exclude the add row:
+- `getMovementFlags()` returns 0 for the add row
+- `canDropOver()` returns false for the add row
+- `onMove()` swaps items in `WidgetStackInfo.contents` and calls `notifyItemMoved()`
+
+### Drag Animations
+
+Animated transitions on drag pickup and drop using `AnimatorSet`:
+
+| Property | Pickup | Drop |
+|----------|--------|------|
+| Corner radii | Position-aware -> all 28dp | All 28dp -> position-aware |
+| Elevation (translationZ) | 0 -> 8dp | 8dp -> 0 |
+| Scale | 1.0 -> 1.02 | 1.02 -> 1.0 |
+| Background color | `colorSurfaceContainerHighest` | (animated back, cleared on end) |
+| Duration | `M3Durations.SHORT_2` (100ms) | `M3Durations.SHORT_2` (100ms) |
+| Interpolator | `EMPHASIZED_DECELERATE` | `EMPHASIZED_ACCELERATE` |
+
+### Color Hierarchy (M3 Spec)
+
+Both the Widgets bottom sheet and the Widget Stack Editor resolve colors from `WidgetContainerTheme` for consistency:
+
+| Layer | Theme attr | Token |
+|-------|-----------|-------|
+| Sheet background | `widgetPickerPrimarySurfaceColor` | `colorSurfaceContainerLow` |
+| Item card backgrounds | `widgetPickerSecondarySurfaceColor` | `colorSurfaceContainer` |
+| Dragged item | `colorSurfaceContainerHighest` | (M3 attr, resolved from inflate context) |
+| Title text | -- | `materialColorOnSurface` |
+| Supporting text / icons | -- | `materialColorOnSurfaceVariant` |
+| Add row icon | -- | `materialColorPrimary` |
+
+The `WidgetContainerTheme` tokens were updated from `surfaceContainerHigh` to `surfaceContainerLow` for the primary surface to match the [M3 bottom sheet spec](https://m3.material.io/components/bottom-sheets/specs).
+
+### Theme Context Chain
+
+The editor is inflated with `HomeSettings_Theme + DynamicColors` (needed for `MaterialToolbar` and `MaterialButton`), but colors are resolved from a separate `WidgetContainerTheme` context via `getWidgetThemeContext()`. This ensures both sheets use the same `widgetPicker*` attrs regardless of their inflation context.
+
+### Nav Bar Scrim
+
+Matches `BaseWidgetSheet` pattern:
+- `Insettable` interface receives insets from `DragLayer`
+- `setupNavBarColor()` uses `mActivityContext` (Launcher) to read `isMainColorDark`
+- Nav bar scrim drawn in `dispatchDraw()` as a filled rect
+- RecyclerView bottom padding accounts for nav bar height
+
+### Popup Integration
+
+`WidgetStackPopupHelper` adds "Edit stack" and "Remove stack" shortcuts to the long-press popup via `PopupContainerWithArrow`. These are system shortcuts that appear alongside the standard widget actions.
+
+---
+
 ## File Manifest
 
-### New Files (3)
+### New Files (8)
 
 | File | Purpose |
 |------|---------|
 | `src/.../model/data/WidgetStackInfo.java` | Data model (extends CollectionInfo) |
 | `src/.../widget/WidgetStackView.java` | View layer (FrameLayout + swipe + dots) |
 | `src/.../widget/WidgetDropHighlight.java` | Spring-animated drop feedback |
+| `src/.../widget/WidgetStackEditorView.java` | Bottom sheet editor (AbstractSlideInView) |
+| `src/.../widget/WidgetStackEditorAdapter.java` | RecyclerView adapter (widget rows + add row) |
+| `src/.../widget/WidgetStackEditorItemDecoration.java` | Position-aware card backgrounds |
+| `src/.../widget/WidgetStackPopupHelper.java` | Popup menu shortcuts (edit/remove stack) |
+| `res/layout/widget_stack_editor.xml` | Editor bottom sheet layout |
 
 ### Modified Files (11)
 
@@ -420,11 +530,19 @@ When a package is uninstalled, `Workspace.removeItemsByMatcher()` handles widget
 | `PackageInstallStateChangedTask.java` | Uses `APP_WIDGET_FILTER` (no redundant instanceof) |
 | `PackageUpdatedTask.java` | Uses `APP_WIDGET_FILTER` (no redundant instanceof) |
 
-### Resources (1)
+### Resources
 
-| Resource | Strings |
+| Resource | Purpose |
 |----------|---------|
-| `res/values/strings.xml` | `widget_stack_description`, `widget_stack_page_description` |
+| `res/values/strings.xml` | `widget_stack_description`, `widget_stack_page_description`, `widget_stack_editor_title`, `widget_stack_add_widget`, `widget_stack_remove_widget`, `widget_stack_drag_handle` |
+| `res/layout/widget_stack_editor.xml` | Editor bottom sheet layout |
+| `res/layout/widget_stack_editor_item.xml` | Editor list item (shared by widget rows and add row) |
+| `res/drawable/ic_add_widget.xml` | 24dp plus icon for add row |
+| `res/drawable/ic_drag_handle.xml` | Drag handle icon |
+| `res/drawable/ic_edit.xml` | Edit icon for popup shortcut |
+| `res/drawable/bg_preview_rounded.xml` | Rounded preview thumbnail background |
+| `res/drawable/bg_icon_badge.xml` | App icon badge background |
+| `res/values/ids.xml` | `editor_drag_state_tag`, `editor_ripple_tag` |
 
 ---
 

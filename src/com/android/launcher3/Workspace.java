@@ -505,8 +505,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
 
         if (mDragInfo != null && mDragInfo.cell != null) {
             CellLayout layout;
-            if (mDragInfo.cell instanceof LauncherAppWidgetHostView
-                    || mDragInfo.cell instanceof WidgetStackView) {
+            if (mDragInfo.cell instanceof LauncherAppWidgetHostView) {
                 // Content-view drag: the cell has been reparented to DragView,
                 // so use the saved original parent reference
                 layout = (CellLayout) dragObject.dragView.getContentViewParent().getParent();
@@ -758,11 +757,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                 dragSourceChildCount += pagePair.getShortcutsAndWidgets().getChildCount();
             }
 
-            // When the drag view content is a LauncherAppWidgetHostView or WidgetStackView,
-            // we should increment the drag source child count by 1 because the view has been
-            // detached from its original parent and reattached to the DragView.
-            if (dragObject.dragView.getContentView() instanceof LauncherAppWidgetHostView
-                    || dragObject.dragView.getContentView() instanceof WidgetStackView) {
+            // When the drag view content is a LauncherAppWidgetHostView, we should increment
+            // the drag source child count by 1 because the view has been detached from its
+            // original parent and reattached to the DragView.
+            if (dragObject.dragView.getContentView() instanceof LauncherAppWidgetHostView) {
                 dragSourceChildCount++;
             }
 
@@ -1736,6 +1734,11 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             if (!dragOptions.isAccessibleDrag) {
                 dragOptions.preDragCondition = fi.startLongPressAction();
             }
+        } else if (child instanceof WidgetStackView) {
+            WidgetStackView wsv = (WidgetStackView) child;
+            if (!dragOptions.isAccessibleDrag) {
+                dragOptions.preDragCondition = wsv.startLongPressAction();
+            }
         }
 
         if (dragOptions.preDragCondition != null) {
@@ -2296,8 +2299,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                         CellLayout parentCell = getParentCellLayoutForView(cell);
                         if (parentCell != null) {
                             parentCell.removeView(cell);
-                        } else if (mDragInfo.cell instanceof LauncherAppWidgetHostView
-                                || mDragInfo.cell instanceof WidgetStackView) {
+                        } else if (mDragInfo.cell instanceof LauncherAppWidgetHostView) {
                             d.dragView.detachContentView(/* reattachToPreviousParent= */ false);
                         } else if (FeatureFlags.IS_STUDIO_BUILD) {
                             throw new NullPointerException("mDragInfo.cell has null parent");
@@ -2347,8 +2349,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                     if (!returnToOriginalCellToPreventShuffling) {
                         onNoCellFound(dropTargetLayout, d.dragInfo, d.logInstanceId);
                     }
-                    if (mDragInfo.cell instanceof LauncherAppWidgetHostView
-                            || mDragInfo.cell instanceof WidgetStackView) {
+                    if (mDragInfo.cell instanceof LauncherAppWidgetHostView) {
                         d.dragView.detachContentView(/* reattachToPreviousParent= */ true);
                     }
 
@@ -2372,8 +2373,6 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                                 (LauncherAppWidgetHostView) cell, cellLayout);
                     }
                 } else if (cell instanceof WidgetStackView) {
-                    d.dragView.detachContentView(/* reattachToPreviousParent= */ true);
-
                     final CellLayout cellLayout = getParentCellLayoutForView(cell);
                     boolean pageIsVisible = isVisible(cellLayout);
 
@@ -2674,6 +2673,14 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     boolean hasPendingExternalStackTarget() {
         return mPendingExternalStackTarget != null
                 || mPendingExternalStackCreationTarget != null;
+    }
+
+    /**
+     * Sets the pending external stack target. Used by the widget stack editor
+     * to direct a newly-picked widget into an existing stack.
+     */
+    public void setPendingExternalStackTarget(WidgetStackView target) {
+        mPendingExternalStackTarget = target;
     }
 
     /**
@@ -3509,8 +3516,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             }
         } else if (mDragInfo != null) {
             // When drag is cancelled, reattach content view back to its original parent.
-            if ((mDragInfo.cell instanceof LauncherAppWidgetHostView
-                    || mDragInfo.cell instanceof WidgetStackView) && d.dragView != null) {
+            if (mDragInfo.cell instanceof LauncherAppWidgetHostView && d.dragView != null) {
                 d.dragView.detachContentView(/* reattachToPreviousParent= */ true);
             }
             final CellLayout cellLayout = mLauncher.getCellLayout(

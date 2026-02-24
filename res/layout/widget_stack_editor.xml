@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Full-screen editor for widget stacks.
+     Extends AbstractSlideInView — scrim managed by base class, mContent slides in from bottom.
+     Matches the WidgetsBottomSheet layout pattern.
+-->
+<com.android.launcher3.widget.WidgetStackEditorView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- mContent: positioned at bottom via onLayout(), translated by AbstractSlideInView -->
+    <LinearLayout
+        android:id="@+id/widget_stack_editor_content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:clipChildren="false">
+
+        <!-- M3 drag handle -->
+        <View
+            android:layout_width="@dimen/bottom_sheet_handle_width"
+            android:layout_height="@dimen/bottom_sheet_handle_height"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="@dimen/bottom_sheet_handle_margin"
+            android:background="@drawable/bg_rounded_corner_bottom_sheet_handle" />
+
+        <!-- Title -->
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/widget_stack_editor_toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@android:color/transparent"
+            app:title="@string/widget_stack_editor_title"
+            app:titleCentered="true"
+            app:titleTextColor="@color/materialColorOnSurface" />
+
+        <!-- Widget list (includes "Add widget" row as last item) -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/widget_stack_editor_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:paddingBottom="8dp"
+            android:overScrollMode="never" />
+
+    </LinearLayout>
+
+</com.android.launcher3.widget.WidgetStackEditorView>

@@ -592,4 +592,7 @@
     <!-- Settings bottom sheet text sizes -->
     <dimen name="settings_sheet_title_text_size">22sp</dimen>
     <dimen name="settings_sheet_category_text_size">12sp</dimen>
+
+    <!-- Widget stack editor -->
+    <dimen name="widget_stack_editor_drag_elevation">8dp</dimen>
 </resources>

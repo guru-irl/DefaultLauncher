@@ -78,6 +78,7 @@ public abstract class AbstractFloatingView extends LinearLayout implements Touch
             TYPE_PIN_IME_POPUP,
             TYPE_ONE_GRID_MIGRATION_EDU,
             TYPE_FOLDER_RESIZE_FRAME,
+            TYPE_WIDGET_STACK_EDITOR,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface FloatingViewType {}
@@ -108,6 +109,7 @@ public abstract class AbstractFloatingView extends LinearLayout implements Touch
     public static final int TYPE_TASKBAR_PINNING_POPUP = 1 << 21;
     public static final int TYPE_PIN_IME_POPUP = 1 << 22;
     public static final int TYPE_ONE_GRID_MIGRATION_EDU = 1 << 23;
+    public static final int TYPE_WIDGET_STACK_EDITOR = 1 << 24;
 
     public static final int TYPE_ALL = TYPE_FOLDER | TYPE_ACTION_POPUP
             | TYPE_WIDGETS_BOTTOM_SHEET | TYPE_WIDGET_RESIZE_FRAME | TYPE_WIDGETS_FULL_SHEET
@@ -117,7 +119,8 @@ public abstract class AbstractFloatingView extends LinearLayout implements Touch
             | TYPE_FOLDER_RESIZE_FRAME
             | TYPE_TASKBAR_EDUCATION_DIALOG | TYPE_TASKBAR_ALL_APPS | TYPE_OPTIONS_POPUP_DIALOG
             | TYPE_ADD_TO_HOME_CONFIRMATION | TYPE_TASKBAR_OVERLAY_PROXY
-            | TYPE_TASKBAR_PINNING_POPUP | TYPE_PIN_IME_POPUP | TYPE_ONE_GRID_MIGRATION_EDU;
+            | TYPE_TASKBAR_PINNING_POPUP | TYPE_PIN_IME_POPUP | TYPE_ONE_GRID_MIGRATION_EDU
+            | TYPE_WIDGET_STACK_EDITOR;
 
     // Type of popups which should be kept open during launcher rebind
     public static final int TYPE_REBIND_SAFE = TYPE_WIDGETS_FULL_SHEET

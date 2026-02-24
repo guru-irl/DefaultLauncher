@@ -36,7 +36,6 @@ import com.android.launcher3.icons.FastBitmapDrawable;
 import com.android.launcher3.util.SafeCloseable;
 import com.android.launcher3.views.ActivityContext;
 import com.android.launcher3.widget.LauncherAppWidgetHostView;
-import com.android.launcher3.widget.WidgetStackView;
 
 /**
  * A utility class to generate preview bitmap for dragging.
@@ -86,7 +85,7 @@ public class DragPreviewProvider {
      * Responsibility for the drawable is transferred to the caller.
      */
     public Drawable createDrawable() {
-        if (mView instanceof LauncherAppWidgetHostView || mView instanceof WidgetStackView) {
+        if (mView instanceof LauncherAppWidgetHostView) {
             return null;
         }
 
@@ -123,8 +122,7 @@ public class DragPreviewProvider {
      */
     @Nullable
     public View getContentView() {
-        if (mView instanceof LauncherAppWidgetHostView
-                || mView instanceof WidgetStackView) {
+        if (mView instanceof LauncherAppWidgetHostView) {
             return mView;
         }
         return null;
