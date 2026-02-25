@@ -135,6 +135,10 @@ Child widgets use `Favorites.isInsideCollection(c.container)` to determine they 
 
 After all items are loaded, `processWidgetStackItems()` iterates over all `WidgetStackInfo` entries and calls `sortByRank()` on each to ensure consistent widget ordering.
 
+### Stage 3.5: Sanitization (LoaderTask)
+
+`sanitizeWidgetStacks()` runs after `sanitizeFolders()` during data loading. It calls `ModelDbController.deleteEmptyWidgetStacks()`, which queries for `ITEM_TYPE_WIDGET_STACK` rows whose `_id` does not appear as a `container` for any item, then deletes them in a transaction. Deleted stack IDs are removed from `BgDataModel.itemsIdMap`.
+
 ### Stage 4: View Inflation (ItemInflater)
 
 **File:** [`src/com/android/launcher3/util/ItemInflater.kt`](../src/com/android/launcher3/util/ItemInflater.kt)
@@ -146,7 +150,8 @@ The `ITEM_TYPE_WIDGET_STACK` case calls `inflateWidgetStack(info, writer)`:
 3. Iterates through children, inflating each via `widgetInflater.inflateAppWidget()`
 4. Handles `TYPE_DELETE` (removes corrupt widgets from DB) and `TYPE_PENDING` (pending widgets)
 5. Calls `stackView.addWidgetView()` for each successfully inflated child
-6. Sets the active index from `WidgetStackInfo`
+6. Removes dead children (those that failed inflation) from the in-memory `WidgetStackInfo.contents` list to keep the model in sync with views
+7. Sets the active index from `WidgetStackInfo`
 
 Safe casts (`as?`) protect against unexpected child types with diagnostic logging.
 
@@ -170,6 +175,12 @@ Children are stored in `mWidgetViews` (ArrayList). Only the active widget is `VI
 `addWidgetView(AppWidgetHostView, LauncherAppWidgetInfo)` adds a child, resetting any stale transform state and updating visibility.
 
 `rebuildFromStackInfo()` synchronizes the view list with the data model after mutations (e.g. package uninstall), removing stale child views and clamping the active index.
+
+`reInflateChildWidget(PendingAppWidgetHostView, LauncherAppWidgetInfo, Launcher)` replaces a pending widget in-place when it completes restore. Creates a new view via `WidgetInflater`, handles `TYPE_DELETE` (removes from stack and DB), calls `prepareAppWidget()` for proper focusability, and swaps the view in the child list.
+
+`findChildByAppWidgetId(int)` searches the stack's child views for a `LauncherAppWidgetHostView` matching the given app widget ID.
+
+`forEachWidgetHostView(Consumer<LauncherAppWidgetHostView>)` iterates over child views that are `LauncherAppWidgetHostView` instances, used by `Launcher` for batch operations like deferring/resuming updates.
 
 `attachChildWidgetsToHost(LauncherWidgetHolder)` reattaches children after async workspace inflation so they receive remote view updates.
 
@@ -243,7 +254,11 @@ Five provider-info methods use a shared `accumulateFromProviderInfo()` helper to
 
 #### Lifecycle
 
-`onDetachedFromWindow()` cancels all pending operations: long-press timer, snap animator, velocity tracker, dot hide runnable, dot fade animator, and drop highlight.
+`onDetachedFromWindow()` cancels all pending operations: long-press timer, snap animator, velocity tracker, dot hide runnable, dot fade animator, drop highlight, and debounced active-index save.
+
+#### Active Index Persistence
+
+The active widget index is persisted to the DB (via the `OPTIONS` column) so it survives launcher restarts. To avoid excessive I/O from rapid swipes, persistence is debounced with a 1.5s delay (`scheduleActiveIndexSave()`). Each new swipe cancels the pending save and schedules a fresh one.
 
 ---
 
@@ -360,9 +375,11 @@ When a package is uninstalled, `Workspace.removeItemsByMatcher()` handles widget
         int removed = stackInfo.removeMatching(matcher);
         if (removed > 0) {
             if (stackInfo.getContents().isEmpty()) {
-                layout.removeViewInLayout(child);  // Empty stack -- remove entirely
+                layout.removeViewInLayout(child);
+                mLauncher.getModelWriter().deleteItemFromDatabase(
+                        stackInfo, "empty widget stack after item removal");
             } else {
-                wsv.rebuildFromStackInfo();  // Rebuild child views
+                wsv.rebuildFromStackInfo();
             }
         }
     }

@@ -2923,8 +2923,10 @@ public class Launcher extends StatefulActivity<LauncherState>
         getWorkspace().getPageIndicator().pauseAnimations();
 
         getWorkspace().mapOverItems((info, view) -> {
-            if (view instanceof LauncherAppWidgetHostView) {
-                ((LauncherAppWidgetHostView) view).beginDeferringUpdates();
+            if (view instanceof LauncherAppWidgetHostView lv) {
+                lv.beginDeferringUpdates();
+            } else if (view instanceof WidgetStackView wsv) {
+                wsv.forEachWidgetHostView(LauncherAppWidgetHostView::beginDeferringUpdates);
             }
             return false; // Return false to continue iterating through all the items.
         });
@@ -2935,8 +2937,10 @@ public class Launcher extends StatefulActivity<LauncherState>
         getWorkspace().getPageIndicator().skipAnimationsToEnd();
 
         getWorkspace().mapOverItems((info, view) -> {
-            if (view instanceof LauncherAppWidgetHostView) {
-                ((LauncherAppWidgetHostView) view).endDeferringUpdates();
+            if (view instanceof LauncherAppWidgetHostView lv) {
+                lv.endDeferringUpdates();
+            } else if (view instanceof WidgetStackView wsv) {
+                wsv.forEachWidgetHostView(LauncherAppWidgetHostView::endDeferringUpdates);
             }
             return false; // Return false to continue iterating through all the items.
         });

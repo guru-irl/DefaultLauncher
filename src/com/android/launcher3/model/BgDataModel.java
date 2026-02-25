@@ -25,6 +25,7 @@ import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_HOTSEAT
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APP_PAIR;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_DEEP_SHORTCUT;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_FOLDER;
+import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_WIDGET_STACK;
 import static com.android.launcher3.Utilities.SHOULD_SHOW_FIRST_PAGE_WIDGET;
 import static com.android.launcher3.shortcuts.ShortcutRequest.PINNED;
 
@@ -192,7 +193,8 @@ public class BgDataModel {
         if (BuildConfig.IS_STUDIO_BUILD) {
             items.stream()
                     .filter(item -> item.itemType == ITEM_TYPE_FOLDER
-                            || item.itemType == ITEM_TYPE_APP_PAIR)
+                            || item.itemType == ITEM_TYPE_APP_PAIR
+                            || item.itemType == ITEM_TYPE_WIDGET_STACK)
                     .forEach(item -> itemsIdMap.stream()
                             .filter(info -> info.container == item.id)
                             // We are deleting a collection which still contains items that

@@ -148,6 +148,7 @@ class ItemInflater<T>(
         info.sortByRank()
         val stackView = WidgetStackView(context)
         stackView.tag = info
+        val inflatedIds = mutableSetOf<Int>()
         for (child in info.getContents()) {
             val widgetInfo = child as? LauncherAppWidgetInfo
             if (widgetInfo == null) {
@@ -159,6 +160,7 @@ class ItemInflater<T>(
                 writer.deleteItemFromDatabase(widgetInfo, reason)
                 continue
             }
+            inflatedIds.add(widgetInfo.id)
             if (isUpdate) writer.updateItemInDatabase(widgetInfo)
             val hostView = if (type == WidgetInflater.TYPE_PENDING || providerInfo == null)
                 PendingAppWidgetHostView(context, widgetHolder, widgetInfo, providerInfo)
@@ -166,6 +168,8 @@ class ItemInflater<T>(
             prepareAppWidget(hostView, widgetInfo)
             stackView.addWidgetView(hostView, widgetInfo)
         }
+        // Remove dead children from model so contents stays in sync with views
+        info.getContents().removeIf { it.id !in inflatedIds }
         stackView.setActiveIndex(info.getActiveIndex())
         return stackView
     }

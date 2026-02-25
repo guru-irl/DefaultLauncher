@@ -57,11 +57,13 @@ import com.android.launcher3.model.data.LauncherAppWidgetInfo;
 import com.android.launcher3.model.data.WidgetStackInfo;
 import com.android.launcher3.util.MultiTranslateDelegate;
 import com.android.launcher3.util.SafeCloseable;
+import com.android.launcher3.widget.WidgetInflater.InflationResult;
 import com.android.launcher3.widget.util.WidgetSizes;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * A FrameLayout that holds multiple widget views in a stack, showing one at a time.
@@ -118,6 +120,10 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
     private float mDotAlpha = 0f;
     private ValueAnimator mDotFadeAnimator;
     private Runnable mDotHideRunnable;
+
+    // Debounced active-index DB persistence
+    private static final long ACTIVE_INDEX_SAVE_DELAY_MS = 1500;
+    private Runnable mPendingActiveIndexSave;
 
     /** Functional interface for accumulating a value from provider info across all children. */
     @FunctionalInterface
@@ -179,6 +185,7 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
         cancelSnapAnimator();
         recycleVelocityTracker();
         cancelDotHide();
+        cancelActiveIndexSave();
         if (mDotFadeAnimator != null) {
             mDotFadeAnimator.cancel();
             mDotFadeAnimator = null;
@@ -283,6 +290,97 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
 
     public int getWidgetCount() {
         return mWidgetViews.size();
+    }
+
+    /**
+     * Returns the widget view at the given index.
+     */
+    public View getWidgetViewAt(int index) {
+        return mWidgetViews.get(index);
+    }
+
+    /**
+     * Applies the given action to each child that is a {@link LauncherAppWidgetHostView}.
+     */
+    public void forEachWidgetHostView(Consumer<LauncherAppWidgetHostView> action) {
+        for (int i = 0; i < mWidgetViews.size(); i++) {
+            View child = mWidgetViews.get(i);
+            if (child instanceof LauncherAppWidgetHostView lv) {
+                action.accept(lv);
+            }
+        }
+    }
+
+    /**
+     * Finds a child {@link LauncherAppWidgetHostView} by its app widget ID.
+     * Returns null if no matching child is found.
+     */
+    @Nullable
+    public LauncherAppWidgetHostView findChildByAppWidgetId(int appWidgetId) {
+        for (View child : mWidgetViews) {
+            if (child.getTag() instanceof LauncherAppWidgetInfo lawi
+                    && lawi.appWidgetId == appWidgetId
+                    && child instanceof LauncherAppWidgetHostView lv) {
+                return lv;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Reinflates a pending widget in-place within the stack. Called when a
+     * {@link PendingAppWidgetHostView} inside this stack completes restore and needs
+     * to be replaced with a real widget view.
+     */
+    public void reInflateChildWidget(PendingAppWidgetHostView pendingView,
+            LauncherAppWidgetInfo info, Launcher launcher) {
+        int index = mWidgetViews.indexOf(pendingView);
+        if (index < 0) return;
+
+        WidgetInflater widgetInflater = new WidgetInflater(getContext(), false);
+        InflationResult result = widgetInflater.inflateAppWidget(info);
+        if (result.getType() == WidgetInflater.TYPE_DELETE) {
+            // Widget provider gone — remove from stack
+            mWidgetViews.remove(index);
+            removeView(pendingView);
+            WidgetStackInfo stackInfo = getStackInfo();
+            if (stackInfo != null) {
+                stackInfo.getContents().removeIf(item -> item.id == info.id);
+                launcher.getModelWriter().deleteItemFromDatabase(info,
+                        "stacked widget removed: " + result.getReason());
+            }
+            if (mActiveIndex >= mWidgetViews.size()) {
+                mActiveIndex = Math.max(0, mWidgetViews.size() - 1);
+            }
+            updateChildVisibility();
+            invalidate();
+            return;
+        }
+
+        LauncherAppWidgetProviderInfo providerInfo = result.getWidgetInfo();
+        if (result.isUpdate()) {
+            launcher.getModelWriter().updateItemInDatabase(info);
+        }
+
+        AppWidgetHostView newView;
+        if (result.getType() == WidgetInflater.TYPE_PENDING || providerInfo == null) {
+            newView = new PendingAppWidgetHostView(getContext(),
+                    launcher.getAppWidgetHolder(), info, providerInfo);
+        } else {
+            newView = launcher.getAppWidgetHolder().createView(
+                    info.appWidgetId, providerInfo);
+        }
+        launcher.getItemInflater().prepareAppWidget(newView, info);
+
+        // Swap views in the stack
+        LayoutParams lp = new LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+        removeView(pendingView);
+        mWidgetViews.set(index, newView);
+        newView.setOnLongClickListener(null);
+        newView.setLongClickable(false);
+        addView(newView, index, lp);
+        updateChildVisibility();
     }
 
     /**
@@ -822,6 +920,7 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
             WidgetStackInfo info = getStackInfo();
             if (info != null) {
                 info.setActiveIndex(mActiveIndex);
+                scheduleActiveIndexSave(info);
             }
             updateChildVisibility();
             invalidate();
@@ -966,6 +1065,24 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
         if (mDotHideRunnable != null) {
             removeCallbacks(mDotHideRunnable);
             mDotHideRunnable = null;
+        }
+    }
+
+    // --- Debounced active-index persistence ---
+
+    private void scheduleActiveIndexSave(WidgetStackInfo info) {
+        cancelActiveIndexSave();
+        mPendingActiveIndexSave = () -> {
+            Launcher launcher = Launcher.getLauncher(getContext());
+            launcher.getModelWriter().updateItemInDatabase(info);
+        };
+        postDelayed(mPendingActiveIndexSave, ACTIVE_INDEX_SAVE_DELAY_MS);
+    }
+
+    private void cancelActiveIndexSave() {
+        if (mPendingActiveIndexSave != null) {
+            removeCallbacks(mPendingActiveIndexSave);
+            mPendingActiveIndexSave = null;
         }
     }
 

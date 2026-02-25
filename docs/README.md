@@ -27,6 +27,7 @@ Numbered implementation docs tracking each feature and fix:
 
 | # | Change |
 |---|--------|
+| [038](changes/038-widget-stack-data-integrity.md) | Widget stack data integrity & restore fixes |
 | [031](changes/031-app-icon-refresh-and-workspace-clipping-fix.md) | App icon refresh & workspace clipping fix |
 | [030](changes/030-folder-refactoring.md) | Folder refactoring |
 | [029](changes/029-folder-features.md) | Folder features |

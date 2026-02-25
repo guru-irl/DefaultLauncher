@@ -248,6 +248,13 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
             return;
         }
         if (mActivityContext instanceof Launcher launcher) {
+            // Check if we're inside a widget stack — standard removeItem/bindAppWidget
+            // path fails for stacked widgets because the view isn't a direct CellLayout
+            // child and the widget info has cellX/cellY = -1.
+            if (getParent() instanceof WidgetStackView stackView) {
+                stackView.reInflateChildWidget(this, info, launcher);
+                return;
+            }
             // Remove and rebind the current widget (which was inflated in the wrong
             // orientation), but don't delete it from the database
             launcher.removeItem(this, info, false  /* deleteFromDb */,

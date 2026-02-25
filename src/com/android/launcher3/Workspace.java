@@ -3671,8 +3671,21 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     }
 
     public LauncherAppWidgetHostView getWidgetForAppWidgetId(final int appWidgetId) {
-        return (LauncherAppWidgetHostView) mapOverItems((info, v) ->
+        // Check direct workspace children first
+        LauncherAppWidgetHostView direct = (LauncherAppWidgetHostView) mapOverItems((info, v) ->
                 (info instanceof LauncherAppWidgetInfo lawi) && lawi.appWidgetId == appWidgetId);
+        if (direct != null) return direct;
+
+        // Search inside widget stacks for nested widget views
+        final LauncherAppWidgetHostView[] holder = new LauncherAppWidgetHostView[1];
+        mapOverItems((info, v) -> {
+            if (v instanceof WidgetStackView wsv) {
+                holder[0] = wsv.findChildByAppWidgetId(appWidgetId);
+                return holder[0] != null;
+            }
+            return false;
+        });
+        return holder[0];
     }
 
     void clearDropTargets() {
@@ -3723,8 +3736,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                         int removed = stackInfo.removeMatching(matcher);
                         if (removed > 0) {
                             if (stackInfo.getContents().isEmpty()) {
-                                // Stack is empty — remove the whole view
+                                // Stack is empty — remove view + model + DB
                                 layout.removeViewInLayout(child);
+                                mLauncher.getModelWriter().deleteItemFromDatabase(
+                                        stackInfo, "empty widget stack after item removal");
                             } else {
                                 wsv.rebuildFromStackInfo();
                             }

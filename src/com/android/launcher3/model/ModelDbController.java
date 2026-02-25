@@ -22,6 +22,7 @@ import static com.android.launcher3.LauncherPrefs.NO_DB_FILES_RESTORED;
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APP_PAIR;
+import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_WIDGET_STACK;
 import static com.android.launcher3.LauncherSettings.Favorites.TABLE_NAME;
 import static com.android.launcher3.LauncherSettings.Favorites.addTableToDb;
 import static com.android.launcher3.provider.LauncherDbUtils.tableExists;
@@ -520,6 +521,35 @@ public class ModelDbController {
             }
             t.commit();
             return folderIds;
+        } catch (SQLException ex) {
+            Log.e(TAG, ex.getMessage(), ex);
+            return new IntArray();
+        }
+    }
+
+    /**
+     * Deletes any empty widget stack from the DB.
+     * @return Ids of deleted widget stacks.
+     */
+    @WorkerThread
+    public IntArray deleteEmptyWidgetStacks() {
+        createDbIfNotExists();
+
+        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        try (SQLiteTransaction t = new SQLiteTransaction(db)) {
+            // Select widget stacks whose id does not appear as a container for any item.
+            String selection = ITEM_TYPE + " = " + ITEM_TYPE_WIDGET_STACK
+                    + " AND " + _ID + " NOT IN (SELECT " + CONTAINER
+                    + " FROM " + TABLE_NAME + ")";
+
+            IntArray stackIds = LauncherDbUtils.queryIntArray(false, db, TABLE_NAME,
+                    _ID, selection, null, null);
+            if (!stackIds.isEmpty()) {
+                db.delete(TABLE_NAME, Utilities.createDbSelectionQuery(
+                        _ID, stackIds), null);
+            }
+            t.commit();
+            return stackIds;
         } catch (SQLException ex) {
             Log.e(TAG, ex.getMessage(), ex);
             return new IntArray();

@@ -289,6 +289,7 @@ public class LoaderTask implements Runnable {
             if (Objects.equals(mIDP.dbFile, mDbName)) {
                 verifyNotStopped();
                 sanitizeFolders(mItemsDeleted);
+                sanitizeWidgetStacks(mItemsDeleted);
                 sanitizeAppPairs();
                 sanitizeWidgetsShortcutsAndPackages();
                 logASplit("sanitizeData finished");
@@ -694,6 +695,18 @@ public class LoaderTask implements Runnable {
             synchronized (mBgDataModel) {
                 for (int folderId : deletedFolderIds) {
                     mBgDataModel.itemsIdMap.remove(folderId);
+                }
+            }
+        }
+    }
+
+    private void sanitizeWidgetStacks(boolean itemsDeleted) {
+        if (itemsDeleted) {
+            IntArray deletedStackIds =
+                    mModel.getModelDbController().deleteEmptyWidgetStacks();
+            synchronized (mBgDataModel) {
+                for (int stackId : deletedStackIds) {
+                    mBgDataModel.itemsIdMap.remove(stackId);
                 }
             }
         }
