@@ -2274,14 +2274,21 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                 boolean foundCell = mTargetCell[0] >= 0 && mTargetCell[1] >= 0;
 
                 // if the widget resizes on drop
-                if (foundCell && (cell instanceof AppWidgetHostView) &&
-                        (resultSpan[0] != item.spanX || resultSpan[1] != item.spanY)) {
-                    resizeOnDrop = true;
-                    item.spanX = resultSpan[0];
-                    item.spanY = resultSpan[1];
-                    AppWidgetHostView awhv = (AppWidgetHostView) cell;
-                    WidgetSizes.updateWidgetSizeRanges(awhv, mLauncher, resultSpan[0],
-                            resultSpan[1]);
+                if (foundCell && (resultSpan[0] != item.spanX
+                        || resultSpan[1] != item.spanY)) {
+                    if (cell instanceof AppWidgetHostView awhv) {
+                        resizeOnDrop = true;
+                        item.spanX = resultSpan[0];
+                        item.spanY = resultSpan[1];
+                        WidgetSizes.updateWidgetSizeRanges(awhv, mLauncher,
+                                resultSpan[0], resultSpan[1]);
+                    } else if (cell instanceof WidgetStackView wsv) {
+                        resizeOnDrop = true;
+                        item.spanX = resultSpan[0];
+                        item.spanY = resultSpan[1];
+                        wsv.updateChildWidgetSizes(mLauncher, resultSpan[0],
+                                resultSpan[1]);
+                    }
                 }
 
                 if (foundCell) {
@@ -2414,7 +2421,8 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                 }
                 final ItemInfo info = (ItemInfo) cell.getTag();
                 boolean isWidget = info.itemType == LauncherSettings.Favorites.ITEM_TYPE_APPWIDGET
-                        || info.itemType == LauncherSettings.Favorites.ITEM_TYPE_CUSTOM_APPWIDGET;
+                        || info.itemType == LauncherSettings.Favorites.ITEM_TYPE_CUSTOM_APPWIDGET
+                        || info.itemType == LauncherSettings.Favorites.ITEM_TYPE_WIDGET_STACK;
                 if (isWidget && dropTargetLayout != null) {
                     // animate widget to a valid place
                     int animationType = resizeOnDrop ? ANIMATE_INTO_POSITION_AND_RESIZE :

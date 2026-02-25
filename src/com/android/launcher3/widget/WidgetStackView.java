@@ -167,6 +167,12 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
     }
 
     @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        updateChildVisibility();
+    }
+
+    @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         mLongPressHelper.cancelLongPress();
@@ -227,9 +233,7 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
             child.setTranslationX(0f);
             child.setScaleX(1f);
             child.setScaleY(1f);
-            if (i != mActiveIndex) {
-                child.setVisibility(GONE);
-            }
+            child.setVisibility(i == mActiveIndex ? VISIBLE : INVISIBLE);
         }
         return () -> updateChildVisibility();
     }
@@ -645,8 +649,12 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
                     float dx = ev.getX() - mDownX;
                     float dy = ev.getY() - mDownY;
                     if (Math.abs(dy) > mTouchSlop && Math.abs(dy) > Math.abs(dx)) {
-                        // Vertical gesture — release back to parent for page scroll etc.
-                        getParent().requestDisallowInterceptTouchEvent(false);
+                        // Vertical gesture — cancel long-press and let the child widget
+                        // handle it. Don't touch requestDisallowInterceptTouchEvent: the
+                        // child's LauncherAppWidgetHostView already blocks DragLayer for
+                        // scrollable widgets (set on ACTION_DOWN), matching standalone
+                        // widget behavior.
+                        mLongPressHelper.cancelLongPress();
                     } else if (!mIntercepting && Math.abs(dx) > mTouchSlop
                             && Math.abs(dx) > Math.abs(dy)) {
                         mIntercepting = true;
