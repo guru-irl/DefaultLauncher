@@ -127,10 +127,7 @@ public class M3SliderPreference extends Preference {
             root.removeView(existing);
         }
 
-        for (int i = 0; i < root.getChildCount(); i++) {
-            root.getChildAt(i).setVisibility(View.GONE);
-        }
-        root.setMinimumHeight(0);
+        SettingsSheetBuilder.hideDefaultViews(holder);
 
         Context ctx = getContext();
         Resources res = ctx.getResources();

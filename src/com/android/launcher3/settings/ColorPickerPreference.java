@@ -19,6 +19,7 @@
 package com.android.launcher3.settings;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
@@ -137,7 +138,7 @@ public class ColorPickerPreference extends Preference {
 
     private void showColorPickerSheet() {
         Context ctx = getContext();
-        float density = ctx.getResources().getDisplayMetrics().density;
+        Resources res = ctx.getResources();
         if (mDialog != null && mDialog.isShowing()) {
             mDialog.dismiss();
         }
@@ -146,28 +147,22 @@ public class ColorPickerPreference extends Preference {
 
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, 0, 0, dp(24));
+        root.setPadding(0, 0, 0,
+                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal));
 
-        // Handle bar
-        View handle = new View(ctx);
-        GradientDrawable handleBg = new GradientDrawable();
-        handleBg.setShape(GradientDrawable.RECTANGLE);
-        handleBg.setCornerRadius(2 * density);
-        handleBg.setColor(ctx.getColor(R.color.materialColorOutline));
-        handle.setBackground(handleBg);
-        LinearLayout.LayoutParams handleLp = new LinearLayout.LayoutParams(dp(32), dp(4));
-        handleLp.gravity = Gravity.CENTER_HORIZONTAL;
-        handleLp.topMargin = dp(12);
-        handle.setLayoutParams(handleLp);
-        root.addView(handle);
+        SettingsSheetBuilder.addSheetHandle(root, ctx, res);
 
         // Title
         TextView titleView = new TextView(ctx);
         titleView.setText(getTitle());
         titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
-                ctx.getResources().getDimension(R.dimen.settings_sheet_title_text_size));
+                res.getDimension(R.dimen.settings_sheet_title_text_size));
         titleView.setTextColor(ctx.getColor(R.color.materialColorOnSurface));
-        titleView.setPadding(dp(24), dp(16), dp(24), dp(8));
+        int titlePadH = res.getDimensionPixelSize(
+                R.dimen.settings_card_padding_horizontal);
+        int titlePadV = res.getDimensionPixelSize(
+                R.dimen.settings_card_padding_vertical);
+        titleView.setPadding(titlePadH, titlePadV, titlePadH, titlePadV);
         root.addView(titleView);
 
         // Scrollable content with palette groups

@@ -78,10 +78,7 @@ public class GridPreviewPreference extends Preference {
         }
 
         // Hide all default preference views
-        for (int i = 0; i < root.getChildCount(); i++) {
-            root.getChildAt(i).setVisibility(View.GONE);
-        }
-        root.setMinimumHeight(0);
+        SettingsSheetBuilder.hideDefaultViews(holder);
 
         Context ctx = getContext();
         float density = ctx.getResources().getDisplayMetrics().density;

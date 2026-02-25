@@ -20,10 +20,13 @@ import static android.app.WallpaperColors.HINT_SUPPORTS_DARK_TEXT;
 import static android.app.WallpaperColors.HINT_SUPPORTS_DARK_THEME;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.graphics.ColorMatrix;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.util.AttributeSet;
 import android.util.SparseArray;
 import android.util.TypedValue;
@@ -177,6 +180,18 @@ public class Themes {
         }
 
         return result;
+    }
+
+    /**
+     * Creates a {@link RippleDrawable} with a rounded-rect mask defined by the given radii.
+     * Used by card item decorations for position-aware ripple effects.
+     */
+    public static RippleDrawable createRoundedRipple(int rippleColor, float[] cornerRadii) {
+        GradientDrawable mask = new GradientDrawable();
+        mask.setShape(GradientDrawable.RECTANGLE);
+        mask.setCornerRadii(cornerRadii);
+        mask.setColor(0xFFFFFFFF);
+        return new RippleDrawable(ColorStateList.valueOf(rippleColor), null, mask);
     }
 
     /** Returns the desired navigation bar scrim color depending on the {@code DeviceProfile}. */

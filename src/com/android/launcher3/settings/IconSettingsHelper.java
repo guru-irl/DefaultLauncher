@@ -41,13 +41,9 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.graphics.PathParser;
-import androidx.core.widget.NestedScrollView;
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
-import androidx.lifecycle.Lifecycle;
-import androidx.lifecycle.LifecycleEventObserver;
-import androidx.lifecycle.LifecycleOwner;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 
@@ -133,27 +129,15 @@ public class IconSettingsHelper {
         int colorSelectedBorder = ctx.getColor(R.color.materialColorPrimary);
         int colorOnPrimaryContainer = ctx.getColor(R.color.materialColorOnPrimaryContainer);
 
-        BottomSheetDialog sheet = new BottomSheetDialog(ctx);
+        SettingsSheetBuilder.SheetComponents components =
+                new SettingsSheetBuilder(ctx)
+                        .setTitle(R.string.icon_pack_title)
+                        .dismissOnDestroy(fragment)
+                        .build();
+        BottomSheetDialog sheet = components.sheet;
+        TextView titleView = components.titleView;
 
-        LinearLayout root = new LinearLayout(ctx);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, 0, 0, res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal));
-
-        addSheetHandle(root, ctx, res);
-
-        TextView titleView = new TextView(ctx);
-        titleView.setText(R.string.icon_pack_title);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimension(R.dimen.settings_sheet_title_text_size));
-        titleView.setTextColor(colorOnSurface);
-        titleView.setPadding(
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical));
-        root.addView(titleView);
-
-        LinearLayout itemsContainer = new LinearLayout(ctx);
-        itemsContainer.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout itemsContainer = components.contentArea;
         itemsContainer.setPadding(0, 0, 0, res.getDimensionPixelSize(R.dimen.settings_item_spacing));
 
         List<LinearLayout> previewContainers = new ArrayList<>();
@@ -284,11 +268,6 @@ public class IconSettingsHelper {
             itemsContainer.addView(card);
         }
 
-        NestedScrollView scroll = new NestedScrollView(ctx);
-        scroll.setClipToPadding(false);
-        scroll.addView(itemsContainer);
-        root.addView(scroll);
-
         // Populate preview icons from cache (instant) or fall back to async loading
         List<Integer> uncachedIndices = new ArrayList<>();
         for (int i = 0; i < pkgs.size(); i++) {
@@ -301,9 +280,7 @@ public class IconSettingsHelper {
             }
         }
 
-        sheet.setContentView(root);
-        sheet.show();
-        dismissOnDestroy(fragment, sheet);
+        components.showScrollable();
 
         // Phase 2: load any uncached preview icons async
         if (!uncachedIndices.isEmpty()) {
@@ -469,48 +446,29 @@ public class IconSettingsHelper {
         Map<String, IconPack> packs = mgr.getInstalledPacks();
         PackageManager pm = ctx.getPackageManager();
         Resources res = ctx.getResources();
-        int cornerPx = res.getDimensionPixelSize(R.dimen.settings_card_corner_radius);
-        int marginH = res.getDimensionPixelSize(R.dimen.settings_card_margin_horizontal);
-        int marginV = res.getDimensionPixelSize(R.dimen.settings_card_margin_vertical);
-        int cardPad = res.getDimensionPixelSize(R.dimen.settings_card_padding);
 
         int colorOnSurface = ctx.getColor(R.color.materialColorOnSurface);
         int colorSurfaceVar = ctx.getColor(R.color.materialColorSurfaceContainerHigh);
 
-        BottomSheetDialog sheet = new BottomSheetDialog(ctx);
-
-        LinearLayout root = new LinearLayout(ctx);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, 0, 0, res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal));
-
-        addSheetHandle(root, ctx, res);
-
-        TextView titleView = new TextView(ctx);
-        titleView.setText(R.string.choose_icon_pack);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimension(R.dimen.settings_sheet_title_text_size));
-        titleView.setTextColor(colorOnSurface);
-        titleView.setPadding(
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical));
-        root.addView(titleView);
-
-        LinearLayout items = new LinearLayout(ctx);
-        items.setOrientation(LinearLayout.VERTICAL);
+        SettingsSheetBuilder.SheetComponents components =
+                new SettingsSheetBuilder(ctx)
+                        .setTitle(R.string.choose_icon_pack)
+                        .dismissOnDestroy(fragment)
+                        .build();
+        BottomSheetDialog sheet = components.sheet;
 
         // "Follow global setting"
-        items.addView(createPerAppCard(ctx, res, cornerPx, marginH, marginV, cardPad,
-                colorSurfaceVar, colorOnSurface,
-                ctx.getString(R.string.customize_follow_global), null, v -> {
+        components.contentArea.addView(SettingsSheetBuilder.createCard(ctx,
+                ctx.getString(R.string.customize_follow_global), null,
+                colorSurfaceVar, colorOnSurface, v -> {
                     sheet.dismiss();
                     callback.onFollowGlobal();
                 }));
 
         // "System default"
-        items.addView(createPerAppCard(ctx, res, cornerPx, marginH, marginV, cardPad,
-                colorSurfaceVar, colorOnSurface,
-                ctx.getString(R.string.customize_system_default), null, v -> {
+        components.contentArea.addView(SettingsSheetBuilder.createCard(ctx,
+                ctx.getString(R.string.customize_system_default), null,
+                colorSurfaceVar, colorOnSurface, v -> {
                     sheet.dismiss();
                     callback.onSystemDefault();
                 }));
@@ -521,9 +479,9 @@ public class IconSettingsHelper {
             String pkg = entry.getKey();
             IconPack pack = entry.getValue();
 
-            LinearLayout card = createPerAppCard(ctx, res, cornerPx, marginH, marginV,
-                    cardPad, colorSurfaceVar, colorOnSurface,
-                    pack.label.toString(), pack.getPackIcon(pm), v -> {
+            LinearLayout card = SettingsSheetBuilder.createCard(ctx,
+                    pack.label.toString(), pack.getPackIcon(pm),
+                    colorSurfaceVar, colorOnSurface, v -> {
                         sheet.dismiss();
                         callback.onPackSelected(pkg, pack.label);
                     });
@@ -559,70 +517,10 @@ public class IconSettingsHelper {
                 }
             });
 
-            items.addView(card);
+            components.contentArea.addView(card);
         }
 
-        NestedScrollView scroll = new NestedScrollView(ctx);
-        scroll.setClipToPadding(false);
-        scroll.addView(items);
-        root.addView(scroll);
-
-        sheet.setContentView(root);
-        sheet.show();
-        dismissOnDestroy(fragment, sheet);
-    }
-
-    private static LinearLayout createPerAppCard(Context ctx, Resources res,
-            int cornerPx, int marginH, int marginV, int cardPad,
-            int bgColor, int textColor,
-            String label, Drawable packIcon,
-            View.OnClickListener listener) {
-        LinearLayout card = new LinearLayout(ctx);
-        card.setOrientation(LinearLayout.VERTICAL);
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(cornerPx);
-        bg.setColor(bgColor);
-        card.setBackground(bg);
-        card.setPadding(cardPad, cardPad, cardPad, cardPad);
-
-        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        cardLp.setMargins(marginH, marginV, marginH, marginV);
-        card.setLayoutParams(cardLp);
-
-        // Ripple
-        TypedValue ripple = new TypedValue();
-        ctx.getTheme().resolveAttribute(
-                android.R.attr.selectableItemBackground, ripple, true);
-        card.setForeground(ctx.getDrawable(ripple.resourceId));
-
-        LinearLayout header = new LinearLayout(ctx);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-
-        if (packIcon != null) {
-            ImageView icon = new ImageView(ctx);
-            int iconPx = res.getDimensionPixelSize(R.dimen.settings_pack_icon_size);
-            LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(iconPx, iconPx);
-            iconLp.setMarginEnd(res.getDimensionPixelSize(R.dimen.settings_icon_margin_end));
-            icon.setLayoutParams(iconLp);
-            icon.setImageDrawable(packIcon);
-            header.addView(icon);
-        }
-
-        TextView name = new TextView(ctx);
-        name.setText(label);
-        name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        name.setTextColor(textColor);
-        name.setLayoutParams(new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        header.addView(name);
-
-        card.addView(header);
-        card.setOnClickListener(listener);
-        return card;
+        components.showScrollable();
     }
 
     /**
@@ -634,113 +532,13 @@ public class IconSettingsHelper {
             ConstantItem<String> prefItem, Preference pref) {
         Context ctx = fragment.getContext();
         if (ctx == null) return;
-
-        IconShapeModel[] shapes = ShapesProvider.INSTANCE.getIconShapes();
-
-        List<CharSequence> labels = new ArrayList<>();
-        List<String> keys = new ArrayList<>();
-        List<String> pathStrings = new ArrayList<>();
-        labels.add(ctx.getString(R.string.icon_shape_default));
-        keys.add("");
-        pathStrings.add(""); // no preview for system default
-        for (IconShapeModel shape : shapes) {
-            // Filter out "none" — handled by adaptive shape switch
-            if (ShapesProvider.NONE_KEY.equals(shape.getKey())) continue;
-            labels.add(getShapeDisplayName(ctx, shape.getKey()));
-            keys.add(shape.getKey());
-            pathStrings.add(shape.getPathString());
-        }
-
         String current = LauncherPrefs.get(ctx).get(prefItem);
-        int selected = Math.max(0, keys.indexOf(current));
-
-        Resources res = ctx.getResources();
-        int previewSizePx = res.getDimensionPixelSize(R.dimen.settings_shape_preview_size);
-        int colorFill = ctx.getColor(R.color.materialColorSurfaceContainerHighest);
-
-        BottomSheetDialog sheet = new BottomSheetDialog(ctx);
-
-        LinearLayout root = new LinearLayout(ctx);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, 0, 0, res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal));
-
-        addSheetHandle(root, ctx, res);
-
-        TextView titleView = new TextView(ctx);
-        titleView.setText(R.string.icon_shape_title);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimension(R.dimen.settings_sheet_title_text_size));
-        titleView.setTextColor(ctx.getColor(R.color.materialColorOnSurface));
-        titleView.setPadding(
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical));
-        root.addView(titleView);
-
-        LinearLayout itemsContainer = new LinearLayout(ctx);
-        itemsContainer.setOrientation(LinearLayout.VERTICAL);
-
-        for (int i = 0; i < labels.size(); i++) {
-            final int idx = i;
-            boolean isSelected = (i == selected);
-
-            // Row: [shape preview] [shape name]
-            LinearLayout row = new LinearLayout(ctx);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setMinimumHeight(res.getDimensionPixelSize(R.dimen.settings_row_min_height));
-            row.setPadding(res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                    0, res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal), 0);
-            TypedValue tv = new TypedValue();
-            ctx.getTheme().resolveAttribute(
-                    android.R.attr.selectableItemBackground, tv, true);
-            row.setBackgroundResource(tv.resourceId);
-
-            // Shape preview
-            String pathStr = pathStrings.get(i);
-            if (!pathStr.isEmpty()) {
-                ImageView shapePreview = new ImageView(ctx);
-                LinearLayout.LayoutParams previewLp = new LinearLayout.LayoutParams(
-                        previewSizePx, previewSizePx);
-                previewLp.setMarginEnd(res.getDimensionPixelSize(R.dimen.settings_card_padding));
-                shapePreview.setLayoutParams(previewLp);
-                shapePreview.setImageDrawable(new ShapePreviewDrawable(
-                        pathStr, previewSizePx, colorFill));
-                row.addView(shapePreview);
-            } else {
-                // System default: add spacer so text aligns
-                View spacer = new View(ctx);
-                LinearLayout.LayoutParams spacerLp = new LinearLayout.LayoutParams(
-                        previewSizePx, previewSizePx);
-                spacerLp.setMarginEnd(res.getDimensionPixelSize(R.dimen.settings_card_padding));
-                spacer.setLayoutParams(spacerLp);
-                row.addView(spacer);
-            }
-
-            TextView nameView = new TextView(ctx);
-            nameView.setText(labels.get(i));
-            nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-            nameView.setTextColor(isSelected
-                    ? ctx.getColor(R.color.materialColorPrimary)
-                    : ctx.getColor(R.color.materialColorOnSurface));
-            row.addView(nameView);
-
-            row.setOnClickListener(v -> {
-                String key = keys.get(idx);
-                LauncherPrefs.get(ctx).put(prefItem, key);
-                updateIconShapeSummary(ctx, pref, prefItem);
-                sheet.dismiss();
-            });
-            itemsContainer.addView(row);
-        }
-
-        NestedScrollView scroll = new NestedScrollView(ctx);
-        scroll.addView(itemsContainer);
-        root.addView(scroll);
-
-        sheet.setContentView(root);
-        sheet.show();
-        dismissOnDestroy(fragment, sheet);
+        showShapePickerDialog(ctx, R.string.icon_shape_title,
+                ctx.getString(R.string.icon_shape_default), current,
+                key -> {
+                    LauncherPrefs.get(ctx).put(prefItem, key);
+                    updateIconShapeSummary(ctx, pref, prefItem);
+                }, fragment);
     }
 
     /**
@@ -799,24 +597,38 @@ public class IconSettingsHelper {
     /**
      * Show a per-app icon shape picker. Unlike showIconShapeDialog, this does not write
      * to LauncherPrefs — it calls the callback with the selected shape key.
-     * Does not include "System default" — per-app shapes are explicit.
      */
     public static void showPerAppShapeDialog(PreferenceFragmentCompat fragment,
             ComponentName componentName, boolean isHome, Consumer<String> onShapeSelected) {
         Context ctx = fragment.getContext();
         if (ctx == null) return;
+        PerAppIconOverrideManager mgr = PerAppIconOverrideManager.getInstance(ctx);
+        IconOverride override = isHome
+                ? mgr.getHomeOverride(componentName)
+                : mgr.getDrawerOverride(componentName);
+        String currentKey = override != null ? override.shapeKey : "";
+        showShapePickerDialog(ctx, R.string.icon_shape_title,
+                ctx.getString(R.string.icon_shape_default), currentKey,
+                onShapeSelected, fragment);
+    }
 
+    /**
+     * Unified shape picker dialog used by global, per-app, and per-folder pickers.
+     * Builds the shape list from ShapesProvider, creates rows with visual previews,
+     * and calls onSelect with the chosen key ("" for default, shape key otherwise).
+     */
+    public static void showShapePickerDialog(Context ctx, int titleResId,
+            CharSequence defaultLabel, String currentKey,
+            Consumer<String> onSelect,
+            @Nullable PreferenceFragmentCompat lifecycleOwner) {
         IconShapeModel[] shapes = ShapesProvider.INSTANCE.getIconShapes();
 
         List<CharSequence> labels = new ArrayList<>();
         List<String> keys = new ArrayList<>();
         List<String> pathStrings = new ArrayList<>();
-
-        // Per-app: include "System default" as the first option (follow global shape)
-        labels.add(ctx.getString(R.string.icon_shape_default));
+        labels.add(defaultLabel);
         keys.add("");
         pathStrings.add("");
-
         for (IconShapeModel shape : shapes) {
             if (ShapesProvider.NONE_KEY.equals(shape.getKey())) continue;
             labels.add(getShapeDisplayName(ctx, shape.getKey()));
@@ -824,39 +636,17 @@ public class IconSettingsHelper {
             pathStrings.add(shape.getPathString());
         }
 
-        // Determine currently selected shape from override
-        PerAppIconOverrideManager mgr = PerAppIconOverrideManager.getInstance(ctx);
-        IconOverride override = isHome
-                ? mgr.getHomeOverride(componentName)
-                : mgr.getDrawerOverride(componentName);
-        String currentKey = override != null ? override.shapeKey : "";
-        int selected = Math.max(0, keys.indexOf(currentKey));
+        String effectiveKey = currentKey != null ? currentKey : "";
+        int selected = Math.max(0, keys.indexOf(effectiveKey));
 
         Resources res = ctx.getResources();
         int previewSizePx = res.getDimensionPixelSize(R.dimen.settings_shape_preview_size);
         int colorFill = ctx.getColor(R.color.materialColorSurfaceContainerHighest);
 
-        BottomSheetDialog sheet = new BottomSheetDialog(ctx);
-
-        LinearLayout root = new LinearLayout(ctx);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, 0, 0, res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal));
-
-        addSheetHandle(root, ctx, res);
-
-        TextView titleView = new TextView(ctx);
-        titleView.setText(R.string.icon_shape_title);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimension(R.dimen.settings_sheet_title_text_size));
-        titleView.setTextColor(ctx.getColor(R.color.materialColorOnSurface));
-        titleView.setPadding(
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical));
-        root.addView(titleView);
-
-        LinearLayout itemsContainer = new LinearLayout(ctx);
-        itemsContainer.setOrientation(LinearLayout.VERTICAL);
+        SettingsSheetBuilder builder = new SettingsSheetBuilder(ctx).setTitle(titleResId);
+        if (lifecycleOwner != null) builder.dismissOnDestroy(lifecycleOwner);
+        SettingsSheetBuilder.SheetComponents components = builder.build();
+        BottomSheetDialog sheet = components.sheet;
 
         for (int i = 0; i < labels.size(); i++) {
             final int idx = i;
@@ -901,19 +691,13 @@ public class IconSettingsHelper {
             row.addView(nameView);
 
             row.setOnClickListener(v -> {
-                onShapeSelected.accept(keys.get(idx));
+                onSelect.accept(keys.get(idx));
                 sheet.dismiss();
             });
-            itemsContainer.addView(row);
+            components.contentArea.addView(row);
         }
 
-        NestedScrollView scroll = new NestedScrollView(ctx);
-        scroll.addView(itemsContainer);
-        root.addView(scroll);
-
-        sheet.setContentView(root);
-        sheet.show();
-        dismissOnDestroy(fragment, sheet);
+        components.showScrollable();
     }
 
     /**
@@ -1062,38 +846,6 @@ public class IconSettingsHelper {
         } catch (NumberFormatException e) {
             return ctx.getString(R.string.icon_size_custom) + " (" + sizeValue + ")";
         }
-    }
-
-    // ---- Shared UI helpers ----
-
-    static void addSheetHandle(LinearLayout root, Context ctx, Resources res) {
-        View handle = new View(ctx);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(res.getDimension(R.dimen.settings_stroke_width));
-        bg.setColor(ctx.getColor(R.color.materialColorOutline));
-        handle.setBackground(bg);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                res.getDimensionPixelSize(R.dimen.settings_handle_width),
-                res.getDimensionPixelSize(R.dimen.settings_icon_padding));
-        lp.gravity = Gravity.CENTER_HORIZONTAL;
-        lp.topMargin = res.getDimensionPixelSize(R.dimen.settings_icon_margin_end);
-        handle.setLayoutParams(lp);
-        root.addView(handle);
-    }
-
-    static void dismissOnDestroy(PreferenceFragmentCompat fragment,
-            BottomSheetDialog sheet) {
-        fragment.getLifecycle().addObserver(new LifecycleEventObserver() {
-            @Override
-            public void onStateChanged(@NonNull LifecycleOwner source,
-                    @NonNull Lifecycle.Event event) {
-                if (event == Lifecycle.Event.ON_DESTROY) {
-                    if (sheet.isShowing()) sheet.dismiss();
-                    source.getLifecycle().removeObserver(this);
-                }
-            }
-        });
     }
 
     static TextView createSheetItem(Context ctx, Resources res,

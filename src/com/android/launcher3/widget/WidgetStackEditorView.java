@@ -57,6 +57,7 @@ import com.android.launcher3.ShortcutAndWidgetContainer;
 import com.android.launcher3.anim.M3Durations;
 import com.android.launcher3.anim.PendingAnimation;
 import com.android.launcher3.model.ModelWriter;
+import com.android.launcher3.settings.BaseCardItemDecoration;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.LauncherAppWidgetInfo;
 import com.android.launcher3.model.data.WidgetStackInfo;
@@ -439,29 +440,13 @@ public class WidgetStackEditorView extends AbstractSlideInView<Launcher>
 
     /**
      * Computes position-aware corner radii for the given adapter position.
-     * Matches the logic in {@link WidgetStackEditorItemDecoration}.
+     * Delegates to {@link BaseCardItemDecoration#computeCornerRadii}.
      */
     private float[] computePositionRadii(int adapterPosition, int itemCount) {
-        float topLeft, topRight, bottomLeft, bottomRight;
         boolean isFirst = adapterPosition == 0;
         boolean isLast = adapterPosition == itemCount - 1;
-
-        if (isFirst && isLast) {
-            topLeft = topRight = bottomLeft = bottomRight = mLargeRadius;
-        } else if (isFirst) {
-            topLeft = topRight = mLargeRadius;
-            bottomLeft = bottomRight = mSmallRadius;
-        } else if (isLast) {
-            topLeft = topRight = mSmallRadius;
-            bottomLeft = bottomRight = mLargeRadius;
-        } else {
-            topLeft = topRight = bottomLeft = bottomRight = mSmallRadius;
-        }
-
-        return new float[]{
-                topLeft, topLeft, topRight, topRight,
-                bottomRight, bottomRight, bottomLeft, bottomLeft
-        };
+        return BaseCardItemDecoration.computeCornerRadii(
+                isFirst, isLast, mLargeRadius, mSmallRadius);
     }
 
     private void animateDragPickup(RecyclerView.ViewHolder viewHolder) {

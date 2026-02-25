@@ -19,24 +19,15 @@
 package com.android.launcher3.settings;
 
 import android.content.Context;
-import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
-import android.os.Handler;
-import android.os.Looper;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
-import android.view.Gravity;
-import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
@@ -229,7 +220,6 @@ public class FolderCoverPickerHelper {
 
         // M3 colors — resolve from BottomSheetDialog's context for proper day/night
         int colorOnSurface = themed.getColor(R.color.materialColorOnSurface);
-        int colorOnSurfaceVar = themed.getColor(R.color.materialColorOnSurfaceVariant);
         BottomSheetDialog sheet = new BottomSheetDialog(themed);
         sheet.getBehavior().setPeekHeight(
                 res.getDisplayMetrics().heightPixels * 2 / 3);
@@ -238,7 +228,7 @@ public class FolderCoverPickerHelper {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(0, 0, 0, padH);
 
-        IconSettingsHelper.addSheetHandle(root, themed, res);
+        SettingsSheetBuilder.addSheetHandle(root, themed, res);
 
         // Title
         TextView titleView = new TextView(themed);
@@ -248,41 +238,16 @@ public class FolderCoverPickerHelper {
         titleView.setPadding(padH, padV, padH, padV);
         root.addView(titleView);
 
-        // Search bar — matches PerAppIconSheet pattern
-        EditText searchBar = new EditText(themed);
-        searchBar.setHint(R.string.folder_emoji_search_hint);
-        searchBar.setInputType(android.text.InputType.TYPE_CLASS_TEXT
-                | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        searchBar.setMaxLines(1);
-        searchBar.setSingleLine(true);
-        searchBar.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        searchBar.setTextColor(colorOnSurface);
-        searchBar.setHintTextColor(colorOnSurfaceVar);
-        searchBar.setBackgroundResource(R.drawable.bg_widgets_searchbox);
-        searchBar.setGravity(Gravity.CENTER_VERTICAL);
-        int searchPadH = res.getDimensionPixelSize(R.dimen.settings_search_padding);
-        searchBar.setPadding(searchPadH, 0, searchPadH, 0);
-        searchBar.setCompoundDrawablePadding(
-                res.getDimensionPixelSize(R.dimen.settings_search_padding));
-        searchBar.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
-
-        Drawable searchIcon = ContextCompat.getDrawable(themed, R.drawable.ic_allapps_search);
-        if (searchIcon != null) {
-            searchIcon = searchIcon.mutate();
-            searchIcon.setTintList(ColorStateList.valueOf(colorOnSurfaceVar));
-            int searchIconSize = res.getDimensionPixelSize(R.dimen.settings_search_icon_size);
-            searchIcon.setBounds(0, 0, searchIconSize, searchIconSize);
-            searchBar.setCompoundDrawablesRelative(searchIcon, null, null, null);
-        }
-
-        LinearLayout.LayoutParams searchLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                res.getDimensionPixelSize(R.dimen.settings_row_min_height));
-        int searchMarginH = res.getDimensionPixelSize(R.dimen.settings_search_padding);
-        int searchMarginV = res.getDimensionPixelSize(R.dimen.settings_item_spacing);
-        searchLp.setMargins(searchMarginH, searchMarginV, searchMarginH, searchMarginV);
-        searchBar.setLayoutParams(searchLp);
-        root.addView(searchBar);
+        // Search bar — adapter wired up after creation below
+        final Object[] adapterRef = {null};
+        root.addView(SettingsSheetBuilder.createSearchBar(themed,
+                R.string.folder_emoji_search_hint, SEARCH_DEBOUNCE_MS,
+                query -> {
+                    @SuppressWarnings("unchecked")
+                    CategoryGridAdapter<EmojiItem> a =
+                            (CategoryGridAdapter<EmojiItem>) adapterRef[0];
+                    if (a != null) a.filter(query);
+                }));
 
         // Build flat list of emoji items
         FolderCoverManager coverMgr = FolderCoverManager.getInstance(ctx);
@@ -344,6 +309,7 @@ public class FolderCoverPickerHelper {
         };
 
         CategoryGridAdapter<EmojiItem> adapter = new CategoryGridAdapter<>(items, binder);
+        adapterRef[0] = adapter;
 
         // RecyclerView emoji grid
         RecyclerView rv = new RecyclerView(themed);
@@ -361,22 +327,6 @@ public class FolderCoverPickerHelper {
             rv.setLayoutManager(CategoryGridAdapter.createGridLayoutManager(
                     themed, rv, cellSizePx, adapter));
             rv.setAdapter(adapter);
-        });
-
-        // Debounced search filtering
-        Handler handler = new Handler(Looper.getMainLooper());
-        Runnable[] pendingFilter = new Runnable[1];
-        searchBar.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override
-            public void afterTextChanged(Editable s) {
-                if (pendingFilter[0] != null) handler.removeCallbacks(pendingFilter[0]);
-                pendingFilter[0] = () -> adapter.filter(s.toString());
-                handler.postDelayed(pendingFilter[0], SEARCH_DEBOUNCE_MS);
-            }
         });
 
         sheet.setContentView(root);
