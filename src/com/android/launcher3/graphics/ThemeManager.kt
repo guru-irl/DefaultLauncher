@@ -20,11 +20,14 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
+import android.graphics.Color
+import androidx.core.graphics.ColorUtils
 import com.android.launcher3.EncryptionType
 import com.android.launcher3.Item
 import com.android.launcher3.LauncherPrefChangeListener
 import com.android.launcher3.LauncherPrefs
 import com.android.launcher3.LauncherPrefs.Companion.backedUpItem
+import com.android.launcher3.allapps.AllAppsColorResolver
 import com.android.launcher3.dagger.ApplicationContext
 import com.android.launcher3.dagger.LauncherAppComponent
 import com.android.launcher3.dagger.LauncherAppSingleton
@@ -78,7 +81,10 @@ constructor(
 
         val keys = (iconControllerFactory.prefKeys + PREF_ICON_SHAPE + LauncherPrefs.ICON_SIZE_SCALE
             + PREF_ICON_SHAPE_DRAWER + LauncherPrefs.ICON_SIZE_SCALE_DRAWER
-            + LauncherPrefs.APPLY_ADAPTIVE_SHAPE + LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER)
+            + LauncherPrefs.APPLY_ADAPTIVE_SHAPE + LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER
+            + LauncherPrefs.WRAP_UNSUPPORTED_ICONS + LauncherPrefs.WRAP_UNSUPPORTED_ICONS_DRAWER
+            + LauncherPrefs.ICON_WRAP_BG_COLOR + LauncherPrefs.ICON_WRAP_BG_COLOR_DRAWER
+            + LauncherPrefs.ICON_WRAP_BG_OPACITY + LauncherPrefs.ICON_WRAP_BG_OPACITY_DRAWER)
 
         val keysArray = keys.toTypedArray()
         val prefKeySet = keys.map { it.sharedPrefKey }
@@ -124,15 +130,22 @@ constructor(
 
         val applyAdaptive = prefs.get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE)
         val applyAdaptiveDrawer = prefs.get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER)
+        val wrapUnsupported = prefs.get(LauncherPrefs.WRAP_UNSUPPORTED_ICONS)
+        val wrapUnsupportedDrawer = prefs.get(LauncherPrefs.WRAP_UNSUPPORTED_ICONS_DRAWER)
 
-        // Home shape: if adaptive is off, use NONE shape; otherwise use the selected shape
-        val shapeModel = if (!applyAdaptive) {
-            ShapesProvider.iconShapes.firstOrNull { it.key == ShapesProvider.NONE_KEY }
-        } else {
-            prefs.get(PREF_ICON_SHAPE).let { shapeOverride ->
-                ShapesProvider.iconShapes.firstOrNull { it.key == shapeOverride }
+        // Orthogonal: each toggle independently controls one class of icons
+        val skipWrapNonAdaptive = !applyAdaptive      // pack icons drawn raw when adaptive OFF
+        val useOemForNative = !wrapUnsupported         // system icons use OEM shape when unsupported OFF
+
+        // Shape model needed when either toggle is ON (someone needs the custom shape)
+        val shapeModel = if (applyAdaptive || wrapUnsupported) {
+            prefs.get(PREF_ICON_SHAPE).let { key ->
+                ShapesProvider.iconShapes.firstOrNull { it.key == key }
             }
+        } else {
+            null  // Both OFF → OEM for system, raw for pack
         }
+
         val iconMask =
             when {
                 shapeModel != null -> shapeModel.pathString
@@ -156,14 +169,18 @@ constructor(
         val iconSizeScale = (prefs.get(LauncherPrefs.ICON_SIZE_SCALE).toFloatOrNull() ?: 1f)
             .coerceIn(0.5f, 1.0f)
 
-        // Drawer-specific shape/size
-        val drawerShapeModel = if (!applyAdaptiveDrawer) {
-            ShapesProvider.iconShapes.firstOrNull { it.key == ShapesProvider.NONE_KEY }
-        } else {
-            prefs.get(PREF_ICON_SHAPE_DRAWER).let { shapeOverride ->
-                ShapesProvider.iconShapes.firstOrNull { it.key == shapeOverride }
+        // Orthogonal drawer flags (mirrors home logic)
+        val skipWrapNonAdaptiveDrawer = !applyAdaptiveDrawer
+        val useOemForNativeDrawer = !wrapUnsupportedDrawer
+
+        val drawerShapeModel = if (applyAdaptiveDrawer || wrapUnsupportedDrawer) {
+            prefs.get(PREF_ICON_SHAPE_DRAWER).let { key ->
+                ShapesProvider.iconShapes.firstOrNull { it.key == key }
             }
+        } else {
+            null
         }
+
         val iconMaskDrawer =
             when {
                 drawerShapeModel != null -> drawerShapeModel.pathString
@@ -176,6 +193,14 @@ constructor(
 
         val iconSizeScaleDrawer = (prefs.get(LauncherPrefs.ICON_SIZE_SCALE_DRAWER).toFloatOrNull() ?: 1f)
             .coerceIn(0.5f, 1.0f)
+
+        // Resolve wrapper background colors
+        val wrapperBgColor = resolveWrapperBgColor(
+            prefs.get(LauncherPrefs.ICON_WRAP_BG_COLOR),
+            prefs.get(LauncherPrefs.ICON_WRAP_BG_OPACITY))
+        val wrapperBgColorDrawer = resolveWrapperBgColor(
+            prefs.get(LauncherPrefs.ICON_WRAP_BG_COLOR_DRAWER),
+            prefs.get(LauncherPrefs.ICON_WRAP_BG_OPACITY_DRAWER))
 
         val nightMode = (context.resources.configuration.uiMode
             and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -195,7 +220,21 @@ constructor(
             iconShapeDrawer = iconShapeDrawer,
             applyAdaptiveShape = applyAdaptive,
             applyAdaptiveShapeDrawer = applyAdaptiveDrawer,
+            skipWrapNonAdaptive = skipWrapNonAdaptive,
+            skipWrapNonAdaptiveDrawer = skipWrapNonAdaptiveDrawer,
+            useOemForNative = useOemForNative,
+            useOemForNativeDrawer = useOemForNativeDrawer,
+            wrapperBgColor = wrapperBgColor,
+            wrapperBgColorDrawer = wrapperBgColorDrawer,
         )
+    }
+
+    private fun resolveWrapperBgColor(colorName: String, opacity: Int): Int {
+        if (colorName.isEmpty()) return Color.TRANSPARENT
+        val base = AllAppsColorResolver.resolveColorByName(context, colorName)
+        if (base == 0) return Color.TRANSPARENT
+        val alpha = (opacity * 255 / 100).coerceIn(0, 255)
+        return ColorUtils.setAlphaComponent(base, alpha)
     }
 
     /** Migrate "none" shape to adaptive-off + clear shape pref (one-time). */
@@ -226,8 +265,22 @@ constructor(
         // Adaptive shape flags
         val applyAdaptiveShape: Boolean = true,
         val applyAdaptiveShapeDrawer: Boolean = true,
+        // Skip wrapping for non-AdaptiveIconDrawable icons when adaptive is OFF
+        val skipWrapNonAdaptive: Boolean = false,
+        val skipWrapNonAdaptiveDrawer: Boolean = false,
+        // Use OEM device shape for native AdaptiveIconDrawable icons when unsupported is OFF
+        val useOemForNative: Boolean = false,
+        val useOemForNativeDrawer: Boolean = false,
+        // Wrapper background color for shaped non-native icons
+        val wrapperBgColor: Int = Color.TRANSPARENT,
+        val wrapperBgColorDrawer: Int = Color.TRANSPARENT,
     ) {
-        fun toUniqueId() = "${iconMask.hashCode()},$themeCode,$iconSizeScale,$nightMode,$applyAdaptiveShape,$applyAdaptiveShapeDrawer"
+        fun toUniqueId() = "${iconMask.hashCode()},$themeCode,$iconSizeScale,$nightMode," +
+            "$applyAdaptiveShape,$applyAdaptiveShapeDrawer," +
+            "$skipWrapNonAdaptive,$skipWrapNonAdaptiveDrawer," +
+            "$useOemForNative,$useOemForNativeDrawer," +
+            "$wrapperBgColor,$wrapperBgColorDrawer," +
+            "${iconMaskDrawer.hashCode()},$iconSizeScaleDrawer"
     }
 
     /** Interface for receiving theme change events */

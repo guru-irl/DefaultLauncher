@@ -128,17 +128,17 @@ public class PerAppHomeIconResolver {
             if (pack != null) {
                 if (override.hasSpecificDrawable()) {
                     Drawable d = pack.getDrawableForEntry(override.drawableName, pm);
-                    if (d != null) return d;
+                    if (d != null) return IconPackDrawable.wrap(d);
                 }
                 Drawable d = pack.getCalendarIcon(cn, pm);
-                if (d != null) return d;
+                if (d != null) return IconPackDrawable.wrap(d);
                 d = pack.getIconForComponent(cn, pm);
-                if (d != null) return d;
+                if (d != null) return IconPackDrawable.wrap(d);
                 if (pack.hasFallbackMask()) {
                     try {
                         Drawable original = pm.getActivityIcon(cn);
                         d = pack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
-                        if (d != null) return d;
+                        if (d != null) return IconPackDrawable.wrap(d);
                     } catch (PackageManager.NameNotFoundException ignored) { }
                 }
             }
@@ -149,9 +149,16 @@ public class PerAppHomeIconResolver {
         IconPack pack = mgr.getCurrentPack();
         if (pack != null) {
             Drawable d = pack.getCalendarIcon(cn, pm);
-            if (d != null) return d;
+            if (d != null) return IconPackDrawable.wrap(d);
             d = pack.getIconForComponent(cn, pm);
-            if (d != null) return d;
+            if (d != null) return IconPackDrawable.wrap(d);
+            if (pack.hasFallbackMask()) {
+                try {
+                    Drawable original = pm.getActivityIcon(cn);
+                    d = pack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
+                    if (d != null) return IconPackDrawable.wrap(d);
+                } catch (PackageManager.NameNotFoundException ignored) { }
+            }
         }
 
         try {
@@ -175,6 +182,10 @@ public class PerAppHomeIconResolver {
         private final float mIconSizeScale;
         private final boolean mIsNoneShape;
         private final ShapeDelegate mIconShape;
+        private final boolean mSkipWrapNonAdaptive;
+        private final boolean mUseOemForNative;
+        private boolean mUseOemShape = false;
+        private final int mWrapperBgColorInt;
 
         public PerAppIconFactory(Context context, int fillResIconDpi, int iconBitmapSize,
                 IconOverride override, ThemeManager.IconState globalState) {
@@ -188,18 +199,15 @@ public class PerAppHomeIconResolver {
             // Determine effective shape
             String effectiveShapeKey;
             if (!effectiveAdaptive) {
-                effectiveShapeKey = ShapesProvider.NONE_KEY;
+                // When per-app explicitly sets OFF, use NONE (raw).
+                // When following global and global is OFF, use the global computed mask.
+                effectiveShapeKey = perAppAdaptive != null
+                        ? ShapesProvider.NONE_KEY
+                        : ShapesProvider.findKeyForMask(globalState.getIconMask());
             } else if (override.hasShapeOverride()) {
                 effectiveShapeKey = override.shapeKey;
             } else {
-                // Find the key from global state by matching the mask path
-                effectiveShapeKey = "";
-                for (IconShapeModel shape : ShapesProvider.INSTANCE.getIconShapes()) {
-                    if (shape.getPathString().equals(globalState.getIconMask())) {
-                        effectiveShapeKey = shape.getKey();
-                        break;
-                    }
-                }
+                effectiveShapeKey = ShapesProvider.findKeyForMask(globalState.getIconMask());
             }
 
             IconShapeModel shapeModel = null;
@@ -229,17 +237,27 @@ public class PerAppHomeIconResolver {
             } else {
                 mIconSizeScale = globalState.getIconSizeScale();
             }
+
+            // skipWrapNonAdaptive: FOLLOW_GLOBAL inherits, explicit ON/OFF = false
+            if (perAppAdaptive == null) {
+                mSkipWrapNonAdaptive = globalState.getSkipWrapNonAdaptive();
+                mUseOemForNative = globalState.getUseOemForNative();
+            } else {
+                mSkipWrapNonAdaptive = false;
+                mUseOemForNative = false;  // explicit ON/OFF overrides global behavior
+            }
+            mWrapperBgColorInt = globalState.getWrapperBgColor();
         }
 
         @Override
         public Path getShapePath(AdaptiveIconDrawable drawable, Rect iconBounds) {
-            if (!Flags.enableLauncherIconShapes()) return super.getShapePath(drawable, iconBounds);
+            if (!Flags.enableLauncherIconShapes() || mUseOemShape) return super.getShapePath(drawable, iconBounds);
             return mIconShape.getPath(iconBounds);
         }
 
         @Override
         public float getIconScale() {
-            if (!Flags.enableLauncherIconShapes()) return super.getIconScale();
+            if (!Flags.enableLauncherIconShapes() || mUseOemShape) return super.getIconScale();
             return mIconScale;
         }
 
@@ -255,7 +273,7 @@ public class PerAppHomeIconResolver {
         @NonNull
         @Override
         public AdaptiveIconDrawable wrapToAdaptiveIcon(@NonNull Drawable icon) {
-            mWrapperBackgroundColor = Color.TRANSPARENT;
+            mWrapperBackgroundColor = mWrapperBgColorInt;
             return super.wrapToAdaptiveIcon(icon);
         }
 
@@ -263,19 +281,26 @@ public class PerAppHomeIconResolver {
         @Override
         public BitmapInfo createBadgedIconBitmap(@NonNull Drawable icon,
                 @Nullable IconOptions options) {
-            if (mIsNoneShape && !(icon instanceof AdaptiveIconDrawable)) {
-                android.graphics.Bitmap bitmap = createIconBitmap(icon, mIconSizeScale,
+            boolean isPackIcon = IconPackDrawable.isFromPack(icon);
+            Drawable renderIcon = IconPackDrawable.unwrap(icon);
+
+            if ((mIsNoneShape || mSkipWrapNonAdaptive) && isPackIcon) {
+                android.graphics.Bitmap bitmap = createIconBitmap(renderIcon, mIconSizeScale,
                         MODE_DEFAULT);
                 int color = ColorExtractor.findDominantColorByHue(bitmap);
                 return BitmapInfo.of(bitmap, color).withFlags(getBitmapFlagOp(options));
             }
-            return super.createBadgedIconBitmap(icon, options);
+            // Set OEM flag for system icons when useOemForNative is active
+            mUseOemShape = mUseOemForNative && !isPackIcon;
+            BitmapInfo result = super.createBadgedIconBitmap(renderIcon, options);
+            mUseOemShape = false;
+            return result;
         }
 
         @Override
         protected void drawAdaptiveIcon(@NonNull Canvas canvas,
                 @NonNull AdaptiveIconDrawable drawable, @NonNull Path overridePath) {
-            if (!Flags.enableLauncherIconShapes()) {
+            if (!Flags.enableLauncherIconShapes() || mUseOemShape) {
                 super.drawAdaptiveIcon(canvas, drawable, overridePath);
                 return;
             }

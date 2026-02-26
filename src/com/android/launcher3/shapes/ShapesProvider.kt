@@ -46,6 +46,15 @@ object ShapesProvider {
     @VisibleForTesting const val NONE_KEY = "none"
     const val NONE_PATH = "M 0 0 H 100 V 100 H 0 Z"
 
+    /** Reverse-lookup: find the shape key whose pathString matches the given mask. */
+    @JvmStatic
+    fun findKeyForMask(maskPath: String): String {
+        for (shape in iconShapes) {
+            if (shape.pathString == maskPath) return shape.key
+        }
+        return ""
+    }
+
     val iconShapes =
         if (/*Flags.newCustomizationPickerUi() &&*/ LauncherFlags.enableLauncherIconShapes()) {
             arrayOf(

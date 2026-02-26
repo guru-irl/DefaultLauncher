@@ -384,19 +384,18 @@ public class IconSettingsHelper {
     }
 
     /**
-     * Auto-detect whether the current pack is adaptive and flip the switch ON if so.
-     * Never forces the switch OFF — the user may want adaptive shapes even for
-     * non-adaptive packs (to force-wrap them).
+     * Auto-detect whether the current pack is adaptive and set the switch accordingly.
+     * Adaptive packs → ON, non-adaptive packs → OFF.
+     * System default (null pack) is treated as adaptive.
      */
     private static void autoDetectAdaptive(Context ctx, IconPackManager mgr,
             boolean isDrawer) {
         IconPack pack = isDrawer ? mgr.getDrawerPack() : mgr.getCurrentPack();
-        if (pack != null && pack.isAdaptivePack(ctx.getPackageManager())) {
-            LauncherPrefs.get(ctx).put(
-                    isDrawer ? LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER
-                             : LauncherPrefs.APPLY_ADAPTIVE_SHAPE,
-                    true);
-        }
+        boolean isAdaptive = (pack == null) || pack.isAdaptivePack(ctx.getPackageManager());
+        LauncherPrefs.get(ctx).put(
+                isDrawer ? LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER
+                         : LauncherPrefs.APPLY_ADAPTIVE_SHAPE,
+                isAdaptive);
     }
 
     /** Background-thread version for home packs where parsing might be slow. */

@@ -82,7 +82,7 @@ public class DrawerIconResolver {
                 icon = pack.applyFallbackMask(original, FALLBACK_ICON_SIZE);
             } catch (PackageManager.NameNotFoundException ignored) { }
         }
-        return icon;
+        return IconPackDrawable.wrap(icon);
     }
 
     public static DrawerIconResolver getInstance() {
@@ -119,7 +119,10 @@ public class DrawerIconResolver {
         ThemeManager.IconState state = ThemeManager.INSTANCE.get(context).getIconState();
         boolean distinct = !state.getIconMask().equals(state.getIconMaskDrawer())
                 || state.getIconSizeScale() != state.getIconSizeScaleDrawer()
-                || state.getIconScale() != state.getIconScaleDrawer();
+                || state.getIconScale() != state.getIconScaleDrawer()
+                || state.getSkipWrapNonAdaptive() != state.getSkipWrapNonAdaptiveDrawer()
+                || state.getUseOemForNative() != state.getUseOemForNativeDrawer()
+                || state.getWrapperBgColor() != state.getWrapperBgColorDrawer();
         mHasDistinctSettings = distinct;
         return distinct;
     }
@@ -172,8 +175,9 @@ public class DrawerIconResolver {
                 IconPack overridePack = mgr.getPack(perAppOverride.packPackage);
                 if (overridePack != null) {
                     if (perAppOverride.hasSpecificDrawable()) {
-                        icon = overridePack.getDrawableForEntry(
+                        Drawable d = overridePack.getDrawableForEntry(
                                 perAppOverride.drawableName, pm);
+                        if (d != null) icon = IconPackDrawable.wrap(d);
                     }
                     if (icon == null) {
                         icon = resolveFromPack(overridePack, cn, pm);
@@ -282,6 +286,10 @@ public class DrawerIconResolver {
         private final float mIconSizeScale;
         private final boolean mIsNoneShape;
         private final ShapeDelegate mIconShape;
+        private final boolean mSkipWrapNonAdaptive;
+        private final boolean mUseOemForNative;
+        private boolean mUseOemShape = false;
+        private final int mWrapperBgColorInt;
 
         DrawerIconFactory(Context context, int fillResIconDpi, int iconBitmapSize,
                 ThemeManager.IconState state) {
@@ -290,17 +298,20 @@ public class DrawerIconResolver {
             mIconSizeScale = state.getIconSizeScaleDrawer();
             mIconShape = state.getIconShapeDrawer();
             mIsNoneShape = state.getIconMaskDrawer().equals(ShapesProvider.NONE_PATH);
+            mSkipWrapNonAdaptive = state.getSkipWrapNonAdaptiveDrawer();
+            mUseOemForNative = state.getUseOemForNativeDrawer();
+            mWrapperBgColorInt = state.getWrapperBgColorDrawer();
         }
 
         @Override
         public Path getShapePath(AdaptiveIconDrawable drawable, Rect iconBounds) {
-            if (!Flags.enableLauncherIconShapes()) return super.getShapePath(drawable, iconBounds);
+            if (!Flags.enableLauncherIconShapes() || mUseOemShape) return super.getShapePath(drawable, iconBounds);
             return mIconShape.getPath(iconBounds);
         }
 
         @Override
         public float getIconScale() {
-            if (!Flags.enableLauncherIconShapes()) return super.getIconScale();
+            if (!Flags.enableLauncherIconShapes() || mUseOemShape) return super.getIconScale();
             return mIconScale;
         }
 
@@ -316,7 +327,7 @@ public class DrawerIconResolver {
         @NonNull
         @Override
         public AdaptiveIconDrawable wrapToAdaptiveIcon(@NonNull Drawable icon) {
-            mWrapperBackgroundColor = Color.TRANSPARENT;
+            mWrapperBackgroundColor = mWrapperBgColorInt;
             return super.wrapToAdaptiveIcon(icon);
         }
 
@@ -324,19 +335,26 @@ public class DrawerIconResolver {
         @Override
         public BitmapInfo createBadgedIconBitmap(@NonNull Drawable icon,
                 @Nullable IconOptions options) {
-            if (mIsNoneShape && !(icon instanceof AdaptiveIconDrawable)) {
-                android.graphics.Bitmap bitmap = createIconBitmap(icon, mIconSizeScale,
+            boolean isPackIcon = IconPackDrawable.isFromPack(icon);
+            Drawable renderIcon = IconPackDrawable.unwrap(icon);
+
+            if ((mIsNoneShape || mSkipWrapNonAdaptive) && isPackIcon) {
+                android.graphics.Bitmap bitmap = createIconBitmap(renderIcon, mIconSizeScale,
                         MODE_DEFAULT);
                 int color = ColorExtractor.findDominantColorByHue(bitmap);
                 return BitmapInfo.of(bitmap, color).withFlags(getBitmapFlagOp(options));
             }
-            return super.createBadgedIconBitmap(icon, options);
+            // Set OEM flag for system icons when useOemForNative is active
+            mUseOemShape = mUseOemForNative && !isPackIcon;
+            BitmapInfo result = super.createBadgedIconBitmap(renderIcon, options);
+            mUseOemShape = false;
+            return result;
         }
 
         @Override
         protected void drawAdaptiveIcon(@NonNull Canvas canvas,
                 @NonNull AdaptiveIconDrawable drawable, @NonNull Path overridePath) {
-            if (!Flags.enableLauncherIconShapes()) {
+            if (!Flags.enableLauncherIconShapes() || mUseOemShape) {
                 super.drawAdaptiveIcon(canvas, drawable, overridePath);
                 return;
             }
@@ -398,6 +416,10 @@ public class DrawerIconResolver {
         private final float mIconSizeScale;
         private final boolean mIsNoneShape;
         private final ShapeDelegate mIconShape;
+        private final boolean mSkipWrapNonAdaptive;
+        private final boolean mUseOemForNative;
+        private boolean mUseOemShape = false;
+        private final int mWrapperBgColorInt;
 
         public PerAppDrawerIconFactory(Context context, int fillResIconDpi, int iconBitmapSize,
                 IconOverride override, ThemeManager.IconState globalState) {
@@ -409,17 +431,15 @@ public class DrawerIconResolver {
 
             String effectiveShapeKey;
             if (!effectiveAdaptive) {
-                effectiveShapeKey = ShapesProvider.NONE_KEY;
+                // When per-app explicitly sets OFF, use NONE (raw).
+                // When following global and global is OFF, use the global computed mask.
+                effectiveShapeKey = perAppAdaptive != null
+                        ? ShapesProvider.NONE_KEY
+                        : ShapesProvider.findKeyForMask(globalState.getIconMaskDrawer());
             } else if (override.hasShapeOverride()) {
                 effectiveShapeKey = override.shapeKey;
             } else {
-                effectiveShapeKey = "";
-                for (IconShapeModel shape : ShapesProvider.INSTANCE.getIconShapes()) {
-                    if (shape.getPathString().equals(globalState.getIconMaskDrawer())) {
-                        effectiveShapeKey = shape.getKey();
-                        break;
-                    }
-                }
+                effectiveShapeKey = ShapesProvider.findKeyForMask(globalState.getIconMaskDrawer());
             }
 
             IconShapeModel shapeModel = null;
@@ -448,17 +468,27 @@ public class DrawerIconResolver {
             } else {
                 mIconSizeScale = globalState.getIconSizeScaleDrawer();
             }
+
+            // skipWrapNonAdaptive: FOLLOW_GLOBAL inherits, explicit ON/OFF = false
+            if (perAppAdaptive == null) {
+                mSkipWrapNonAdaptive = globalState.getSkipWrapNonAdaptiveDrawer();
+                mUseOemForNative = globalState.getUseOemForNativeDrawer();
+            } else {
+                mSkipWrapNonAdaptive = false;
+                mUseOemForNative = false;  // explicit ON/OFF overrides global behavior
+            }
+            mWrapperBgColorInt = globalState.getWrapperBgColorDrawer();
         }
 
         @Override
         public Path getShapePath(AdaptiveIconDrawable drawable, Rect iconBounds) {
-            if (!Flags.enableLauncherIconShapes()) return super.getShapePath(drawable, iconBounds);
+            if (!Flags.enableLauncherIconShapes() || mUseOemShape) return super.getShapePath(drawable, iconBounds);
             return mIconShape.getPath(iconBounds);
         }
 
         @Override
         public float getIconScale() {
-            if (!Flags.enableLauncherIconShapes()) return super.getIconScale();
+            if (!Flags.enableLauncherIconShapes() || mUseOemShape) return super.getIconScale();
             return mIconScale;
         }
 
@@ -474,7 +504,7 @@ public class DrawerIconResolver {
         @NonNull
         @Override
         public AdaptiveIconDrawable wrapToAdaptiveIcon(@NonNull Drawable icon) {
-            mWrapperBackgroundColor = Color.TRANSPARENT;
+            mWrapperBackgroundColor = mWrapperBgColorInt;
             return super.wrapToAdaptiveIcon(icon);
         }
 
@@ -482,19 +512,26 @@ public class DrawerIconResolver {
         @Override
         public BitmapInfo createBadgedIconBitmap(@NonNull Drawable icon,
                 @Nullable IconOptions options) {
-            if (mIsNoneShape && !(icon instanceof AdaptiveIconDrawable)) {
-                android.graphics.Bitmap bitmap = createIconBitmap(icon, mIconSizeScale,
+            boolean isPackIcon = IconPackDrawable.isFromPack(icon);
+            Drawable renderIcon = IconPackDrawable.unwrap(icon);
+
+            if ((mIsNoneShape || mSkipWrapNonAdaptive) && isPackIcon) {
+                android.graphics.Bitmap bitmap = createIconBitmap(renderIcon, mIconSizeScale,
                         MODE_DEFAULT);
                 int color = ColorExtractor.findDominantColorByHue(bitmap);
                 return BitmapInfo.of(bitmap, color).withFlags(getBitmapFlagOp(options));
             }
-            return super.createBadgedIconBitmap(icon, options);
+            // Set OEM flag for system icons when useOemForNative is active
+            mUseOemShape = mUseOemForNative && !isPackIcon;
+            BitmapInfo result = super.createBadgedIconBitmap(renderIcon, options);
+            mUseOemShape = false;
+            return result;
         }
 
         @Override
         protected void drawAdaptiveIcon(@NonNull Canvas canvas,
                 @NonNull AdaptiveIconDrawable drawable, @NonNull Path overridePath) {
-            if (!Flags.enableLauncherIconShapes()) {
+            if (!Flags.enableLauncherIconShapes() || mUseOemShape) {
                 super.drawAdaptiveIcon(canvas, drawable, overridePath);
                 return;
             }

@@ -55,6 +55,7 @@ import com.android.launcher3.dagger.LauncherComponentProvider;
 import com.android.launcher3.graphics.ThemeManager;
 import com.android.launcher3.icons.BitmapInfo;
 import com.android.launcher3.icons.DrawerIconResolver;
+import com.android.launcher3.icons.IconPackDrawable;
 import com.android.launcher3.icons.LauncherIcons;
 import com.android.launcher3.icons.PerAppHomeIconResolver;
 import com.android.launcher3.icons.pack.IconPack;
@@ -1101,10 +1102,10 @@ public class AppCustomizeFragment extends SettingsBaseFragment {
                         if (override.hasSpecificDrawable()) {
                             Drawable d = pack.getDrawableForEntry(
                                     override.drawableName, pm);
-                            if (d != null) return d;
+                            if (d != null) return IconPackDrawable.wrap(d);
                         }
                         Drawable d = pack.getIconForComponent(mComponentName, pm);
-                        if (d != null) return d;
+                        if (d != null) return IconPackDrawable.wrap(d);
                     }
                     break;
 
@@ -1117,7 +1118,7 @@ public class AppCustomizeFragment extends SettingsBaseFragment {
         IconPack effectivePack = getEffectivePack(packMgr, isHome, ctx);
         if (effectivePack != null) {
             Drawable d = effectivePack.getIconForComponent(mComponentName, pm);
-            if (d != null) return d;
+            if (d != null) return IconPackDrawable.wrap(d);
         }
         try {
             return pm.getActivityIcon(mComponentName);

@@ -339,6 +339,12 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField val DRAWER_MATCH_HOME = backedUpItem("pref_drawer_match_home", true)
         @JvmField val APPLY_ADAPTIVE_SHAPE = backedUpItem("pref_apply_adaptive_shape", true)
         @JvmField val APPLY_ADAPTIVE_SHAPE_DRAWER = backedUpItem("pref_apply_adaptive_shape_drawer", true)
+        @JvmField val WRAP_UNSUPPORTED_ICONS = backedUpItem("pref_wrap_unsupported_icons", false)
+        @JvmField val WRAP_UNSUPPORTED_ICONS_DRAWER = backedUpItem("pref_wrap_unsupported_icons_drawer", false)
+        @JvmField val ICON_WRAP_BG_COLOR = backedUpItem("pref_icon_wrap_bg_color", "")
+        @JvmField val ICON_WRAP_BG_COLOR_DRAWER = backedUpItem("pref_icon_wrap_bg_color_drawer", "")
+        @JvmField val ICON_WRAP_BG_OPACITY = backedUpItem("pref_icon_wrap_bg_opacity", 100)
+        @JvmField val ICON_WRAP_BG_OPACITY_DRAWER = backedUpItem("pref_icon_wrap_bg_opacity_drawer", 100)
         @JvmField val WALLPAPER_SCROLL = backedUpItem("pref_wallpaper_scroll", true)
 
         // Folder appearance preferences (store color resource name or shape key; empty = default)

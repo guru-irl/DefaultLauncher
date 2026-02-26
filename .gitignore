@@ -5,7 +5,8 @@ build
 Launcher3_mx.iml
 gradlew
 gradlew.bat
-.claude/
+.claude/*
+!.claude/skills/
 nul
 local.properties
 .kotlin/

@@ -696,6 +696,14 @@
     <string name="apply_adaptive_shape_title">Apply adaptive icon shape</string>
     <string name="apply_adaptive_shape_summary">Wrap all icons in a uniform shape</string>
 
+    <!-- Wrap unsupported icons (non-adaptive pack, adaptive OFF) -->
+    <string name="wrap_unsupported_title">Shape unsupported icons</string>
+    <string name="wrap_unsupported_summary">Apply icon shape to apps not covered by the icon pack</string>
+
+    <!-- Icon wrapper background -->
+    <string name="icon_wrap_bg_color_title">Shaped icon background</string>
+    <string name="icon_wrap_bg_opacity_title">Shaped icon opacity</string>
+
     <!-- Reset all per-app icons (global settings) -->
     <string name="reset_all_custom_icons">Reset all custom icons</string>
     <string name="reset_all_custom_icons_confirm">Remove all per-app icon customizations?</string>

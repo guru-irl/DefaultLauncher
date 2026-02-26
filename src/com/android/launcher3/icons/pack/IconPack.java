@@ -350,50 +350,21 @@ public class IconPack {
     }
 
     /**
-     * Detect whether this icon pack provides adaptive icons.
-     * Samples up to 5 icons from the pack's component mappings and checks
-     * if they are AdaptiveIconDrawable. Packs using iconback/iconmask fallback
-     * masking are considered non-adaptive.
+     * Detect whether this icon pack is designed for launcher-provided adaptive shapes.
      *
-     * @return true if the pack is adaptive (or has no icons to sample), false otherwise
+     * Packs with fallback masking (iconback/iconmask) are legacy non-adaptive packs
+     * that handle their own icon shaping. Everything else is treated as adaptive
+     * (modern packs designed for launcher-provided shapes, including PNG-only packs
+     * like Material Nothing).
+     *
+     * The user can always manually override via the adaptive toggle.
+     *
+     * @return true if the pack is adaptive, false otherwise
      */
     public boolean isAdaptivePack(PackageManager pm) {
         if (mIsAdaptive != null) return mIsAdaptive;
-
         ensureParsed(pm);
-
-        // Packs with fallback masking are legacy (non-adaptive)
-        if (hasFallbackMask()) {
-            mIsAdaptive = false;
-            return false;
-        }
-
-        if (mComponentToDrawable == null || mComponentToDrawable.isEmpty()) {
-            mIsAdaptive = true; // no icons to sample, safe default
-            return true;
-        }
-
-        // Sample up to 5 entries
-        int sampled = 0;
-        int adaptive = 0;
-        try {
-            android.content.res.Resources res = pm.getResourcesForApplication(packageName);
-            for (String drawableName : mComponentToDrawable.values()) {
-                if (sampled >= 5) break;
-                int id = res.getIdentifier(drawableName, "drawable", packageName);
-                if (id == 0) continue;
-                try {
-                    Drawable d = res.getDrawable(id, null);
-                    sampled++;
-                    if (d instanceof AdaptiveIconDrawable) {
-                        adaptive++;
-                    }
-                } catch (Exception ignored) { }
-            }
-        } catch (PackageManager.NameNotFoundException ignored) { }
-
-        // Majority check: >50% adaptive, or no samples found (safe default)
-        mIsAdaptive = sampled == 0 || adaptive > sampled / 2;
+        mIsAdaptive = !hasFallbackMask();
         return mIsAdaptive;
     }
 
