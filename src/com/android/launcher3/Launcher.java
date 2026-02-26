@@ -185,6 +185,7 @@ import com.android.launcher3.allapps.AllAppsTransitionController;
 import com.android.launcher3.anim.AnimationSuccessListener;
 import com.android.launcher3.anim.PropertyListBuilder;
 import com.android.launcher3.apppairs.AppPairIcon;
+import com.android.launcher3.celllayout.CellLayoutLayoutParams;
 import com.android.launcher3.celllayout.CellPosMapper;
 import com.android.launcher3.celllayout.CellPosMapper.CellPos;
 import com.android.launcher3.celllayout.CellPosMapper.TwoPanelCellPosMapper;
@@ -217,6 +218,7 @@ import com.android.launcher3.model.data.CollectionInfo;
 import com.android.launcher3.model.data.FolderInfo;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.LauncherAppWidgetInfo;
+import com.android.launcher3.model.data.WidgetStackInfo;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.notification.NotificationListener;
 import com.android.launcher3.pm.PinRequestHelper;
@@ -269,6 +271,7 @@ import com.android.launcher3.widget.PendingAddShortcutInfo;
 import com.android.launcher3.widget.PendingAddWidgetInfo;
 import com.android.launcher3.widget.PendingAppWidgetHostView;
 import com.android.launcher3.widget.WidgetAddFlowHandler;
+import com.android.launcher3.widget.WidgetStackView;
 import com.android.launcher3.widget.WidgetManagerHelper;
 import com.android.launcher3.widget.custom.CustomWidgetManager;
 import com.android.launcher3.widget.model.WidgetsListBaseEntry;
@@ -1068,6 +1071,9 @@ public class Launcher extends StatefulActivity<LauncherState>
             };
         } else if (resultCode == RESULT_CANCELED) {
             mAppWidgetHolder.deleteAppWidgetId(appWidgetId);
+            // Consume any pending stack targets so stale state doesn't linger
+            mWorkspace.consumePendingExternalStackTarget();
+            mWorkspace.consumePendingExternalStackCreationTarget();
             animationType = Workspace.CANCEL_TWO_STAGE_WIDGET_DROP_ANIMATION;
         }
         if (mDragLayer.getAnimatedView() != null) {
@@ -1456,6 +1462,12 @@ public class Launcher extends StatefulActivity<LauncherState>
             boolean showPendingWidget, boolean updateWidgetSize,
             @Nullable Bitmap widgetPreviewBitmap) {
 
+        // If a widget stack target is pending and this is the first call for a config widget,
+        // skip the PendingAppWidgetHostView entirely — just wait for the config to complete.
+        if (showPendingWidget && mWorkspace.hasPendingExternalStackTarget()) {
+            return;
+        }
+
         if (appWidgetInfo == null) {
             appWidgetInfo = mAppWidgetManager.getLauncherAppWidgetInfo(appWidgetId,
                     itemInfo.getTargetComponent());
@@ -1509,6 +1521,22 @@ public class Launcher extends StatefulActivity<LauncherState>
             launcherInfo.sourceContainer =
                     ((PendingRequestArgs) itemInfo).getWidgetSourceContainer();
         }
+
+        // Check if this widget should be added to an existing stack (external picker drop)
+        WidgetStackView pendingStack = mWorkspace.consumePendingExternalStackTarget();
+        if (pendingStack != null) {
+            addWidgetToExistingStack(pendingStack, hostView, launcherInfo);
+            return;
+        }
+
+        // Check if we should create a new stack (external picker widget onto existing widget)
+        LauncherAppWidgetHostView creationTarget =
+                mWorkspace.consumePendingExternalStackCreationTarget();
+        if (creationTarget != null) {
+            createStackFromExternalDrop(creationTarget, hostView, launcherInfo);
+            return;
+        }
+
         getModelWriter().addItemToDatabase(launcherInfo,
                 itemInfo.container, presenterPos.screenId, presenterPos.cellX, presenterPos.cellY);
 
@@ -1523,6 +1551,78 @@ public class Launcher extends StatefulActivity<LauncherState>
             final LauncherAppWidgetHostView launcherHostView = (LauncherAppWidgetHostView) hostView;
             showWidgetResizeFrame(launcherHostView, launcherInfo, presenterPos);
         }
+    }
+
+    /** Adds a newly-bound widget to an existing widget stack. */
+    private void addWidgetToExistingStack(WidgetStackView stackView,
+            AppWidgetHostView hostView, LauncherAppWidgetInfo launcherInfo) {
+        WidgetStackInfo stackInfo = stackView.getStackInfo();
+        int rank = stackInfo.getWidgetCount();
+
+        stackInfo.assignWidget(launcherInfo, rank);
+        getModelWriter().addItemToDatabase(launcherInfo,
+                stackInfo.id, stackInfo.screenId, -1, -1);
+
+        // Resize new widget to match stack's span
+        WidgetSizes.updateWidgetSizeRanges(hostView, this,
+                stackInfo.spanX, stackInfo.spanY);
+        launcherInfo.spanX = stackInfo.spanX;
+        launcherInfo.spanY = stackInfo.spanY;
+
+        hostView.setVisibility(View.VISIBLE);
+        mItemInflater.prepareAppWidget(hostView, launcherInfo);
+        stackView.addWidgetView(hostView, launcherInfo);
+
+        // Update stack span if the new widget is larger
+        stackView.expandSpanIfNeeded(launcherInfo, getModelWriter(), this);
+
+        stackView.setActiveIndex(stackInfo.getWidgetCount() - 1);
+        stackView.requestLayout();
+    }
+
+    /** Creates a new widget stack from an existing workspace widget and a newly-bound widget. */
+    private void createStackFromExternalDrop(LauncherAppWidgetHostView existingView,
+            AppWidgetHostView newHostView, LauncherAppWidgetInfo newLauncherInfo) {
+        LauncherAppWidgetInfo existingInfo = (LauncherAppWidgetInfo) existingView.getTag();
+        CellLayout cellLayout = mWorkspace.getParentCellLayoutForView(existingView);
+        if (cellLayout == null) return;
+
+        CellLayoutLayoutParams existingLp =
+                (CellLayoutLayoutParams) existingView.getLayoutParams();
+        int cellX = existingLp.getCellX();
+        int cellY = existingLp.getCellY();
+        int container = existingInfo.container;
+        int screenId = existingInfo.screenId;
+        int spanX = Math.max(existingInfo.spanX, newLauncherInfo.spanX);
+        int spanY = Math.max(existingInfo.spanY, newLauncherInfo.spanY);
+
+        // Remove existing widget from workspace
+        cellLayout.removeView(existingView);
+
+        // Create the stack at the existing widget's position
+        WidgetStackView stackView = addWidgetStack(
+                cellLayout, container, screenId, cellX, cellY, spanX, spanY);
+        WidgetStackInfo stackInfo = (WidgetStackInfo) stackView.getTag();
+
+        // Add existing widget (rank 0) then new widget (rank 1)
+        stackInfo.assignWidget(existingInfo, 0);
+        getModelWriter().modifyItemInDatabase(existingInfo,
+                stackInfo.id, stackInfo.screenId, -1, -1,
+                existingInfo.spanX, existingInfo.spanY);
+        stackInfo.assignWidget(newLauncherInfo, 1);
+        getModelWriter().addItemToDatabase(newLauncherInfo,
+                stackInfo.id, stackInfo.screenId, -1, -1);
+
+        // Resize widgets to match stack span
+        WidgetSizes.updateWidgetSizeRanges(existingView, this, spanX, spanY);
+        WidgetSizes.updateWidgetSizeRanges(newHostView, this, spanX, spanY);
+
+        stackView.addWidgetView(existingView, existingInfo);
+        newHostView.setVisibility(View.VISIBLE);
+        mItemInflater.prepareAppWidget(newHostView, newLauncherInfo);
+        stackView.addWidgetView(newHostView, newLauncherInfo);
+        stackView.setActiveIndex(stackInfo.getWidgetCount() - 1);
+        stackView.requestLayout();
     }
 
     /** Show widget resize frame. */
@@ -1990,6 +2090,23 @@ public class Launcher extends StatefulActivity<LauncherState>
         return newFolder;
     }
 
+    /**
+     * Creates and adds a new widget stack to CellLayout
+     */
+    public WidgetStackView addWidgetStack(CellLayout layout, int container,
+            int screenId, int cellX, int cellY, int spanX, int spanY) {
+        WidgetStackInfo stackInfo = new WidgetStackInfo();
+        stackInfo.spanX = spanX;
+        stackInfo.spanY = spanY;
+        getModelWriter().addItemToDatabase(stackInfo, container, screenId, cellX, cellY);
+        WidgetStackView view = new WidgetStackView(this);
+        view.setTag(stackInfo);
+        mWorkspace.addInScreen(view, stackInfo);
+        CellLayout parent = mWorkspace.getParentCellLayoutForView(view);
+        parent.getShortcutsAndWidgets().measureChild(view);
+        return view;
+    }
+
     @Override
     public Rect getFolderBoundingBox() {
         // We need to bound the folder to the currently visible workspace area
@@ -2299,6 +2416,8 @@ public class Launcher extends StatefulActivity<LauncherState>
             }
             if (enableWorkspaceInflation() && view instanceof LauncherAppWidgetHostView lv) {
                 view = getAppWidgetHolder().attachViewToHostAndGetAttachedView(lv);
+            } else if (enableWorkspaceInflation() && view instanceof WidgetStackView wsv) {
+                wsv.attachChildWidgetsToHost(getAppWidgetHolder());
             }
             workspace.addInScreenFromBind(view, item);
             if (boundAnim != null) {
@@ -2804,8 +2923,10 @@ public class Launcher extends StatefulActivity<LauncherState>
         getWorkspace().getPageIndicator().pauseAnimations();
 
         getWorkspace().mapOverItems((info, view) -> {
-            if (view instanceof LauncherAppWidgetHostView) {
-                ((LauncherAppWidgetHostView) view).beginDeferringUpdates();
+            if (view instanceof LauncherAppWidgetHostView lv) {
+                lv.beginDeferringUpdates();
+            } else if (view instanceof WidgetStackView wsv) {
+                wsv.forEachWidgetHostView(LauncherAppWidgetHostView::beginDeferringUpdates);
             }
             return false; // Return false to continue iterating through all the items.
         });
@@ -2816,8 +2937,10 @@ public class Launcher extends StatefulActivity<LauncherState>
         getWorkspace().getPageIndicator().skipAnimationsToEnd();
 
         getWorkspace().mapOverItems((info, view) -> {
-            if (view instanceof LauncherAppWidgetHostView) {
-                ((LauncherAppWidgetHostView) view).endDeferringUpdates();
+            if (view instanceof LauncherAppWidgetHostView lv) {
+                lv.endDeferringUpdates();
+            } else if (view instanceof WidgetStackView wsv) {
+                wsv.forEachWidgetHostView(LauncherAppWidgetHostView::endDeferringUpdates);
             }
             return false; // Return false to continue iterating through all the items.
         });

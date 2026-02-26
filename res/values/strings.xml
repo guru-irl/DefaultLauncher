@@ -696,6 +696,14 @@
     <string name="apply_adaptive_shape_title">Apply adaptive icon shape</string>
     <string name="apply_adaptive_shape_summary">Wrap all icons in a uniform shape</string>
 
+    <!-- Wrap unsupported icons (non-adaptive pack, adaptive OFF) -->
+    <string name="wrap_unsupported_title">Shape unsupported icons</string>
+    <string name="wrap_unsupported_summary">Apply icon shape to apps not covered by the icon pack</string>
+
+    <!-- Icon wrapper background -->
+    <string name="icon_wrap_bg_color_title">Shaped icon background</string>
+    <string name="icon_wrap_bg_opacity_title">Shaped icon opacity</string>
+
     <!-- Reset all per-app icons (global settings) -->
     <string name="reset_all_custom_icons">Reset all custom icons</string>
     <string name="reset_all_custom_icons_confirm">Remove all per-app icon customizations?</string>
@@ -751,4 +759,14 @@
     <string name="folder_emoji_travel">Travel</string>
     <string name="folder_emoji_objects">Objects</string>
     <string name="folder_emoji_symbols">Symbols</string>
+
+    <!-- Widget stack -->
+    <string name="widget_stack_description">Widget stack with %1$d widgets</string>
+    <string name="widget_stack_page_description">Widget %1$d of %2$d</string>
+    <string name="widget_stack_edit">Edit stack</string>
+    <string name="widget_stack_remove">Remove stack</string>
+    <string name="widget_stack_editor_title">Edit Widget Stack</string>
+    <string name="widget_stack_add_widget">Add widget</string>
+    <string name="widget_stack_remove_widget">Remove</string>
+    <string name="widget_stack_drag_handle">Reorder</string>
 </resources>

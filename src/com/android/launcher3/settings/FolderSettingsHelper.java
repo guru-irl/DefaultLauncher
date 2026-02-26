@@ -19,20 +19,11 @@
 package com.android.launcher3.settings;
 
 import android.content.Context;
-import android.content.res.Resources;
 import android.text.TextUtils;
-import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
-import android.view.Gravity;
-import android.view.View;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import androidx.core.graphics.ColorUtils;
-import androidx.core.widget.NestedScrollView;
 
-import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.color.DynamicColors;
 
 import com.android.launcher3.LauncherPrefs;
@@ -44,8 +35,6 @@ import com.android.launcher3.graphics.ShapeDelegate;
 import com.android.launcher3.shapes.IconShapeModel;
 import com.android.launcher3.shapes.ShapesProvider;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -221,74 +210,24 @@ public class FolderSettingsHelper {
     }
 
     /**
-     * Shared bottom sheet builder for per-folder shape pickers. Both expanded-shape
-     * and icon-shape dialogs are ~90% identical; this extracts the common layout code.
-     *
-     * @param titleResId   string resource for the sheet title
-     * @param defaultLabel label for the "use default" first row
-     * @param current      currently selected shape key (null/empty = default)
-     * @param onSelect     called with the selected shape key
-     * @param onDefault    called when the "use default" row is tapped
+     * Delegates to the unified shape picker in {@link IconSettingsHelper}.
+     * Wraps context with M3 theme + dynamic colors since this is called
+     * from the launcher context (not settings).
      */
     private static void showShapeDialogInternal(Context ctx, int titleResId,
             CharSequence defaultLabel, String current,
             Consumer<String> onSelect, Runnable onDefault) {
-        ShapeDialogConfig config = buildShapeListNoDefault(ctx);
-
         Context themed = new ContextThemeWrapper(ctx, R.style.HomeSettings_Theme);
         themed = DynamicColors.wrapContextIfAvailable(themed);
-        Resources res = themed.getResources();
-        BottomSheetDialog sheet = new BottomSheetDialog(themed);
-
-        LinearLayout root = new LinearLayout(themed);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, 0, 0,
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal));
-
-        IconSettingsHelper.addSheetHandle(root, themed, res);
-
-        TextView titleView = new TextView(themed);
-        titleView.setText(titleResId);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
-                res.getDimension(R.dimen.settings_sheet_title_text_size));
-        titleView.setTextColor(themed.getColor(R.color.materialColorOnSurface));
-        titleView.setPadding(
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical));
-        root.addView(titleView);
-
-        LinearLayout itemsContainer = new LinearLayout(themed);
-        itemsContainer.setOrientation(LinearLayout.VERTICAL);
-
-        int previewSizePx = res.getDimensionPixelSize(R.dimen.settings_shape_preview_size);
-        int colorFill = themed.getColor(R.color.materialColorSurfaceContainerHighest);
-
-        // Default entry
-        addShapeRow(themed, res, itemsContainer, "", "", defaultLabel,
-                (current == null || current.isEmpty()), previewSizePx, colorFill,
-                key -> { onDefault.run(); sheet.dismiss(); });
-
-        for (int i = 0; i < config.keys.size(); i++) {
-            final String key = config.keys.get(i);
-            String pathStr = config.folderPaths.get(i);
-            CharSequence label = config.labels.get(i);
-            boolean isSelected = key.equals(current != null ? current : "");
-
-            addShapeRow(themed, res, itemsContainer, key, pathStr, label, isSelected,
-                    previewSizePx, colorFill, selectedKey -> {
-                        onSelect.accept(selectedKey);
-                        sheet.dismiss();
-                    });
-        }
-
-        NestedScrollView scroll = new NestedScrollView(themed);
-        scroll.addView(itemsContainer);
-        root.addView(scroll);
-
-        sheet.setContentView(root);
-        sheet.show();
+        IconSettingsHelper.showShapePickerDialog(themed, titleResId, defaultLabel,
+                current != null ? current : "",
+                key -> {
+                    if (key.isEmpty()) {
+                        onDefault.run();
+                    } else {
+                        onSelect.accept(key);
+                    }
+                }, null);
     }
 
     // ---- Internal helpers ----
@@ -306,71 +245,5 @@ public class FolderSettingsHelper {
             }
         }
         return null;
-    }
-
-    /** Data holder for shape dialog entries. */
-    private static class ShapeDialogConfig {
-        final List<CharSequence> labels = new ArrayList<>();
-        final List<String> keys = new ArrayList<>();
-        final List<String> folderPaths = new ArrayList<>();
-    }
-
-    /** Build shape list without default entry (for per-folder pickers). */
-    private static ShapeDialogConfig buildShapeListNoDefault(Context ctx) {
-        ShapeDialogConfig config = new ShapeDialogConfig();
-        for (IconShapeModel shape : ShapesProvider.INSTANCE.getIconShapes()) {
-            if (ShapesProvider.NONE_KEY.equals(shape.getKey())) continue;
-            config.labels.add(IconSettingsHelper.getShapeDisplayName(ctx, shape.getKey()));
-            config.keys.add(shape.getKey());
-            config.folderPaths.add(shape.getPathString());
-        }
-        return config;
-    }
-
-    /** Add a single shape row to the container. */
-    private static void addShapeRow(Context ctx, Resources res, LinearLayout container,
-            String key, String pathStr, CharSequence label, boolean isSelected,
-            int previewSizePx, int colorFill,
-            Consumer<String> onSelect) {
-        LinearLayout row = new LinearLayout(ctx);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setMinimumHeight(res.getDimensionPixelSize(R.dimen.settings_row_min_height));
-        row.setPadding(res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal),
-                0, res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal), 0);
-        TypedValue tv = new TypedValue();
-        ctx.getTheme().resolveAttribute(
-                android.R.attr.selectableItemBackground, tv, true);
-        row.setBackgroundResource(tv.resourceId);
-
-        // Shape preview or spacer
-        if (pathStr != null && !pathStr.isEmpty()) {
-            ImageView preview = new ImageView(ctx);
-            LinearLayout.LayoutParams previewLp = new LinearLayout.LayoutParams(
-                    previewSizePx, previewSizePx);
-            previewLp.setMarginEnd(res.getDimensionPixelSize(R.dimen.settings_card_padding));
-            preview.setLayoutParams(previewLp);
-            preview.setImageDrawable(new IconSettingsHelper.ShapePreviewDrawable(
-                    pathStr, previewSizePx, colorFill));
-            row.addView(preview);
-        } else {
-            View spacer = new View(ctx);
-            LinearLayout.LayoutParams spacerLp = new LinearLayout.LayoutParams(
-                    previewSizePx, previewSizePx);
-            spacerLp.setMarginEnd(res.getDimensionPixelSize(R.dimen.settings_card_padding));
-            spacer.setLayoutParams(spacerLp);
-            row.addView(spacer);
-        }
-
-        TextView nameView = new TextView(ctx);
-        nameView.setText(label);
-        nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        nameView.setTextColor(isSelected
-                ? ctx.getColor(R.color.materialColorPrimary)
-                : ctx.getColor(R.color.materialColorOnSurface));
-        row.addView(nameView);
-
-        row.setOnClickListener(v -> onSelect.accept(key));
-        container.addView(row);
     }
 }

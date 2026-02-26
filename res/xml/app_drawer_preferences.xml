@@ -34,6 +34,27 @@
             android:summary="@string/icon_shape_default"
             launcher:iconSpaceReserved="false" />
 
+        <androidx.preference.SwitchPreferenceCompat
+            android:key="pref_wrap_unsupported_icons_drawer"
+            android:title="@string/wrap_unsupported_title"
+            android:summary="@string/wrap_unsupported_summary"
+            android:defaultValue="false"
+            launcher:iconSpaceReserved="false" />
+
+        <com.android.launcher3.settings.ColorPickerPreference
+            android:key="pref_icon_wrap_bg_color_drawer"
+            android:title="@string/icon_wrap_bg_color_title"
+            launcher:iconSpaceReserved="false" />
+
+        <com.android.launcher3.settings.M3SliderPreference
+            android:key="pref_icon_wrap_bg_opacity_drawer"
+            android:title="@string/icon_wrap_bg_opacity_title"
+            android:defaultValue="100"
+            android:max="100"
+            launcher:min="0"
+            launcher:showSeekBarValue="true"
+            launcher:iconSpaceReserved="false" />
+
         <Preference
             android:key="pref_icon_size_scale"
             android:title="@string/icon_size_title"

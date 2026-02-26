@@ -21,7 +21,7 @@ import static com.android.launcher3.Flags.enableSmartspaceRemovalToggle;
 import static com.android.launcher3.Flags.enableWorkspaceInflation;
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_DESKTOP;
 import static com.android.launcher3.model.ItemInstallQueue.FLAG_LOADER_RUNNING;
-import static com.android.launcher3.model.ModelUtils.WIDGET_FILTER;
+import static com.android.launcher3.model.ModelUtils.WIDGET_OR_STACK_FILTER;
 import static com.android.launcher3.model.ModelUtils.currentScreenContentFilter;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.Executors.MODEL_EXECUTOR;
@@ -284,10 +284,10 @@ public class BaseLauncherBinder {
             Predicate<ItemInfo> currentScreenCheck = currentScreenContentFilter(currentScreenIds);
             mItemIdMap.forEach(item -> {
                 if (currentScreenCheck.test(item)) {
-                    (WIDGET_FILTER.test(item) ? currentAppWidgets : currentWorkspaceItems)
+                    (WIDGET_OR_STACK_FILTER.test(item) ? currentAppWidgets : currentWorkspaceItems)
                             .add(item);
                 } else if (item.container == CONTAINER_DESKTOP) {
-                    (WIDGET_FILTER.test(item) ? otherAppWidgets : otherWorkspaceItems).add(item);
+                    (WIDGET_OR_STACK_FILTER.test(item) ? otherAppWidgets : otherWorkspaceItems).add(item);
                 }
             });
             sortWorkspaceItemsSpatially(currentWorkspaceItems);

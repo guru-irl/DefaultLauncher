@@ -58,17 +58,22 @@ Returns `themeManager.iconShape.getPath(iconBounds)` instead of the system defau
 #### `getIconScale()` — Per-shape icon scaling
 Returns `themeManager.iconState.iconScale` which varies by shape (e.g., 0.863 for 4-sided cookie).
 
-#### `wrapToAdaptiveIcon()` — Transparent background
-Sets `mWrapperBackgroundColor = Color.TRANSPARENT` before calling `super`. This prevents the default white fill behind non-adaptive icons when they get wrapped in `AdaptiveIconDrawable`.
+#### `wrapToAdaptiveIcon()` — Configurable background
+Sets `mWrapperBackgroundColor` to the user's chosen wrapper BG color (defaults to transparent) before calling `super`. This allows icon pack icons to optionally get a colored fill behind the shape.
 
 #### `drawAdaptiveIcon()` — Shape-aware rendering
-Three branches:
-1. **Flag disabled**: delegates to `super`
+Four branches:
+1. **Flag disabled or OEM mode** (`mUseOemShape`): delegates to `super`
 2. **"None" shape**: clears the shadow canvas with `PorterDuff.Mode.CLEAR`, then draws bg/fg layers without any clip path
-3. **Other shapes**: clips to `overridePath`, fills transparent, scales by `iconScale`, draws bg/fg layers
+3. **BLUR_FACTOR compensation**: when the user's `iconSizeScale` would produce a smaller offset than the blur floor allows, redraws at the correct size
+4. **Other shapes**: clips to `overridePath`, fills transparent, scales by `iconScale`, draws bg/fg layers
 
-#### `createBadgedIconBitmap()` — None shape bypass
-For "none" shape + non-adaptive icons (typical icon pack icons), bypasses the entire adaptive pipeline. Draws the raw icon at `scale=1.0` with `MODE_DEFAULT` — no shadow, no shape, no adaptive wrapping. This renders icon pack icons at full cell size.
+#### `createBadgedIconBitmap()` — Provenance-based classification
+Uses `IconPackDrawable.isFromPack(icon)` to distinguish pack icons from system icons by provenance, then `IconPackDrawable.unwrap(icon)` to get the real drawable for rendering:
+
+- **Pack icons + (none shape or `skipWrapNonAdaptive`)**: bypasses the adaptive pipeline entirely, draws raw icon at user's size scale
+- **System icons + `useOemForNative`**: sets `mUseOemShape = true` so `getShapePath()`/`getIconScale()`/`drawAdaptiveIcon()` fall through to OEM defaults
+- **All other icons**: rendered through the custom shape pipeline
 
 ### "None" Shape Details
 
@@ -92,12 +97,44 @@ No manual `forceReload()` is needed — ThemeManager handles it automatically.
 
 See `docs/changes/006-adw-icon-pack-support.md` for the core ADW icon pack architecture (parsing, discovery, fallback masking).
 
+### Provenance-Based Icon Classification
+
+Icon pack icons are tagged at resolution time with `IconPackDrawable.wrap()`, a thin
+`DrawableWrapper` marker. At render time, `IconPackDrawable.isFromPack()` checks provenance
+and `IconPackDrawable.unwrap()` extracts the real drawable.
+
+This replaces the previous `instanceof AdaptiveIconDrawable` check, which was broken
+because icon packs always return plain `BitmapDrawable` (never `AdaptiveIconDrawable`).
+
+Wrapping happens in:
+- `LauncherIconProvider.resolveFromPack()` and `resolveOverride()`
+- `DrawerIconResolver.resolveFromPack()` and `getDrawerIcon()` State C
+- `PerAppHomeIconResolver.resolveIcon()` for all pack-sourced returns
+- `AppCustomizeFragment.resolveRawIcon()` for settings previews
+
+System icon returns (`pm.getActivityIcon()`, `systemFallback.get()`) are never wrapped.
+
+### Orthogonal Toggle System
+
+Two independent toggles control which icons receive custom shapes:
+
+| Toggle | Controls | ON | OFF |
+|--------|----------|-----|-----|
+| Apply adaptive shape | Pack icons | Custom shape | Raw (no shape) |
+| Shape unsupported icons | System icons | Custom shape | OEM device shape |
+
+The toggles map to `IconState` flags:
+- `skipWrapNonAdaptive = !applyAdaptive` — pack icons drawn raw when adaptive OFF
+- `useOemForNative = !wrapUnsupported` — system icons use OEM shape when unsupported OFF
+
 ### Interaction with Icon Shapes
 
 Icon pack icons are typically plain `Drawable`s (not `AdaptiveIconDrawable`). When combined with shapes:
 
-- **With shape (circle/square/etc.)**: Icons get wrapped in `AdaptiveIconDrawable` with transparent background (via `wrapToAdaptiveIcon()` override), then clipped to the shape path. No white fill.
-- **With "none" shape**: Icons bypass the adaptive pipeline entirely via `createBadgedIconBitmap()` override, rendering at full size without any mask or background.
+- **Adaptive ON**: Pack icons get wrapped in `AdaptiveIconDrawable` with configurable background color (via `wrapToAdaptiveIcon()` override), then clipped to the shape path.
+- **Adaptive OFF**: Pack icons bypass the adaptive pipeline entirely via `createBadgedIconBitmap()`, rendering at full size without any mask or background.
+- **Unsupported ON**: System adaptive icons get the custom shape.
+- **Unsupported OFF**: System adaptive icons get the OEM device shape (factory falls through to `super`).
 
 ### Icon Pack Apply Flow
 
@@ -158,12 +195,15 @@ Both are click-to-open `AlertDialog`s with `setSingleChoiceItems`.
 
 | File | Role |
 |------|------|
-| `ShapesProvider.kt` | Shape definitions (SVG paths, keys, scales) |
-| `LauncherIcons.kt` | Rendering overrides (shape clipping, none bypass, transparent bg) |
+| `ShapesProvider.kt` | Shape definitions (SVG paths, keys, scales), `findKeyForMask()` |
+| `LauncherIcons.kt` | Rendering overrides (provenance check, shape clipping, OEM bypass, wrapper bg) |
+| `IconPackDrawable.java` | `DrawableWrapper` marker for provenance-based icon classification |
 | `BaseIconFactory.java` | Base pipeline (`protected mWrapperBackgroundColor`, transparent fill) |
-| `LauncherIconProvider.java` | Icon pack lookups, system state with pack ID |
+| `LauncherIconProvider.java` | Icon pack lookups, wraps pack drawables with `IconPackDrawable` |
+| `DrawerIconResolver.java` | Drawer-specific icon resolution, wraps pack drawables, two factories |
+| `PerAppHomeIconResolver.java` | Per-app home icon resolution, wraps pack drawables, factory |
 | `IconCache.java` | `clearAllIcons()` for disk+memory cache clear |
-| `ThemeManager.kt` | Shape preference storage, auto-reload on change |
+| `ThemeManager.kt` | Shape/toggle preference storage, `IconState` with orthogonal flags |
 | `SettingsActivity.java` | Icon pack dialog (loading UX), icon shape dialog |
 | `FeatureFlagsImpl.java` | `enableLauncherIconShapes()` flag |
 | `CustomFeatureFlags.java` | `enableLauncherIconShapes()` flag |

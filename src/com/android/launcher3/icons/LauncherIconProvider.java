@@ -148,7 +148,7 @@ public class LauncherIconProvider extends IconProvider {
                 Drawable original = super.getIcon(info, iconDpi);
                 int iconSize = Math.round(48 * iconDpi / 160f);
                 Drawable masked = pack.applyFallbackMask(original, iconSize);
-                if (masked != null) return masked;
+                if (masked != null) return IconPackDrawable.wrap(masked);
             }
         }
         return super.getIcon(info, iconDpi);
@@ -185,7 +185,7 @@ public class LauncherIconProvider extends IconProvider {
 
         if (override.hasSpecificDrawable()) {
             Drawable d = overridePack.getDrawableForEntry(override.drawableName, pm);
-            if (d != null) return d;
+            if (d != null) return IconPackDrawable.wrap(d);
         }
         // Auto-resolve from the override pack
         return resolveFromPack(overridePack, cn, pm, iconDpi, systemFallback);
@@ -199,16 +199,16 @@ public class LauncherIconProvider extends IconProvider {
     private Drawable resolveFromPack(IconPack pack, ComponentName cn,
             PackageManager pm, int iconDpi, java.util.function.Supplier<Drawable> systemFallback) {
         Drawable cal = pack.getCalendarIcon(cn, pm);
-        if (cal != null) return cal;
+        if (cal != null) return IconPackDrawable.wrap(cal);
 
         Drawable icon = pack.getIconForComponent(cn, pm);
-        if (icon != null) return icon;
+        if (icon != null) return IconPackDrawable.wrap(icon);
 
         if (pack.hasFallbackMask()) {
             Drawable original = systemFallback.get();
             int iconSize = Math.round(48 * iconDpi / 160f);
             Drawable masked = pack.applyFallbackMask(original, iconSize);
-            if (masked != null) return masked;
+            if (masked != null) return IconPackDrawable.wrap(masked);
         }
         return null;
     }

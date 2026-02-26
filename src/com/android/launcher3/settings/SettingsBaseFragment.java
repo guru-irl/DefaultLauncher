@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.view.View;
 
 import androidx.annotation.NonNull;
+import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -60,5 +61,26 @@ public abstract class SettingsBaseFragment extends PreferenceFragmentCompat {
             mCardDecoration = null;
         }
         super.onDestroyView();
+    }
+
+    /**
+     * Shared visibility rules for icon-related preferences (independent of pack classification):
+     * <ul>
+     *     <li>Shape picker: visible when adaptive ON or wrap unsupported ON</li>
+     *     <li>Wrap unsupported toggle: visible when adaptive OFF</li>
+     *     <li>BG color/opacity: visible when adaptive ON (wrapping non-adaptive icons)</li>
+     * </ul>
+     */
+    protected static void refreshIconPrefVisibility(boolean adaptiveOn,
+            boolean wrapOn, Preference shapePref, Preference wrapPref,
+            Preference bgColorPref, Preference bgOpacityPref) {
+        boolean showShape = adaptiveOn || wrapOn;
+        boolean showWrap = true;
+        boolean showBg = adaptiveOn;
+
+        if (shapePref != null) shapePref.setVisible(showShape);
+        if (wrapPref != null) wrapPref.setVisible(showWrap);
+        if (bgColorPref != null) bgColorPref.setVisible(showBg);
+        if (bgOpacityPref != null) bgOpacityPref.setVisible(showBg);
     }
 }

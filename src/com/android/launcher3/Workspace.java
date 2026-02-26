@@ -53,6 +53,7 @@ import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.util.AttributeSet;
@@ -74,6 +75,7 @@ import androidx.core.view.ViewCompat;
 
 import com.android.app.animation.Interpolators;
 import com.android.launcher3.BuildConfig;
+import com.android.launcher3.AppWidgetResizeFrame;
 import com.android.launcher3.accessibility.AccessibleDragListenerAdapter;
 import com.android.launcher3.accessibility.WorkspaceAccessibilityHelper;
 import com.android.launcher3.anim.PendingAnimation;
@@ -104,6 +106,7 @@ import com.android.launcher3.model.data.AppPairInfo;
 import com.android.launcher3.model.data.FolderInfo;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.LauncherAppWidgetInfo;
+import com.android.launcher3.model.data.WidgetStackInfo;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.pageindicators.PageIndicator;
 import com.android.launcher3.statemanager.StateManager;
@@ -123,9 +126,14 @@ import com.android.launcher3.util.RunnableList;
 import com.android.launcher3.util.Thunk;
 import com.android.launcher3.util.WallpaperOffsetInterpolator;
 import com.android.launcher3.widget.LauncherAppWidgetHostView;
+import com.android.launcher3.widget.LauncherAppWidgetProviderInfo;
 import com.android.launcher3.widget.NavigableAppWidgetHostView;
 import com.android.launcher3.widget.PendingAddShortcutInfo;
 import com.android.launcher3.widget.PendingAddWidgetInfo;
+
+import com.android.launcher3.widget.WidgetManagerHelper;
+import com.android.launcher3.widget.WidgetDropHighlight;
+import com.android.launcher3.widget.WidgetStackView;
 import com.android.launcher3.widget.util.WidgetSizes;
 
 
@@ -251,6 +259,16 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     private FolderIcon mDragOverFolderIcon = null;
     private boolean mCreateUserFolderOnDrop = false;
     private boolean mAddToExistingFolderOnDrop = false;
+    private boolean mCreateWidgetStackOnDrop = false;
+    private boolean mAddToWidgetStackOnDrop = false;
+    private WidgetDropHighlight mWidgetStackCreateHighlight;
+    private WidgetStackView mWidgetStackHighlightedView;
+    // Stores the target stack when a widget is being added from the external picker.
+    // Set in onDropExternal, consumed in Launcher.completeAddAppWidget.
+    private WidgetStackView mPendingExternalStackTarget;
+    // Stores the existing widget view when creating a NEW stack from the external picker.
+    // The picker widget will be stacked with this existing widget.
+    private LauncherAppWidgetHostView mPendingExternalStackCreationTarget;
 
     // Variables relating to touch disambiguation (scrolling workspace vs. scrolling a widget)
     private float mXDown;
@@ -274,6 +292,8 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     private static final int DRAG_MODE_CREATE_FOLDER = 1;
     private static final int DRAG_MODE_ADD_TO_FOLDER = 2;
     private static final int DRAG_MODE_REORDER = 3;
+    private static final int DRAG_MODE_CREATE_WIDGET_STACK = 4;
+    private static final int DRAG_MODE_ADD_TO_WIDGET_STACK = 5;
     protected int mDragMode = DRAG_MODE_NONE;
     @Thunk
     int mLastReorderX = -1;
@@ -484,9 +504,16 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         }
 
         if (mDragInfo != null && mDragInfo.cell != null) {
-            CellLayout layout = (CellLayout) (mDragInfo.cell instanceof LauncherAppWidgetHostView
-                    ? dragObject.dragView.getContentViewParent().getParent()
-                    : mDragInfo.cell.getParent().getParent());
+            CellLayout layout;
+            if (mDragInfo.cell instanceof LauncherAppWidgetHostView) {
+                // Content-view drag: the cell has been reparented to DragView,
+                // so use the saved original parent reference
+                layout = (CellLayout) dragObject.dragView.getContentViewParent().getParent();
+            } else {
+                // FolderIcon, BubbleTextView — direct children of
+                // ShortcutAndWidgetContainer → CellLayout (2-level hierarchy)
+                layout = (CellLayout) mDragInfo.cell.getParent().getParent();
+            }
             layout.markCellsAsUnoccupiedForView(mDragInfo.cell);
         }
 
@@ -562,6 +589,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         if (mAccessibilityDragListener != null) {
             mAccessibilityDragListener.onDragEnd();
         }
+        cleanupWidgetStackVisualState();
         mDragInfo = null;
         mDragSourceInternal = null;
     }
@@ -729,9 +757,9 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                 dragSourceChildCount += pagePair.getShortcutsAndWidgets().getChildCount();
             }
 
-            // When the drag view content is a LauncherAppWidgetHostView, we should increment the
-            // drag source child count by 1 because the widget in drag has been detached from its
-            // original parent, ShortcutAndWidgetContainer, and reattached to the DragView.
+            // When the drag view content is a LauncherAppWidgetHostView, we should increment
+            // the drag source child count by 1 because the view has been detached from its
+            // original parent and reattached to the DragView.
             if (dragObject.dragView.getContentView() instanceof LauncherAppWidgetHostView) {
                 dragSourceChildCount++;
             }
@@ -1706,6 +1734,11 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             if (!dragOptions.isAccessibleDrag) {
                 dragOptions.preDragCondition = fi.startLongPressAction();
             }
+        } else if (child instanceof WidgetStackView) {
+            WidgetStackView wsv = (WidgetStackView) child;
+            if (!dragOptions.isAccessibleDrag) {
+                dragOptions.preDragCondition = wsv.startLongPressAction();
+            }
         }
 
         if (dragOptions.preDragCondition != null) {
@@ -1886,6 +1919,58 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         return false;
     }
 
+    /** Both items are widgets and target is NOT already a stack */
+    boolean willCreateWidgetStack(ItemInfo info, View dropOverView) {
+        if (dropOverView == null) return false;
+        // Don't stack a widget onto itself
+        if (mDragInfo != null && dropOverView == mDragInfo.cell) return false;
+        if (!(dropOverView.getTag() instanceof ItemInfo target)) return false;
+        boolean isWidget = WidgetStackInfo.willAcceptItemType(info.itemType);
+        boolean targetIsWidget = (dropOverView instanceof LauncherAppWidgetHostView)
+                && WidgetStackInfo.willAcceptItemType(target.itemType);
+        if (!isWidget || !targetIsWidget) return false;
+
+        // Size compatibility: both widgets must support the target (union) span
+        if (!(target instanceof LauncherAppWidgetInfo destInfo)) return false;
+
+        // Source can be LauncherAppWidgetInfo (internal drag) or PendingAddWidgetInfo (picker)
+        if (info instanceof LauncherAppWidgetInfo sourceInfo) {
+            int unionX = Math.max(sourceInfo.spanX, destInfo.spanX);
+            int unionY = Math.max(sourceInfo.spanY, destInfo.spanY);
+            return canWidgetFitSpan(sourceInfo, unionX, unionY)
+                    && canWidgetFitSpan(destInfo, unionX, unionY);
+        } else if (info instanceof PendingAddWidgetInfo pendingInfo && pendingInfo.info != null) {
+            int unionX = Math.max(pendingInfo.spanX, destInfo.spanX);
+            int unionY = Math.max(pendingInfo.spanY, destInfo.spanY);
+            // Check the target widget can fit the union span
+            if (!canWidgetFitSpan(destInfo, unionX, unionY)) return false;
+            // Check the pending widget's provider supports the union span
+            LauncherAppWidgetProviderInfo pInfo = pendingInfo.info;
+            return unionX >= pInfo.minSpanX && unionX <= pInfo.maxSpanX
+                    && unionY >= pInfo.minSpanY && unionY <= pInfo.maxSpanY;
+        }
+        return false;
+    }
+
+    private boolean canWidgetFitSpan(LauncherAppWidgetInfo widget, int spanX, int spanY) {
+        if (widget.spanX == spanX && widget.spanY == spanY) return true;
+        WidgetManagerHelper wmh = new WidgetManagerHelper(mLauncher);
+        LauncherAppWidgetProviderInfo pInfo = wmh.getLauncherAppWidgetInfo(
+                widget.appWidgetId, widget.providerName);
+        if (pInfo == null) return false;
+        return spanX >= pInfo.minSpanX && spanX <= pInfo.maxSpanX
+                && spanY >= pInfo.minSpanY && spanY <= pInfo.maxSpanY;
+    }
+
+    /** Dragged item is a widget and target is an existing stack that isn't full */
+    boolean willAddToExistingWidgetStack(ItemInfo info, View dropOverView) {
+        if (!(dropOverView instanceof WidgetStackView wsv)) return false;
+        if (!WidgetStackInfo.willAcceptItemType(info.itemType)) return false;
+        WidgetStackInfo stackInfo = wsv.getStackInfo();
+        return stackInfo != null
+                && stackInfo.getWidgetCount() < WidgetStackInfo.MAX_STACK_SIZE;
+    }
+
     boolean createUserFolderIfNecessary(View newView, int container, CellLayout target,
             int[] targetCell, float distance, boolean external, DragObject d) {
         if (distance > target.getFolderCreationRadius(targetCell)) return false;
@@ -1967,6 +2052,126 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         return false;
     }
 
+    boolean createWidgetStackIfNecessary(View newView, int container, CellLayout target,
+            int[] targetCell, float distance, boolean external, DragObject d) {
+        View v = target.getChildAt(targetCell[0], targetCell[1]);
+        // Use target widget's span for the radius check (widgets are much larger than icons)
+        int tSpanX = 1, tSpanY = 1;
+        if (v != null && v.getTag() instanceof ItemInfo vi) {
+            tSpanX = Math.max(1, vi.spanX);
+            tSpanY = Math.max(1, vi.spanY);
+        }
+        if (distance > target.getReorderRadius(targetCell, tSpanX, tSpanY)) return false;
+        if (!willCreateWidgetStack(d.dragInfo, v)) return false;
+        if (!mCreateWidgetStackOnDrop) return false;
+        mCreateWidgetStackOnDrop = false;
+
+        LauncherAppWidgetInfo sourceInfo = (LauncherAppWidgetInfo) newView.getTag();
+        LauncherAppWidgetInfo destInfo = (LauncherAppWidgetInfo) v.getTag();
+
+        // Use Widget B's actual cell position so the stack appears where Widget B was
+        CellLayoutLayoutParams destLp = (CellLayoutLayoutParams) v.getLayoutParams();
+        int stackCellX = destLp.getCellX();
+        int stackCellY = destLp.getCellY();
+
+        // Detach source widget from DragView and remove from workspace
+        detachDraggedWidget(d, external);
+        target.removeView(v);
+
+        // Compute stack span: union of both widgets
+        int spanX = Math.max(sourceInfo.spanX, destInfo.spanX);
+        int spanY = Math.max(sourceInfo.spanY, destInfo.spanY);
+        int screenId = getCellLayoutId(target);
+
+        // Create stack at Widget B's position
+        WidgetStackView stackView = mLauncher.addWidgetStack(
+                target, container, screenId, stackCellX, stackCellY, spanX, spanY);
+        WidgetStackInfo stackInfo = (WidgetStackInfo) stackView.getTag();
+
+        // Add dest widget first (rank 0), then source (rank 1)
+        addWidgetToStack(stackInfo, destInfo, 0);
+        addWidgetToStack(stackInfo, sourceInfo, 1);
+
+        // addWidgetView resets transforms and disables child long-press
+        stackView.addWidgetView((AppWidgetHostView) v, destInfo);
+        stackView.addWidgetView((AppWidgetHostView) newView, sourceInfo);
+
+        // Show the newly added widget (the dragged one) and clear hover highlight
+        stackView.setActiveIndex(stackInfo.getWidgetCount() - 1);
+        cleanupWidgetStackVisualState();
+
+        // Animate drag view into stack position to properly end drag lifecycle
+        mLauncher.getDragLayer().animateViewIntoPosition(d.dragView, stackView, null);
+
+        // Force relayout so the stack renders at correct cell size
+        stackView.requestLayout();
+
+        return true;
+    }
+
+    boolean addToExistingWidgetStackIfNecessary(View newView, CellLayout target,
+            int[] targetCell, float distance, DragObject d, boolean external) {
+        View dropOverView = target.getChildAt(targetCell[0], targetCell[1]);
+        // Use target stack's span for the radius check
+        int stackSpanX = 1, stackSpanY = 1;
+        if (dropOverView != null && dropOverView.getTag() instanceof ItemInfo si) {
+            stackSpanX = Math.max(1, si.spanX);
+            stackSpanY = Math.max(1, si.spanY);
+        }
+        if (distance > target.getReorderRadius(targetCell, stackSpanX, stackSpanY)) return false;
+        if (!(dropOverView instanceof WidgetStackView stackView)) return false;
+        if (!WidgetStackInfo.willAcceptItemType(d.dragInfo.itemType)) return false;
+        if (!mAddToWidgetStackOnDrop) return false;
+        mAddToWidgetStackOnDrop = false;
+
+        LauncherAppWidgetInfo widgetInfo = (LauncherAppWidgetInfo) newView.getTag();
+        WidgetStackInfo stackInfo = (WidgetStackInfo) stackView.getTag();
+
+        // Detach source widget from DragView and remove from workspace
+        detachDraggedWidget(d, external);
+
+        // addWidgetView resets transforms and disables child long-press
+        int rank = stackInfo.getWidgetCount();
+        addWidgetToStack(stackInfo, widgetInfo, rank);
+        stackView.addWidgetView((AppWidgetHostView) newView, widgetInfo);
+
+        // Update stack span to accommodate the new widget
+        stackView.expandSpanIfNeeded(widgetInfo, mLauncher.getModelWriter(), mLauncher);
+
+        // Show the newly added widget
+        stackView.setActiveIndex(stackInfo.getWidgetCount() - 1);
+
+        // Clear drop highlight and animate drag view into stack
+        cleanupWidgetStackVisualState();
+        mLauncher.getDragLayer().animateViewIntoPosition(d.dragView, stackView, null);
+
+        // Force relayout so the stack renders at correct cell size
+        stackView.requestLayout();
+
+        return true;
+    }
+
+    /**
+     * Detaches the dragged widget from the DragView and removes it from the workspace.
+     * For external drags, only the DragView content is detached (there's no workspace parent).
+     */
+    private void detachDraggedWidget(DragObject d, boolean external) {
+        d.dragView.detachContentView(/* reattachToPreviousParent= */ false);
+        if (!external) {
+            CellLayout parentCell = getParentCellLayoutForView(mDragInfo.cell);
+            if (parentCell != null) {
+                parentCell.removeView(mDragInfo.cell);
+            }
+        }
+    }
+
+    private void addWidgetToStack(WidgetStackInfo stackInfo, LauncherAppWidgetInfo widget,
+            int rank) {
+        stackInfo.assignWidget(widget, rank);
+        mLauncher.getModelWriter().modifyItemInDatabase(widget,
+                stackInfo.id, stackInfo.screenId, -1, -1, widget.spanX, widget.spanY);
+    }
+
     @Override
     public void prepareAccessibilityDrop() {}
 
@@ -2024,6 +2229,17 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                     return;
                 }
 
+                // Widget stack: drop widget onto widget or onto existing stack
+                if (createWidgetStackIfNecessary(cell, container, dropTargetLayout, mTargetCell,
+                        distance, false, d)
+                        || addToExistingWidgetStackIfNecessary(cell, dropTargetLayout,
+                        mTargetCell, distance, d, false)) {
+                    if (!mLauncher.isInState(EDIT_MODE)) {
+                        mLauncher.getStateManager().goToState(NORMAL, SPRING_LOADED_EXIT_DELAY);
+                    }
+                    return;
+                }
+
                 // Aside from the special case where we're dropping a shortcut onto a shortcut,
                 // we need to find the nearest cell location that is vacant
                 ItemInfo item = d.dragInfo;
@@ -2058,14 +2274,21 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                 boolean foundCell = mTargetCell[0] >= 0 && mTargetCell[1] >= 0;
 
                 // if the widget resizes on drop
-                if (foundCell && (cell instanceof AppWidgetHostView) &&
-                        (resultSpan[0] != item.spanX || resultSpan[1] != item.spanY)) {
-                    resizeOnDrop = true;
-                    item.spanX = resultSpan[0];
-                    item.spanY = resultSpan[1];
-                    AppWidgetHostView awhv = (AppWidgetHostView) cell;
-                    WidgetSizes.updateWidgetSizeRanges(awhv, mLauncher, resultSpan[0],
-                            resultSpan[1]);
+                if (foundCell && (resultSpan[0] != item.spanX
+                        || resultSpan[1] != item.spanY)) {
+                    if (cell instanceof AppWidgetHostView awhv) {
+                        resizeOnDrop = true;
+                        item.spanX = resultSpan[0];
+                        item.spanY = resultSpan[1];
+                        WidgetSizes.updateWidgetSizeRanges(awhv, mLauncher,
+                                resultSpan[0], resultSpan[1]);
+                    } else if (cell instanceof WidgetStackView wsv) {
+                        resizeOnDrop = true;
+                        item.spanX = resultSpan[0];
+                        item.spanY = resultSpan[1];
+                        wsv.updateChildWidgetSizes(mLauncher, resultSpan[0],
+                                resultSpan[1]);
+                    }
                 }
 
                 if (foundCell) {
@@ -2108,6 +2331,14 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                         // in its final location
                         onCompleteRunnable = getWidgetResizeFrameRunnable(options,
                                 (LauncherAppWidgetHostView) cell, dropTargetLayout);
+                    } else if (cell instanceof WidgetStackView) {
+                        final CellLayout finalDropLayout = dropTargetLayout;
+                        onCompleteRunnable = () -> {
+                            if (!isPageInTransition()) {
+                                AppWidgetResizeFrame.showForWidgetStack(
+                                        (WidgetStackView) cell, finalDropLayout);
+                            }
+                        };
                     } else if (cell instanceof FolderIcon
                             && ((FolderInfo) cell.getTag()).spanX > 1) {
                         // Show resize frame for expanded folders after drop
@@ -2148,6 +2379,19 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                         onCompleteRunnable = getWidgetResizeFrameRunnable(options,
                                 (LauncherAppWidgetHostView) cell, cellLayout);
                     }
+                } else if (cell instanceof WidgetStackView) {
+                    final CellLayout cellLayout = getParentCellLayoutForView(cell);
+                    boolean pageIsVisible = isVisible(cellLayout);
+
+                    if (pageIsVisible) {
+                        final CellLayout finalCellLayout = cellLayout;
+                        onCompleteRunnable = () -> {
+                            if (!isPageInTransition()) {
+                                AppWidgetResizeFrame.showForWidgetStack(
+                                        (WidgetStackView) cell, finalCellLayout);
+                            }
+                        };
+                    }
                 }
             }
 
@@ -2177,7 +2421,8 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                 }
                 final ItemInfo info = (ItemInfo) cell.getTag();
                 boolean isWidget = info.itemType == LauncherSettings.Favorites.ITEM_TYPE_APPWIDGET
-                        || info.itemType == LauncherSettings.Favorites.ITEM_TYPE_CUSTOM_APPWIDGET;
+                        || info.itemType == LauncherSettings.Favorites.ITEM_TYPE_CUSTOM_APPWIDGET
+                        || info.itemType == LauncherSettings.Favorites.ITEM_TYPE_WIDGET_STACK;
                 if (isWidget && dropTargetLayout != null) {
                     // animate widget to a valid place
                     int animationType = resizeOnDrop ? ANIMATE_INTO_POSITION_AND_RESIZE :
@@ -2275,6 +2520,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
 
         mCreateUserFolderOnDrop = false;
         mAddToExistingFolderOnDrop = false;
+        mCreateWidgetStackOnDrop = false;
+        mAddToWidgetStackOnDrop = false;
+        mPendingExternalStackTarget = null;
+        mPendingExternalStackCreationTarget = null;
 
         mDropToLayout = null;
         mDragViewVisualCenter = d.getVisualCenter(mDragViewVisualCenter);
@@ -2294,6 +2543,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             mCreateUserFolderOnDrop = true;
         } else if (mDragMode == DRAG_MODE_ADD_TO_FOLDER) {
             mAddToExistingFolderOnDrop = true;
+        } else if (mDragMode == DRAG_MODE_CREATE_WIDGET_STACK) {
+            mCreateWidgetStackOnDrop = true;
+        } else if (mDragMode == DRAG_MODE_ADD_TO_WIDGET_STACK) {
+            mAddToWidgetStackOnDrop = true;
         }
 
         // Reset the previous drag target
@@ -2349,12 +2602,31 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         if (x != mDragOverX || y != mDragOverY) {
             mDragOverX = x;
             mDragOverY = y;
+
+            // Don't reset widget stack modes when the cell changes but the target
+            // view is the same (multi-cell widgets span several cells, so the
+            // nearest cell shifts as the finger moves within the widget bounds).
+            if (mDragMode == DRAG_MODE_CREATE_WIDGET_STACK
+                    || mDragMode == DRAG_MODE_ADD_TO_WIDGET_STACK) {
+                if (mDragTargetLayout != null) {
+                    View viewAtNewCell = mDragTargetLayout.getChildAt(x, y);
+                    if (viewAtNewCell == mDragOverView) {
+                        return;
+                    }
+                }
+            }
             setDragMode(DRAG_MODE_NONE);
         }
     }
 
     void setDragMode(int dragMode) {
         if (dragMode != mDragMode) {
+            // Clean up previous widget stack visual state when leaving stack modes
+            if (mDragMode == DRAG_MODE_CREATE_WIDGET_STACK
+                    || mDragMode == DRAG_MODE_ADD_TO_WIDGET_STACK) {
+                cleanupWidgetStackVisualState();
+            }
+
             if (dragMode == DRAG_MODE_NONE) {
                 cleanupAddToFolder();
                 // We don't want to cancel the re-order alarm every time the target cell changes
@@ -2370,6 +2642,11 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             } else if (dragMode == DRAG_MODE_REORDER) {
                 cleanupAddToFolder();
                 cleanupFolderCreation();
+            } else if (dragMode == DRAG_MODE_CREATE_WIDGET_STACK
+                    || dragMode == DRAG_MODE_ADD_TO_WIDGET_STACK) {
+                cleanupAddToFolder();
+                cleanupReorder(true);
+                cleanupFolderCreation();
             }
             mDragMode = dragMode;
         }
@@ -2384,6 +2661,53 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             api.getIconDrawableArea().onTemporaryContainerChange(null);
             mDragOverView = null;
         }
+    }
+
+    private void cleanupWidgetStackVisualState() {
+        if (mWidgetStackCreateHighlight != null) {
+            mWidgetStackCreateHighlight.clear();
+            mWidgetStackCreateHighlight = null;
+        }
+        if (mWidgetStackHighlightedView != null) {
+            mWidgetStackHighlightedView.clearDropHighlight();
+            mWidgetStackHighlightedView = null;
+        }
+    }
+
+    /**
+     * Returns the pending external stack target without clearing it. Used to check
+     * if a config widget should skip the pending view and wait for the real widget.
+     */
+    boolean hasPendingExternalStackTarget() {
+        return mPendingExternalStackTarget != null
+                || mPendingExternalStackCreationTarget != null;
+    }
+
+    /**
+     * Sets the pending external stack target. Used by the widget stack editor
+     * to direct a newly-picked widget into an existing stack.
+     */
+    public void setPendingExternalStackTarget(WidgetStackView target) {
+        mPendingExternalStackTarget = target;
+    }
+
+    /**
+     * Returns and clears the pending external stack target. Called by
+     * {@link Launcher#completeAddAppWidget} to redirect widget placement to a stack.
+     */
+    WidgetStackView consumePendingExternalStackTarget() {
+        WidgetStackView target = mPendingExternalStackTarget;
+        mPendingExternalStackTarget = null;
+        return target;
+    }
+
+    /**
+     * Returns and clears the pending external stack creation target.
+     */
+    LauncherAppWidgetHostView consumePendingExternalStackCreationTarget() {
+        LauncherAppWidgetHostView target = mPendingExternalStackCreationTarget;
+        mPendingExternalStackCreationTarget = null;
+        return target;
     }
 
     private void cleanupAddToFolder() {
@@ -2489,8 +2813,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             manageReorderOnDragOver(d, targetCellDistance, nearestDropOccupied, minSpanX, minSpanY,
                     reorderX, reorderY);
 
-            if (mDragMode == DRAG_MODE_CREATE_FOLDER || mDragMode == DRAG_MODE_ADD_TO_FOLDER ||
-                    !nearestDropOccupied) {
+            if (mDragMode == DRAG_MODE_CREATE_FOLDER || mDragMode == DRAG_MODE_ADD_TO_FOLDER
+                    || mDragMode == DRAG_MODE_CREATE_WIDGET_STACK
+                    || mDragMode == DRAG_MODE_ADD_TO_WIDGET_STACK
+                    || !nearestDropOccupied) {
                 if (mDragTargetLayout != null) {
                     mDragTargetLayout.revertTempState();
                 }
@@ -2652,16 +2978,77 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     }
 
     private void manageFolderFeedback(float distance, DragObject dragObject) {
-        if (distance > mDragTargetLayout.getFolderCreationRadius(mTargetCell)) {
-            if ((mDragMode == DRAG_MODE_ADD_TO_FOLDER
-                    || mDragMode == DRAG_MODE_CREATE_FOLDER)) {
+        float folderRadius = mDragTargetLayout.getFolderCreationRadius(mTargetCell);
+        boolean beyondFolderRadius = distance > folderRadius;
+
+        // For folder modes, exit if beyond the (small) folder creation radius
+        if (beyondFolderRadius) {
+            if (mDragMode == DRAG_MODE_ADD_TO_FOLDER
+                    || mDragMode == DRAG_MODE_CREATE_FOLDER) {
                 setDragMode(DRAG_MODE_NONE);
             }
-            return;
         }
 
         mDragOverView = mDragTargetLayout.getChildAt(mTargetCell[0], mTargetCell[1]);
+        if (mDragOverView == null) return;
         ItemInfo info = dragObject.dragInfo;
+
+        // --- Widget stack checks (use span-aware reorder radius) ---
+        // Widget stacks need a larger radius since widgets span multiple cells.
+        // Use the target view's span for the radius, falling back to the dragged item's span.
+        View targetView = mDragOverView;
+        int targetSpanX = 1;
+        int targetSpanY = 1;
+        if (targetView != null && targetView.getTag() instanceof ItemInfo targetInfo) {
+            targetSpanX = Math.max(1, targetInfo.spanX);
+            targetSpanY = Math.max(1, targetInfo.spanY);
+        }
+        float widgetRadius = mDragTargetLayout.getReorderRadius(
+                mTargetCell, targetSpanX, targetSpanY);
+        boolean beyondWidgetRadius = distance > widgetRadius;
+
+        // Clear widget stack modes if beyond widget radius
+        if (beyondWidgetRadius) {
+            if (mDragMode == DRAG_MODE_CREATE_WIDGET_STACK
+                    || mDragMode == DRAG_MODE_ADD_TO_WIDGET_STACK) {
+                setDragMode(DRAG_MODE_NONE);
+            }
+        }
+
+        // Widget stack creation: widget dragged onto another widget
+        if (!beyondWidgetRadius) {
+            boolean widgetStackPending = willCreateWidgetStack(info, mDragOverView);
+            if (mDragMode == DRAG_MODE_NONE && widgetStackPending) {
+                if (mDragOverView instanceof ViewGroup vg) {
+                    mWidgetStackCreateHighlight = new WidgetDropHighlight(vg);
+                    mWidgetStackCreateHighlight.show();
+                }
+                mDragTargetLayout.clearDragOutlines();
+                setDragMode(DRAG_MODE_CREATE_WIDGET_STACK);
+                return;
+            }
+
+            // Add to existing widget stack
+            boolean addToStackPending = willAddToExistingWidgetStack(info, mDragOverView);
+            if (mDragMode == DRAG_MODE_NONE && addToStackPending) {
+                mWidgetStackHighlightedView = (WidgetStackView) mDragOverView;
+                mWidgetStackHighlightedView.showDropHighlight();
+                mDragTargetLayout.clearDragOutlines();
+                setDragMode(DRAG_MODE_ADD_TO_WIDGET_STACK);
+                return;
+            }
+
+            if (mDragMode == DRAG_MODE_CREATE_WIDGET_STACK && !widgetStackPending) {
+                setDragMode(DRAG_MODE_NONE);
+            }
+            if (mDragMode == DRAG_MODE_ADD_TO_WIDGET_STACK && !addToStackPending) {
+                setDragMode(DRAG_MODE_NONE);
+            }
+        }
+
+        // --- Folder checks (use small icon-based radius) ---
+        if (beyondFolderRadius) return;
+
         boolean userFolderPending = willCreateUserFolder(info, mDragOverView, false);
         if (mDragMode == DRAG_MODE_NONE && userFolderPending) {
             if (Flags.msdlFeedback()) {
@@ -2798,6 +3185,37 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             final PendingAddItemInfo pendingInfo = (PendingAddItemInfo) info;
 
             boolean findNearestVacantCell = true;
+
+            // Widget stack: external drop onto existing stack
+            if (mAddToWidgetStackOnDrop && WidgetStackInfo.willAcceptItemType(
+                    pendingInfo.itemType)) {
+                mAddToWidgetStackOnDrop = false;
+                mTargetCell = findNearestArea(touchXY[0], touchXY[1], spanX, spanY,
+                        cellLayout, mTargetCell);
+                View dropOverView = cellLayout.getChildAt(mTargetCell[0], mTargetCell[1]);
+                if (dropOverView instanceof WidgetStackView stackView) {
+                    mPendingExternalStackTarget = stackView;
+                    stackView.clearDropHighlight();
+                    findNearestVacantCell = false;
+                }
+            }
+
+            // Widget stack: external drop onto a single widget to create a new stack
+            if (mCreateWidgetStackOnDrop && WidgetStackInfo.willAcceptItemType(
+                    pendingInfo.itemType)) {
+                mCreateWidgetStackOnDrop = false;
+                mTargetCell = findNearestArea(touchXY[0], touchXY[1], spanX, spanY,
+                        cellLayout, mTargetCell);
+                View dropOverView = cellLayout.getChildAt(mTargetCell[0], mTargetCell[1]);
+                if (dropOverView instanceof LauncherAppWidgetHostView hostView
+                        && willCreateWidgetStack(info, dropOverView)) {
+                    mPendingExternalStackCreationTarget = hostView;
+                    // Reset the scale-down hover animation
+                    cleanupWidgetStackVisualState();
+                    findNearestVacantCell = false;
+                }
+            }
+
             if (pendingInfo.itemType == LauncherSettings.Favorites.ITEM_TYPE_DEEP_SHORTCUT) {
                 mTargetCell = findNearestArea(touchXY[0], touchXY[1], spanX, spanY,
                         cellLayout, mTargetCell);
@@ -2859,7 +3277,11 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             }
 
             int animationStyle = ANIMATE_INTO_POSITION_AND_DISAPPEAR;
-            if (isWidget && ((PendingAddWidgetInfo) pendingInfo).info != null &&
+            if (mPendingExternalStackTarget != null
+                    || mPendingExternalStackCreationTarget != null) {
+                // Widget going to a stack — always disappear (no resize frame)
+                animationStyle = ANIMATE_INTO_POSITION_AND_DISAPPEAR;
+            } else if (isWidget && ((PendingAddWidgetInfo) pendingInfo).info != null &&
                     ((PendingAddWidgetInfo) pendingInfo).getHandler().needsConfigure()) {
                 animationStyle = ANIMATE_INTO_POSITION_AND_REMAIN;
             }
@@ -3249,8 +3671,21 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     }
 
     public LauncherAppWidgetHostView getWidgetForAppWidgetId(final int appWidgetId) {
-        return (LauncherAppWidgetHostView) mapOverItems((info, v) ->
+        // Check direct workspace children first
+        LauncherAppWidgetHostView direct = (LauncherAppWidgetHostView) mapOverItems((info, v) ->
                 (info instanceof LauncherAppWidgetInfo lawi) && lawi.appWidgetId == appWidgetId);
+        if (direct != null) return direct;
+
+        // Search inside widget stacks for nested widget views
+        final LauncherAppWidgetHostView[] holder = new LauncherAppWidgetHostView[1];
+        mapOverItems((info, v) -> {
+            if (v instanceof WidgetStackView wsv) {
+                holder[0] = wsv.findChildByAppWidgetId(appWidgetId);
+                return holder[0] != null;
+            }
+            return false;
+        });
+        return holder[0];
     }
 
     void clearDropTargets() {
@@ -3293,6 +3728,21 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                         folderIcon.getFolder().removeFolderContent(false, matches);
                         if (folderIcon.getFolder().isOpen()) {
                             folderIcon.getFolder().close(false /* animate */);
+                        }
+                    }
+                } else if (child instanceof WidgetStackView wsv) {
+                    WidgetStackInfo stackInfo = wsv.getStackInfo();
+                    if (stackInfo != null) {
+                        int removed = stackInfo.removeMatching(matcher);
+                        if (removed > 0) {
+                            if (stackInfo.getContents().isEmpty()) {
+                                // Stack is empty — remove view + model + DB
+                                layout.removeViewInLayout(child);
+                                mLauncher.getModelWriter().deleteItemFromDatabase(
+                                        stackInfo, "empty widget stack after item removal");
+                            } else {
+                                wsv.rebuildFromStackInfo();
+                            }
                         }
                     }
                 } else if (info instanceof AppPairInfo api) {

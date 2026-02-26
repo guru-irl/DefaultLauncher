@@ -56,6 +56,10 @@ internal constructor(
     private val iconScale = themeManager.iconState.iconScale
     private val iconSizeScale = themeManager.iconState.iconSizeScale
     private val isNoneShape = themeManager.iconState.iconMask == ShapesProvider.NONE_PATH
+    private val skipWrapNonAdaptive = themeManager.iconState.skipWrapNonAdaptive
+    private val useOemForNative = themeManager.iconState.useOemForNative
+    private val wrapperBgColorInt = themeManager.iconState.wrapperBgColor
+    private var mUseOemShape = false
 
     init {
         mThemeController = themeManager.themeController
@@ -71,14 +75,22 @@ internal constructor(
     }
 
     override fun createBadgedIconBitmap(icon: Drawable, options: IconOptions?): BitmapInfo {
-        // For "none" shape with non-adaptive icons (icon packs), bypass the adaptive
-        // wrapping entirely — draw the raw icon at the user's size scale without shadow or shape.
-        if (isNoneShape && icon !is AdaptiveIconDrawable) {
-            val bitmap = createIconBitmap(icon, iconSizeScale, MODE_DEFAULT)
+        val isPackIcon = IconPackDrawable.isFromPack(icon)
+        val renderIcon = IconPackDrawable.unwrap(icon)
+
+        // For "none" shape or skipWrapNonAdaptive with pack icons,
+        // bypass the adaptive wrapping entirely — draw the raw icon at the user's size
+        // scale without shadow or shape.
+        if ((isNoneShape || skipWrapNonAdaptive) && isPackIcon) {
+            val bitmap = createIconBitmap(renderIcon, iconSizeScale, MODE_DEFAULT)
             val color = ColorExtractor.findDominantColorByHue(bitmap)
             return BitmapInfo.of(bitmap, color).withFlags(getBitmapFlagOp(options))
         }
-        return super.createBadgedIconBitmap(icon, options)
+        // Set OEM flag for native system icons when useOemForNative is active
+        mUseOemShape = useOemForNative && !isPackIcon
+        val result = super.createBadgedIconBitmap(renderIcon, options)
+        mUseOemShape = false
+        return result
     }
 
     /** Recycles a LauncherIcons that may be in-use. */
@@ -92,19 +104,19 @@ internal constructor(
     }
 
     override fun getShapePath(drawable: AdaptiveIconDrawable, iconBounds: Rect): Path {
-        if (!Flags.enableLauncherIconShapes()) return super.getShapePath(drawable, iconBounds)
+        if (!Flags.enableLauncherIconShapes() || mUseOemShape) return super.getShapePath(drawable, iconBounds)
         return themeManager.iconShape.getPath(iconBounds)
     }
 
     override fun getIconScale(): Float {
-        if (!Flags.enableLauncherIconShapes()) return super.getIconScale()
+        if (!Flags.enableLauncherIconShapes() || mUseOemShape) return super.getIconScale()
         return themeManager.iconState.iconScale
     }
 
     override fun wrapToAdaptiveIcon(icon: Drawable): AdaptiveIconDrawable {
-        // Use transparent background for non-adaptive icons so icon pack icons
-        // (and legacy icons) don't get an opaque white fill behind the shape.
-        mWrapperBackgroundColor = Color.TRANSPARENT
+        // Use the user's chosen wrapper BG color (defaults to transparent) so icon
+        // pack icons can optionally get a colored fill behind the shape.
+        mWrapperBackgroundColor = wrapperBgColorInt
         return super.wrapToAdaptiveIcon(icon)
     }
 
@@ -113,7 +125,7 @@ internal constructor(
         drawable: AdaptiveIconDrawable,
         overridePath: Path,
     ) {
-        if (!Flags.enableLauncherIconShapes()) {
+        if (!Flags.enableLauncherIconShapes() || mUseOemShape) {
             super.drawAdaptiveIcon(canvas, drawable, overridePath)
             return
         }

@@ -83,17 +83,40 @@ public class AppDrawerFragment extends SettingsBaseFragment {
         // Apply adaptive icon shape switch (drawer)
         SwitchPreferenceCompat adaptivePref = findPreference("pref_apply_adaptive_shape_drawer");
         Preference iconShapePref = findPreference("pref_icon_shape");
+        SwitchPreferenceCompat wrapUnsupportedPref = findPreference("pref_wrap_unsupported_icons_drawer");
+        ColorPickerPreference bgColorPref = findPreference("pref_icon_wrap_bg_color_drawer");
+        M3SliderPreference bgOpacityPref = findPreference("pref_icon_wrap_bg_opacity_drawer");
+
+        // Wire BG color picker
+        if (bgColorPref != null) {
+            bgColorPref.setColorPrefItem(LauncherPrefs.ICON_WRAP_BG_COLOR_DRAWER, 0);
+        }
 
         boolean adaptiveOn = LauncherPrefs.get(getContext())
                 .get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
-        if (iconShapePref != null) {
-            iconShapePref.setVisible(adaptiveOn);
-        }
+        boolean wrapOn = LauncherPrefs.get(getContext())
+                .get(LauncherPrefs.WRAP_UNSUPPORTED_ICONS_DRAWER);
+        refreshIconPrefVisibility(adaptiveOn, wrapOn,
+                iconShapePref, wrapUnsupportedPref, bgColorPref, bgOpacityPref);
 
         if (adaptivePref != null) {
             adaptivePref.setOnPreferenceChangeListener((pref, newValue) -> {
                 boolean on = (boolean) newValue;
-                if (iconShapePref != null) iconShapePref.setVisible(on);
+                boolean wo = LauncherPrefs.get(getContext())
+                        .get(LauncherPrefs.WRAP_UNSUPPORTED_ICONS_DRAWER);
+                refreshIconPrefVisibility(on, wo,
+                        iconShapePref, wrapUnsupportedPref, bgColorPref, bgOpacityPref);
+                return true;
+            });
+        }
+
+        if (wrapUnsupportedPref != null) {
+            wrapUnsupportedPref.setOnPreferenceChangeListener((pref, newValue) -> {
+                boolean wo = (boolean) newValue;
+                boolean ao = LauncherPrefs.get(getContext())
+                        .get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
+                refreshIconPrefVisibility(ao, wo,
+                        iconShapePref, wrapUnsupportedPref, bgColorPref, bgOpacityPref);
                 return true;
             });
         }
@@ -120,8 +143,14 @@ public class AppDrawerFragment extends SettingsBaseFragment {
         boolean isMatching = LauncherPrefs.get(getContext()).get(LauncherPrefs.DRAWER_MATCH_HOME);
         if (iconPackPref != null) iconPackPref.setVisible(!isMatching);
         if (adaptivePref != null) adaptivePref.setVisible(!isMatching);
-        if (iconShapePref != null) iconShapePref.setVisible(!isMatching && adaptiveOn);
         if (iconSizePref != null) iconSizePref.setVisible(!isMatching);
+        // When matching, hide all drawer-specific icon prefs
+        if (isMatching) {
+            if (iconShapePref != null) iconShapePref.setVisible(false);
+            if (wrapUnsupportedPref != null) wrapUnsupportedPref.setVisible(false);
+            if (bgColorPref != null) bgColorPref.setVisible(false);
+            if (bgOpacityPref != null) bgOpacityPref.setVisible(false);
+        }
 
         if (matchHomePref != null) {
             matchHomePref.setOnPreferenceChangeListener((pref, newValue) -> {
@@ -129,12 +158,31 @@ public class AppDrawerFragment extends SettingsBaseFragment {
                 if (iconPackPref != null) iconPackPref.setVisible(!matching);
                 SwitchPreferenceCompat adaptiveRef = findPreference("pref_apply_adaptive_shape_drawer");
                 if (adaptiveRef != null) adaptiveRef.setVisible(!matching);
-                Preference shapePref = findPreference("pref_icon_shape");
-                boolean adaptiveIsOn = LauncherPrefs.get(getContext())
-                        .get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
-                if (shapePref != null) shapePref.setVisible(!matching && adaptiveIsOn);
                 Preference sizePref = findPreference("pref_icon_size_scale");
                 if (sizePref != null) sizePref.setVisible(!matching);
+
+                if (matching) {
+                    // Hide all drawer-specific icon prefs
+                    Preference shapePref = findPreference("pref_icon_shape");
+                    if (shapePref != null) shapePref.setVisible(false);
+                    SwitchPreferenceCompat wrapRef = findPreference("pref_wrap_unsupported_icons_drawer");
+                    if (wrapRef != null) wrapRef.setVisible(false);
+                    ColorPickerPreference bgRef = findPreference("pref_icon_wrap_bg_color_drawer");
+                    if (bgRef != null) bgRef.setVisible(false);
+                    M3SliderPreference opRef = findPreference("pref_icon_wrap_bg_opacity_drawer");
+                    if (opRef != null) opRef.setVisible(false);
+                } else {
+                    // Re-evaluate visibility based on current state
+                    boolean adaptiveIsOn = LauncherPrefs.get(getContext())
+                            .get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
+                    boolean wo = LauncherPrefs.get(getContext())
+                            .get(LauncherPrefs.WRAP_UNSUPPORTED_ICONS_DRAWER);
+                    refreshIconPrefVisibility(adaptiveIsOn, wo,
+                            findPreference("pref_icon_shape"),
+                            findPreference("pref_wrap_unsupported_icons_drawer"),
+                            findPreference("pref_icon_wrap_bg_color_drawer"),
+                            findPreference("pref_icon_wrap_bg_opacity_drawer"));
+                }
 
                 // Invalidate drawer cache and force reload on toggle change.
                 DrawerIconResolver.getInstance().invalidate();
@@ -317,13 +365,24 @@ public class AppDrawerFragment extends SettingsBaseFragment {
         pref.setSummary(IconSettingsHelper.getIconSizeSummary(getContext(), current));
     }
 
-    /** Re-reads the adaptive shape pref and updates the switch + shape visibility. */
+    /** Re-reads the adaptive shape pref and updates the switch + all dependent visibility. */
     public void refreshAdaptiveShapeState() {
         SwitchPreferenceCompat adaptivePref = findPreference("pref_apply_adaptive_shape_drawer");
-        Preference iconShapePref = findPreference("pref_icon_shape");
         if (adaptivePref == null) return;
+
         boolean on = LauncherPrefs.get(getContext()).get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER);
         adaptivePref.setChecked(on);
-        if (iconShapePref != null) iconShapePref.setVisible(on);
+
+        boolean isMatching = LauncherPrefs.get(getContext()).get(LauncherPrefs.DRAWER_MATCH_HOME);
+        if (isMatching) return; // All drawer icon prefs hidden when matching
+
+        boolean wrapOn = LauncherPrefs.get(getContext())
+                .get(LauncherPrefs.WRAP_UNSUPPORTED_ICONS_DRAWER);
+        refreshIconPrefVisibility(on, wrapOn,
+                findPreference("pref_icon_shape"),
+                findPreference("pref_wrap_unsupported_icons_drawer"),
+                findPreference("pref_icon_wrap_bg_color_drawer"),
+                findPreference("pref_icon_wrap_bg_opacity_drawer"));
     }
+
 }

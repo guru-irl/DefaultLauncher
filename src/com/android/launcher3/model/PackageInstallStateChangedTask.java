@@ -15,7 +15,7 @@
  */
 package com.android.launcher3.model;
 
-import static com.android.launcher3.model.ModelUtils.WIDGET_FILTER;
+import static com.android.launcher3.model.ModelUtils.APP_WIDGET_FILTER;
 
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
@@ -88,7 +88,7 @@ public class PackageInstallStateChangedTask implements ModelUpdateTask {
             });
 
             dataModel.itemsIdMap.stream()
-                    .filter(WIDGET_FILTER)
+                    .filter(APP_WIDGET_FILTER)
                     .filter(item -> mInstallInfo.user.equals(item.user))
                     .map(item -> (LauncherAppWidgetInfo) item)
                     .filter(widget -> widget.providerName.getPackageName()

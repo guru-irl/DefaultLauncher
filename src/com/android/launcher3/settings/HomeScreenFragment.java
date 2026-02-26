@@ -80,16 +80,36 @@ public class HomeScreenFragment extends SettingsBaseFragment {
         // Apply adaptive icon shape switch
         SwitchPreferenceCompat adaptivePref = findPreference("pref_apply_adaptive_shape");
         Preference iconShapePref = findPreference("pref_icon_shape");
+        SwitchPreferenceCompat wrapUnsupportedPref = findPreference("pref_wrap_unsupported_icons");
+        ColorPickerPreference bgColorPref = findPreference("pref_icon_wrap_bg_color");
+        M3SliderPreference bgOpacityPref = findPreference("pref_icon_wrap_bg_opacity");
+
+        // Wire BG color picker
+        if (bgColorPref != null) {
+            bgColorPref.setColorPrefItem(LauncherPrefs.ICON_WRAP_BG_COLOR, 0);
+        }
 
         boolean adaptiveOn = LauncherPrefs.get(getContext()).get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE);
-        if (iconShapePref != null) {
-            iconShapePref.setVisible(adaptiveOn);
-        }
+        boolean wrapOn = LauncherPrefs.get(getContext()).get(LauncherPrefs.WRAP_UNSUPPORTED_ICONS);
+        refreshIconPrefVisibility(adaptiveOn, wrapOn,
+                iconShapePref, wrapUnsupportedPref, bgColorPref, bgOpacityPref);
 
         if (adaptivePref != null) {
             adaptivePref.setOnPreferenceChangeListener((pref, newValue) -> {
                 boolean on = (boolean) newValue;
-                if (iconShapePref != null) iconShapePref.setVisible(on);
+                boolean wo = LauncherPrefs.get(getContext()).get(LauncherPrefs.WRAP_UNSUPPORTED_ICONS);
+                refreshIconPrefVisibility(on, wo,
+                        iconShapePref, wrapUnsupportedPref, bgColorPref, bgOpacityPref);
+                return true;
+            });
+        }
+
+        if (wrapUnsupportedPref != null) {
+            wrapUnsupportedPref.setOnPreferenceChangeListener((pref, newValue) -> {
+                boolean wo = (boolean) newValue;
+                boolean ao = LauncherPrefs.get(getContext()).get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE);
+                refreshIconPrefVisibility(ao, wo,
+                        iconShapePref, wrapUnsupportedPref, bgColorPref, bgOpacityPref);
                 return true;
             });
         }
@@ -248,13 +268,21 @@ public class HomeScreenFragment extends SettingsBaseFragment {
         pref.setSummary(IconSettingsHelper.getIconSizeSummary(getContext(), current));
     }
 
-    /** Re-reads the adaptive shape pref and updates the switch + shape visibility. */
+    /** Re-reads the adaptive shape pref and updates the switch + all dependent visibility. */
     public void refreshAdaptiveShapeState() {
         SwitchPreferenceCompat adaptivePref = findPreference("pref_apply_adaptive_shape");
         Preference iconShapePref = findPreference("pref_icon_shape");
+        SwitchPreferenceCompat wrapUnsupportedPref = findPreference("pref_wrap_unsupported_icons");
+        ColorPickerPreference bgColorPref = findPreference("pref_icon_wrap_bg_color");
+        M3SliderPreference bgOpacityPref = findPreference("pref_icon_wrap_bg_opacity");
         if (adaptivePref == null) return;
+
         boolean on = LauncherPrefs.get(getContext()).get(LauncherPrefs.APPLY_ADAPTIVE_SHAPE);
         adaptivePref.setChecked(on);
-        if (iconShapePref != null) iconShapePref.setVisible(on);
+
+        boolean wrapOn = LauncherPrefs.get(getContext()).get(LauncherPrefs.WRAP_UNSUPPORTED_ICONS);
+        refreshIconPrefVisibility(on, wrapOn,
+                iconShapePref, wrapUnsupportedPref, bgColorPref, bgOpacityPref);
     }
+
 }

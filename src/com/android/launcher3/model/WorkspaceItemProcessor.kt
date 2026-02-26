@@ -42,6 +42,7 @@ import com.android.launcher3.model.data.FolderInfo
 import com.android.launcher3.model.data.IconRequestInfo
 import com.android.launcher3.model.data.ItemInfoWithIcon
 import com.android.launcher3.model.data.LauncherAppWidgetInfo
+import com.android.launcher3.model.data.WidgetStackInfo
 import com.android.launcher3.model.data.WorkspaceItemInfo
 import com.android.launcher3.pm.PackageInstallInfo
 import com.android.launcher3.pm.UserCache
@@ -113,6 +114,7 @@ class WorkspaceItemProcessor(
                 Favorites.ITEM_TYPE_APP_PAIR -> processFolderOrAppPair()
                 Favorites.ITEM_TYPE_APPWIDGET,
                 Favorites.ITEM_TYPE_CUSTOM_APPWIDGET -> processWidget()
+                Favorites.ITEM_TYPE_WIDGET_STACK -> processWidgetStack()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Desktop items loading interrupted", e)
@@ -458,6 +460,20 @@ class WorkspaceItemProcessor(
     }
 
     /**
+     * Loads a WidgetStackInfo from the database. Uses findOrMakeWidgetStack to reuse a
+     * placeholder that may already contain child widgets loaded before this stack row.
+     */
+    private fun processWidgetStack() {
+        val stackInfo = c.findOrMakeWidgetStack(c.id, bgDataModel)
+        c.applyCommonProperties(stackInfo)
+        stackInfo.spanX = c.spanX
+        stackInfo.spanY = c.spanY
+        stackInfo.setActiveIndex(c.options)
+        c.markRestored()
+        c.checkAndAddItem(stackInfo, bgDataModel, memoryLogger)
+    }
+
+    /**
      * This method, similar to processAppShortcut above, verifies that a widget should be shown on
      * the home screen, updates the database accordingly, formats the data in such a way that it is
      * ready to be added to the data model, and then adds it to the launcher’s data model.
@@ -478,6 +494,7 @@ class WorkspaceItemProcessor(
         val component = ComponentName.unflattenFromString(c.appWidgetProvider)!!
         val appWidgetInfo = LauncherAppWidgetInfo(c.appWidgetId, component)
         c.applyCommonProperties(appWidgetInfo)
+        appWidgetInfo.rank = c.rank
         appWidgetInfo.spanX = c.spanX
         appWidgetInfo.spanY = c.spanY
         appWidgetInfo.options = c.options
@@ -494,7 +511,9 @@ class WorkspaceItemProcessor(
             )
             return
         }
-        if (!c.isOnWorkspaceOrHotseat) {
+        // Widgets can live on workspace, hotseat, or inside a collection (widget stack)
+        val isInsideCollection = Favorites.isInsideCollection(c.container)
+        if (!c.isOnWorkspaceOrHotseat && !isInsideCollection) {
             c.markDeleted(
                 "processWidget: invalid Widget container != CONTAINER_DESKTOP nor CONTAINER_HOTSEAT." +
                     " id=${c.id}," +

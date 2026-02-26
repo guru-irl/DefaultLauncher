@@ -86,14 +86,8 @@ public class ColorDebugPreference extends Preference {
             return;
         }
 
-        // Hide default preference title/summary since the category provides the title
-        View title = holder.findViewById(android.R.id.title);
-        if (title != null) title.setVisibility(View.GONE);
-        View summary = holder.findViewById(android.R.id.summary);
-        if (summary != null) summary.setVisibility(View.GONE);
-        View iconFrame = holder.findViewById(
-                androidx.preference.R.id.icon_frame);
-        if (iconFrame != null) iconFrame.setVisibility(View.GONE);
+        // Hide default preference views since the category provides the title
+        SettingsSheetBuilder.hideDefaultViews(holder);
 
         Context ctx = getContext();
         Resources res = ctx.getResources();

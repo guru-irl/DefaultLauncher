@@ -21,15 +21,10 @@ package com.android.launcher3.settings;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.Editable;
-import android.text.InputType;
-import android.text.TextWatcher;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -178,17 +173,13 @@ public class PerAppIconSheet {
         Resources res = ctx.getResources();
         Map<String, IconPack> packs = mgr.getInstalledPacks();
         PackageManager pm = ctx.getPackageManager();
-        int cornerPx = res.getDimensionPixelSize(R.dimen.settings_card_corner_radius);
-        int marginH = res.getDimensionPixelSize(R.dimen.settings_card_margin_horizontal);
-        int marginV = res.getDimensionPixelSize(R.dimen.settings_card_margin_vertical);
-        int cardPad = res.getDimensionPixelSize(R.dimen.settings_card_padding);
 
         LinearLayout packPage = new LinearLayout(ctx);
         packPage.setOrientation(LinearLayout.VERTICAL);
         packPage.setPadding(0, 0, 0,
                 res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal));
 
-        IconSettingsHelper.addSheetHandle(packPage, ctx, res);
+        SettingsSheetBuilder.addSheetHandle(packPage, ctx, res);
 
         // Title
         TextView title = new TextView(ctx);
@@ -205,17 +196,17 @@ public class PerAppIconSheet {
         items.setOrientation(LinearLayout.VERTICAL);
 
         // "Follow global setting"
-        items.addView(createPackCard(ctx, cornerPx, marginH, marginV, cardPad,
-                colorSurfaceVar, colorOnSurface,
-                ctx.getString(R.string.customize_follow_global), null, v -> {
+        items.addView(SettingsSheetBuilder.createCard(ctx,
+                ctx.getString(R.string.customize_follow_global), null,
+                colorSurfaceVar, colorOnSurface, v -> {
                     sheet.dismiss();
                     callback.onFollowGlobal();
                 }));
 
         // "System default"
-        items.addView(createPackCard(ctx, cornerPx, marginH, marginV, cardPad,
-                colorSurfaceVar, colorOnSurface,
-                ctx.getString(R.string.customize_system_default), null, v -> {
+        items.addView(SettingsSheetBuilder.createCard(ctx,
+                ctx.getString(R.string.customize_system_default), null,
+                colorSurfaceVar, colorOnSurface, v -> {
                     sheet.dismiss();
                     callback.onSystemDefault();
                 }));
@@ -227,9 +218,9 @@ public class PerAppIconSheet {
             IconPack pack = entry.getValue();
 
             // Click set below (needs reference to the card itself)
-            LinearLayout card = createPackCard(ctx, cornerPx, marginH, marginV,
-                    cardPad, colorSurfaceVar, colorOnSurface,
-                    pack.label.toString(), pack.getPackIcon(pm), null);
+            LinearLayout card = SettingsSheetBuilder.createCard(ctx,
+                    pack.label.toString(), pack.getPackIcon(pm),
+                    colorSurfaceVar, colorOnSurface, null);
 
             // Add app preview icon from this pack (async)
             ImageView preview = new ImageView(ctx);
@@ -332,12 +323,11 @@ public class PerAppIconSheet {
             boolean[] onIconPage) {
 
         Resources res = ctx.getResources();
-        int hintColor = ctx.getColor(R.color.materialColorOnSurfaceVariant);
 
         LinearLayout page = new LinearLayout(ctx);
         page.setOrientation(LinearLayout.VERTICAL);
 
-        IconSettingsHelper.addSheetHandle(page, ctx, res);
+        SettingsSheetBuilder.addSheetHandle(page, ctx, res);
 
         // Header: back button + title
         LinearLayout header = new LinearLayout(ctx);
@@ -381,39 +371,16 @@ public class PerAppIconSheet {
 
         page.addView(header);
 
-        // Search bar
-        EditText searchInput = new EditText(ctx);
-        searchInput.setHint(R.string.icon_picker_search_hint);
-        searchInput.setInputType(InputType.TYPE_CLASS_TEXT
-                | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        searchInput.setMaxLines(1);
-        searchInput.setSingleLine(true);
-        searchInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        searchInput.setTextColor(colorOnSurface);
-        searchInput.setHintTextColor(hintColor);
-        searchInput.setBackgroundResource(R.drawable.bg_widgets_searchbox);
-        searchInput.setGravity(Gravity.CENTER_VERTICAL);
-        int searchPadH = res.getDimensionPixelSize(R.dimen.settings_search_padding);
-        searchInput.setPadding(searchPadH, 0, searchPadH, 0);
-        searchInput.setCompoundDrawablePadding(
-                res.getDimensionPixelSize(R.dimen.settings_search_padding));
-        searchInput.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
-
-        Drawable searchIcon = ctx.getDrawable(R.drawable.ic_allapps_search);
-        if (searchIcon != null) {
-            searchIcon.setTintList(ColorStateList.valueOf(hintColor));
-            int iconSize = res.getDimensionPixelSize(R.dimen.settings_search_icon_size);
-            searchIcon.setBounds(0, 0, iconSize, iconSize);
-            searchInput.setCompoundDrawablesRelative(searchIcon, null, null, null);
-        }
-
-        LinearLayout.LayoutParams searchLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                res.getDimensionPixelSize(R.dimen.settings_row_min_height));
-        int searchMarginH = res.getDimensionPixelSize(R.dimen.settings_search_padding);
-        int searchMarginV = res.getDimensionPixelSize(R.dimen.settings_item_spacing);
-        searchLp.setMargins(searchMarginH, searchMarginV, searchMarginH, searchMarginV);
-        searchInput.setLayoutParams(searchLp);
+        // Search bar — adapter wired up after creation in rv.post() below
+        final Object[] adapterRef = {null};
+        EditText searchInput = SettingsSheetBuilder.createSearchBar(ctx,
+                R.string.icon_picker_search_hint, SEARCH_DEBOUNCE_MS,
+                query -> {
+                    @SuppressWarnings("unchecked")
+                    CategoryGridAdapter<IconPack.IconEntry> a =
+                            (CategoryGridAdapter<IconPack.IconEntry>) adapterRef[0];
+                    if (a != null) a.filter(query);
+                });
         page.addView(searchInput);
 
         // RecyclerView grid
@@ -475,29 +442,11 @@ public class PerAppIconSheet {
                     ctx, rv, cellSizePx, adapter));
             rv.setAdapter(adapter);
 
+            // Wire search bar to adapter now that it exists
+            adapterRef[0] = adapter;
+
             // Load icons with "Suggested" section at top
             loadIconsWithSuggested(ctx, packPackage, pack, appCn, mgr, adapter);
-
-            // Search with debounce
-            final Runnable[] pendingSearch = {null};
-            searchInput.addTextChangedListener(new TextWatcher() {
-                @Override
-                public void beforeTextChanged(CharSequence s, int start, int count,
-                        int after) { }
-
-                @Override
-                public void onTextChanged(CharSequence s, int start, int before,
-                        int count) {
-                    if (pendingSearch[0] != null) {
-                        sMainHandler.removeCallbacks(pendingSearch[0]);
-                    }
-                    pendingSearch[0] = () -> adapter.filter(s.toString());
-                    sMainHandler.postDelayed(pendingSearch[0], SEARCH_DEBOUNCE_MS);
-                }
-
-                @Override
-                public void afterTextChanged(Editable s) { }
-            });
         });
 
         return page;
@@ -623,65 +572,6 @@ public class PerAppIconSheet {
                 .setDuration(SLIDE_DURATION)
                 .setInterpolator(interp)
                 .start();
-    }
-
-    // ---- Pack card builder ----
-
-    private static LinearLayout createPackCard(Context ctx,
-            int cornerPx, int marginH, int marginV, int cardPad,
-            int bgColor, int textColor,
-            String label, Drawable packIcon,
-            View.OnClickListener listener) {
-
-        LinearLayout card = new LinearLayout(ctx);
-        card.setOrientation(LinearLayout.VERTICAL);
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(cornerPx);
-        bg.setColor(bgColor);
-        card.setBackground(bg);
-        card.setPadding(cardPad, cardPad, cardPad, cardPad);
-
-        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        cardLp.setMargins(marginH, marginV, marginH, marginV);
-        card.setLayoutParams(cardLp);
-
-        // Ripple foreground
-        TypedValue ripple = new TypedValue();
-        ctx.getTheme().resolveAttribute(
-                android.R.attr.selectableItemBackground, ripple, true);
-        card.setForeground(ctx.getDrawable(ripple.resourceId));
-
-        LinearLayout header = new LinearLayout(ctx);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-
-        if (packIcon != null) {
-            Resources res = ctx.getResources();
-            ImageView icon = new ImageView(ctx);
-            int iconPx = res.getDimensionPixelSize(R.dimen.settings_pack_icon_size);
-            LinearLayout.LayoutParams iconLp =
-                    new LinearLayout.LayoutParams(iconPx, iconPx);
-            iconLp.setMarginEnd(
-                    res.getDimensionPixelSize(R.dimen.settings_icon_margin_end));
-            icon.setLayoutParams(iconLp);
-            icon.setImageDrawable(packIcon);
-            header.addView(icon);
-        }
-
-        TextView name = new TextView(ctx);
-        name.setText(label);
-        name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        name.setTextColor(textColor);
-        name.setLayoutParams(new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        header.addView(name);
-
-        card.addView(header);
-        if (listener != null) card.setOnClickListener(listener);
-        return card;
     }
 
 }

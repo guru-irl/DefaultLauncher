@@ -19,7 +19,7 @@ import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_DEEP_SH
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_PRIVATE_PROFILE_QUIET_MODE_ENABLED;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_QUIET_MODE_ENABLED;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_WORK_PROFILE_QUIET_MODE_ENABLED;
-import static com.android.launcher3.model.ModelUtils.WIDGET_FILTER;
+import static com.android.launcher3.model.ModelUtils.APP_WIDGET_FILTER;
 import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_ARCHIVED;
 import static com.android.launcher3.model.data.LauncherAppWidgetInfo.FLAG_PROVIDER_NOT_READY;
 import static com.android.launcher3.model.data.WorkspaceItemInfo.FLAG_AUTOINSTALL_ICON;
@@ -356,7 +356,7 @@ public class PackageUpdatedTask implements ModelUpdateTask {
                 });
 
                 dataModel.itemsIdMap.stream()
-                        .filter(WIDGET_FILTER)
+                        .filter(APP_WIDGET_FILTER)
                         .filter(item -> mUser.equals(item.user))
                         .map(item -> (LauncherAppWidgetInfo) item)
                         .filter(widget -> widget.hasRestoreFlag(FLAG_PROVIDER_NOT_READY)

@@ -34,12 +34,14 @@ import com.android.launcher3.model.data.AppPairInfo
 import com.android.launcher3.model.data.FolderInfo
 import com.android.launcher3.model.data.ItemInfo
 import com.android.launcher3.model.data.LauncherAppWidgetInfo
+import com.android.launcher3.model.data.WidgetStackInfo
 import com.android.launcher3.model.data.WorkspaceItemFactory
 import com.android.launcher3.model.data.WorkspaceItemInfo
 import com.android.launcher3.views.ActivityContext
 import com.android.launcher3.widget.LauncherWidgetHolder
 import com.android.launcher3.widget.PendingAppWidgetHostView
 import com.android.launcher3.widget.WidgetInflater
+import com.android.launcher3.widget.WidgetStackView
 
 /** Utility class to inflate View for a model item */
 class ItemInflater<T>(
@@ -90,6 +92,8 @@ class ItemInflater<T>(
             Favorites.ITEM_TYPE_APPWIDGET,
             Favorites.ITEM_TYPE_CUSTOM_APPWIDGET ->
                 return inflateAppWidget(item as LauncherAppWidgetInfo, writer)
+            Favorites.ITEM_TYPE_WIDGET_STACK ->
+                return inflateWidgetStack(item as WidgetStackInfo, writer)
             else -> throw RuntimeException("Invalid Item Type")
         }
     }
@@ -138,5 +142,35 @@ class ItemInflater<T>(
         hostView.tag = item
         hostView.isFocusable = true
         hostView.onFocusChangeListener = focusListener
+    }
+
+    private fun inflateWidgetStack(info: WidgetStackInfo, writer: ModelWriter): View {
+        info.sortByRank()
+        val stackView = WidgetStackView(context)
+        stackView.tag = info
+        val inflatedIds = mutableSetOf<Int>()
+        for (child in info.getContents()) {
+            val widgetInfo = child as? LauncherAppWidgetInfo
+            if (widgetInfo == null) {
+                android.util.Log.e("ItemInflater", "WidgetStack child is not LauncherAppWidgetInfo: $child")
+                continue
+            }
+            val (type, reason, _, isUpdate, providerInfo) = widgetInflater.inflateAppWidget(widgetInfo)
+            if (type == WidgetInflater.TYPE_DELETE) {
+                writer.deleteItemFromDatabase(widgetInfo, reason)
+                continue
+            }
+            inflatedIds.add(widgetInfo.id)
+            if (isUpdate) writer.updateItemInDatabase(widgetInfo)
+            val hostView = if (type == WidgetInflater.TYPE_PENDING || providerInfo == null)
+                PendingAppWidgetHostView(context, widgetHolder, widgetInfo, providerInfo)
+            else widgetHolder.createView(widgetInfo.appWidgetId, providerInfo)
+            prepareAppWidget(hostView, widgetInfo)
+            stackView.addWidgetView(hostView, widgetInfo)
+        }
+        // Remove dead children from model so contents stays in sync with views
+        info.getContents().removeIf { it.id !in inflatedIds }
+        stackView.setActiveIndex(info.getActiveIndex())
+        return stackView
     }
 }

@@ -71,6 +71,7 @@ import com.android.launcher3.util.PackageUserKey;
 import com.android.launcher3.util.ShortcutUtil;
 import com.android.launcher3.views.ActivityContext;
 import com.android.launcher3.views.BaseDragLayer;
+import com.android.launcher3.widget.WidgetStackView;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -472,6 +473,10 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
             outPos.right = centerX + iconSize / 2;
             outPos.top = top;
             outPos.bottom = top + iconSize;
+            return;
+        }
+        if (mPositionAnchor instanceof WidgetStackView stackView) {
+            getPopupContainer().getDescendantRectRelativeToSelf(stackView, outPos);
             return;
         }
         getPopupContainer().getDescendantRectRelativeToSelf(mOriginalIcon, outPos);

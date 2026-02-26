@@ -68,8 +68,10 @@ public class WidgetsBottomSheet extends BaseWidgetSheet {
     protected void onFinishInflate() {
         super.onFinishInflate();
         mContent = findViewById(R.id.widgets_bottom_sheet);
+        // getContext() already has WidgetContainerTheme from android:theme="?attr/widgetsTheme"
+        // in the layout XML. createSheetBackground uses widgetPickerPrimarySurfaceColor attr.
         setContentBackgroundWithParent(
-                getContext().getDrawable(R.drawable.bg_rounded_corner_bottom_sheet), mContent);
+                WidgetStackEditorView.createSheetBackground(getContext()), mContent);
     }
 
     @Override
