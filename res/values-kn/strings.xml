@@ -78,9 +78,7 @@
     <string name="widgets_list_expanded" msgid="7374857868788557730">"ಎಲ್ಲಾ ವಿಜೆಟ್‌ಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"ವಿಜೆಟ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಬದಲಾಯಿಸಲು ಟ್ಯಾಪ್ ಮಾಡಿ"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"ವಿಜೆಟ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಬದಲಾಯಿಸಿ"</string>
-    <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"ಆ್ಯಪ್‍ಗಳನ್ನು ಹುಡುಕಿ"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ..."</string>
-    <string name="all_apps_no_search_results" msgid="3200346862396363786">"\"<xliff:g id="QUERY">%1$s</xliff:g>\" ಹೊಂದಿಕೆಯ ಯಾವುದೇ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ"</string>
     <string name="label_application" msgid="8531721983832654978">"ಆ್ಯಪ್"</string>
     <string name="all_apps_label" msgid="5015784846527570951">"ಎಲ್ಲಾ ಆ್ಯಪ್‌ಗಳು"</string>
     <string name="all_apps_list_label" msgid="5106226764073070906">"ಆ್ಯಪ್‌ಗಳ ಪಟ್ಟಿ"</string>

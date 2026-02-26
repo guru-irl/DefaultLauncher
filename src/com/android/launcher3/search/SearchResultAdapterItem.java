@@ -11,7 +11,15 @@
 package com.android.launcher3.search;
 
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
+import com.android.launcher3.search.result.CalendarResult;
+import com.android.launcher3.search.result.CalculatorResult;
+import com.android.launcher3.search.result.ContactResult;
+import com.android.launcher3.search.result.FileResult;
 import com.android.launcher3.search.result.QuickAction;
+import com.android.launcher3.search.result.ShortcutResult;
+import com.android.launcher3.search.result.UnitConversion;
+
+import java.util.Objects;
 
 /**
  * Extended AdapterItem for non-app search results (contacts, calendar, files, etc.).
@@ -79,6 +87,54 @@ public class SearchResultAdapterItem extends AdapterItem {
 
     @Override
     public boolean isContentSame(AdapterItem other) {
-        return false; // Always rebind for simplicity
+        if (!(other instanceof SearchResultAdapterItem otherItem)) return false;
+        if (viewType != other.viewType) return false;
+
+        // Filter bar — mutable state, always rebind
+        if (filters != null) return false;
+
+        // Section headers — same if title matches
+        if (sectionTitle != null) {
+            return sectionTitle.equals(otherItem.sectionTitle);
+        }
+
+        // Quick actions — same if type and label match
+        if (quickAction != null && otherItem.quickAction != null) {
+            return quickAction.type == otherItem.quickAction.type
+                    && Objects.equals(quickAction.label, otherItem.quickAction.label);
+        }
+
+        // Result data comparisons
+        if (resultData != null && otherItem.resultData != null) {
+            if (resultData instanceof ContactResult a
+                    && otherItem.resultData instanceof ContactResult b) {
+                return a.contactId == b.contactId;
+            }
+            if (resultData instanceof CalendarResult a
+                    && otherItem.resultData instanceof CalendarResult b) {
+                return a.eventId == b.eventId;
+            }
+            if (resultData instanceof FileResult a
+                    && otherItem.resultData instanceof FileResult b) {
+                return Objects.equals(a.path, b.path)
+                        && a.lastModified == b.lastModified;
+            }
+            if (resultData instanceof ShortcutResult a
+                    && otherItem.resultData instanceof ShortcutResult b) {
+                return Objects.equals(a.shortcutInfo.getId(), b.shortcutInfo.getId());
+            }
+            if (resultData instanceof CalculatorResult a
+                    && otherItem.resultData instanceof CalculatorResult b) {
+                return Objects.equals(a.expression, b.expression)
+                        && Objects.equals(a.formattedResult, b.formattedResult);
+            }
+            if (resultData instanceof UnitConversion a
+                    && otherItem.resultData instanceof UnitConversion b) {
+                return a.inputValue == b.inputValue
+                        && Objects.equals(a.inputUnit, b.inputUnit);
+            }
+        }
+
+        return false;
     }
 }

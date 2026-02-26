@@ -78,9 +78,7 @@
     <string name="widgets_list_expanded" msgid="7374857868788557730">"എല്ലാ വിജറ്റുകളും കാണിക്കുന്നു"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"വിജറ്റ് ക്രമീകരണം മാറ്റാൻ ടാപ്പ് ചെയ്യുക"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"വിജറ്റ് ക്രമീകരണം മാറ്റുക"</string>
-    <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"ആപ്പുകൾ തിരയുക"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"ആപ്പുകൾ ലോഡുചെയ്യുന്നു..."</string>
-    <string name="all_apps_no_search_results" msgid="3200346862396363786">"\"<xliff:g id="QUERY">%1$s</xliff:g>\" എന്നതുമായി പൊരുത്തപ്പെടുന്ന ആപ്പുകളൊന്നും കണ്ടെത്തിയില്ല"</string>
     <string name="label_application" msgid="8531721983832654978">"ആപ്പ്"</string>
     <string name="all_apps_label" msgid="5015784846527570951">"എല്ലാ ആപ്പുകളും"</string>
     <string name="all_apps_list_label" msgid="5106226764073070906">"ആപ്പുകളുടെ ലിസ്റ്റ്"</string>

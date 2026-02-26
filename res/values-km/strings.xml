@@ -78,9 +78,7 @@
     <string name="widgets_list_expanded" msgid="7374857868788557730">"កំពុងបង្ហាញធាតុ​ក្រាហ្វិកទាំងអស់"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"ចុចដើម្បីប្ដូរការកំណត់ធាតុ​ក្រាហ្វិក"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"ប្ដូរការកំណត់ធាតុ​ក្រាហ្វិក"</string>
-    <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"ស្វែងរក​កម្មវិធី"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"កំពុងផ្ទុកកម្មវិធី…"</string>
-    <string name="all_apps_no_search_results" msgid="3200346862396363786">"រកមិនឃើញកម្មវិធី​ដែលត្រូវគ្នាជាមួយ \"<xliff:g id="QUERY">%1$s</xliff:g>\" ទេ"</string>
     <string name="label_application" msgid="8531721983832654978">"កម្មវិធី"</string>
     <string name="all_apps_label" msgid="5015784846527570951">"កម្មវិធី​ទាំងអស់"</string>
     <string name="all_apps_list_label" msgid="5106226764073070906">"បញ្ជី​កម្មវិធី"</string>

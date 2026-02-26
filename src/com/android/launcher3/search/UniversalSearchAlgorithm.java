@@ -27,6 +27,7 @@ import android.content.Context;
 import android.os.Handler;
 
 import com.android.launcher3.LauncherPrefs;
+import com.android.launcher3.R;
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
 import com.android.launcher3.model.data.AppInfo;
 import com.android.launcher3.search.providers.AppSearchProvider;
@@ -253,7 +254,8 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
             if (!mCurrentResult.apps.isEmpty()
                     && mFilters.isCategorySelected(SearchFilters.Category.APPS)) {
                 items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER, "Apps"));
+                        VIEW_TYPE_SEARCH_SECTION_HEADER,
+                        mContext.getString(R.string.search_section_apps)));
                 for (AppInfo app : mCurrentResult.apps) {
                     items.add(AdapterItem.asApp(app));
                 }
@@ -263,7 +265,8 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
             if (!mCurrentResult.shortcuts.isEmpty()
                     && mFilters.isCategorySelected(SearchFilters.Category.SHORTCUTS)) {
                 items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER, "Shortcuts"));
+                        VIEW_TYPE_SEARCH_SECTION_HEADER,
+                        mContext.getString(R.string.search_section_shortcuts)));
                 for (ShortcutResult shortcut : mCurrentResult.shortcuts) {
                     items.add(SearchResultAdapterItem.asResult(
                             VIEW_TYPE_SEARCH_SHORTCUT, shortcut));
@@ -274,7 +277,8 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
             if (!mCurrentResult.contacts.isEmpty()
                     && mFilters.isCategorySelected(SearchFilters.Category.CONTACTS)) {
                 items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER, "Contacts"));
+                        VIEW_TYPE_SEARCH_SECTION_HEADER,
+                        mContext.getString(R.string.search_section_contacts)));
                 for (ContactResult contact : mCurrentResult.contacts) {
                     items.add(SearchResultAdapterItem.asResult(
                             VIEW_TYPE_SEARCH_CONTACT, contact));
@@ -285,7 +289,8 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
             if (!mCurrentResult.calendarEvents.isEmpty()
                     && mFilters.isCategorySelected(SearchFilters.Category.CALENDAR)) {
                 items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER, "Calendar"));
+                        VIEW_TYPE_SEARCH_SECTION_HEADER,
+                        mContext.getString(R.string.search_section_calendar)));
                 for (CalendarResult event : mCurrentResult.calendarEvents) {
                     items.add(SearchResultAdapterItem.asResult(
                             VIEW_TYPE_SEARCH_CALENDAR, event));
@@ -296,7 +301,8 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
             if (!mCurrentResult.files.isEmpty()
                     && mFilters.isCategorySelected(SearchFilters.Category.FILES)) {
                 items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER, "Files"));
+                        VIEW_TYPE_SEARCH_SECTION_HEADER,
+                        mContext.getString(R.string.search_section_files)));
                 for (FileResult file : mCurrentResult.files) {
                     items.add(SearchResultAdapterItem.asResult(VIEW_TYPE_SEARCH_FILE, file));
                 }

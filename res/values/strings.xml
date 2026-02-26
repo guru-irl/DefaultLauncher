@@ -181,11 +181,11 @@
 
     <!-- All Apps -->
     <!-- Search bar text in the apps view. [CHAR_LIMIT=50] -->
-    <string name="all_apps_search_bar_hint">Search apps</string>
+    <string name="all_apps_search_bar_hint">Search</string>
     <!-- Loading apps text. [CHAR_LIMIT=50] -->
     <string name="all_apps_loading_message">Loading apps&#8230;</string>
     <!-- No-search-results text. [CHAR_LIMIT=50] -->
-    <string name="all_apps_no_search_results">No apps found matching \"<xliff:g id="query" example="Android">%1$s</xliff:g>\"</string>
+    <string name="all_apps_no_search_results">No results found for \"<xliff:g id="query" example="Android">%1$s</xliff:g>\"</string>
     <!-- Label for an icon representing any generic app. [CHAR_LIMIT=50] -->
     <string name="label_application">App</string>
     <!-- Label for the header text of the All Apps section in All Apps view, used to separate Predicted Apps and Actions section from All Apps section. [CHAR_LIMIT=50] -->
@@ -564,6 +564,19 @@
     <string name="search_auto_keyboard_title">Automatically show keyboard</string>
     <string name="search_auto_keyboard_summary">Focus search bar when opening the app drawer</string>
     <string name="search_permission_denied">Permission denied. Enable in system settings.</string>
+
+    <!-- Search result section headers -->
+    <string name="search_section_apps">Apps</string>
+    <string name="search_section_shortcuts">Shortcuts</string>
+    <string name="search_section_contacts">Contacts</string>
+    <string name="search_section_calendar">Calendar</string>
+    <string name="search_section_files">Files</string>
+
+    <!-- Search quick action labels -->
+    <string name="search_action_call">Call <xliff:g id="number" example="555-1234">%1$s</xliff:g></string>
+    <string name="search_action_email">Email <xliff:g id="address" example="user@example.com">%1$s</xliff:g></string>
+    <string name="search_action_open_url">Open <xliff:g id="url" example="example.com">%1$s</xliff:g></string>
+    <string name="search_action_web_search">Search web for \"<xliff:g id="query" example="weather">%1$s</xliff:g>\"</string>
 
     <!-- Home screen icons category -->
     <string name="home_screen_icons_category">Icons</string>

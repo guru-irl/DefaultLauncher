@@ -384,10 +384,6 @@ public class UniversalSearchAdapterProvider extends SearchAdapterProvider<Activi
         icon.setImageResource(action.iconRes);
 
         getCard(view).setOnClickListener(v -> action.launch(ctx));
-
-        if (action.type == QuickAction.Type.WEB_SEARCH) {
-            trackBestMatch(action, 6);
-        }
     }
 
     private void bindCalculator(View view, SearchResultAdapterItem item) {

@@ -60,7 +60,7 @@ public class QuickActionProvider implements SearchProvider<QuickAction> {
             Intent dialIntent = new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + cleaned));
             actions.add(new QuickAction(
                     QuickAction.Type.CALL,
-                    "Call " + trimmed,
+                    mContext.getString(R.string.search_action_call, trimmed),
                     R.drawable.ic_call,
                     dialIntent));
         }
@@ -71,7 +71,7 @@ public class QuickActionProvider implements SearchProvider<QuickAction> {
                     Uri.parse("mailto:" + trimmed));
             actions.add(new QuickAction(
                     QuickAction.Type.EMAIL,
-                    "Email " + trimmed,
+                    mContext.getString(R.string.search_action_email, trimmed),
                     R.drawable.ic_email,
                     emailIntent));
         }
@@ -85,7 +85,7 @@ public class QuickActionProvider implements SearchProvider<QuickAction> {
             Intent urlIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             actions.add(new QuickAction(
                     QuickAction.Type.URL,
-                    "Open " + trimmed,
+                    mContext.getString(R.string.search_action_open_url, trimmed),
                     R.drawable.ic_link,
                     urlIntent));
         }
@@ -94,7 +94,7 @@ public class QuickActionProvider implements SearchProvider<QuickAction> {
         Intent webSearchIntent = buildWebSearchIntent(query);
         actions.add(new QuickAction(
                 QuickAction.Type.WEB_SEARCH,
-                "Search web for \"" + query + "\"",
+                mContext.getString(R.string.search_action_web_search, query),
                 R.drawable.ic_web_search,
                 webSearchIntent));
 

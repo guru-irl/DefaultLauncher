@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <external-path name="download" path="Download/" />
+    <external-path name="downloads" path="Downloads/" />
+    <external-path name="documents" path="Documents/" />
+    <external-path name="dcim" path="DCIM/" />
+    <external-path name="pictures" path="Pictures/" />
+    <external-path name="music" path="Music/" />
+    <external-path name="movies" path="Movies/" />
+    <external-path name="ringtones" path="Ringtones/" />
+    <external-path name="podcasts" path="Podcasts/" />
+</paths>

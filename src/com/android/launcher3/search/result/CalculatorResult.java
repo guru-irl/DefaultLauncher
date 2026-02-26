@@ -28,7 +28,7 @@ public class CalculatorResult implements Launchable {
     public CalculatorResult(String expression, double result) {
         this.expression = expression;
         this.result = result;
-        this.formattedResult = formatResult(result);
+        this.formattedResult = NumberFormatUtil.format(result, 10);
     }
 
     @Override
@@ -78,16 +78,4 @@ public class CalculatorResult implements Launchable {
         return result == Math.floor(result) && !Double.isInfinite(result);
     }
 
-    private static String formatResult(double value) {
-        if (value == Math.floor(value) && !Double.isInfinite(value) && Math.abs(value) < 1e15) {
-            return String.valueOf((long) value);
-        }
-        // Use up to 10 significant digits
-        String formatted = String.format("%.10g", value);
-        // Strip trailing zeros after decimal point
-        if (formatted.contains(".")) {
-            formatted = formatted.replaceAll("0+$", "").replaceAll("\\.$", "");
-        }
-        return formatted;
-    }
 }

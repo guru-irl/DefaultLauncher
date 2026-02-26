@@ -78,9 +78,7 @@
     <string name="widgets_list_expanded" msgid="7374857868788557730">"S\'estan mostrant tots els widgets"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Toca per canviar la configuració del widget"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"Canvia la configuració del widget"</string>
-    <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Cerca aplicacions"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"S\'estan carregant les aplicacions…"</string>
-    <string name="all_apps_no_search_results" msgid="3200346862396363786">"No s\'ha trobat cap aplicació que coincideixi amb \"<xliff:g id="QUERY">%1$s</xliff:g>\""</string>
     <string name="label_application" msgid="8531721983832654978">"Aplicació"</string>
     <string name="all_apps_label" msgid="5015784846527570951">"Totes les aplicacions"</string>
     <string name="all_apps_list_label" msgid="5106226764073070906">"Llista d\'aplicacions"</string>

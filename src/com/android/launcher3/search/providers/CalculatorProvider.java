@@ -11,6 +11,7 @@
 package com.android.launcher3.search.providers;
 
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
+import static com.android.launcher3.util.Executors.MODEL_EXECUTOR;
 
 import android.os.Handler;
 
@@ -19,7 +20,6 @@ import com.android.launcher3.search.result.CalculatorResult;
 import org.mariuszgromada.math.mxparser.Expression;
 import org.mariuszgromada.math.mxparser.License;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
@@ -32,6 +32,7 @@ public class CalculatorProvider implements SearchProvider<CalculatorResult> {
 
     private final Handler mResultHandler;
     private static boolean sLicenseConfirmed = false;
+    private volatile boolean mCancelled;
 
     public CalculatorProvider() {
         mResultHandler = new Handler(MAIN_EXECUTOR.getLooper());
@@ -45,31 +46,37 @@ public class CalculatorProvider implements SearchProvider<CalculatorResult> {
     public void search(String query, Consumer<List<CalculatorResult>> callback) {
         String trimmed = query.trim();
 
-        // Quick pre-check: must contain at least one digit or math function
+        // Quick pre-check on calling thread for fast rejection
         if (!containsMathContent(trimmed)) {
             mResultHandler.post(() -> callback.accept(Collections.emptyList()));
             return;
         }
 
-        try {
-            Expression expression = new Expression(trimmed);
-            if (expression.checkSyntax()) {
-                double result = expression.calculate();
-                if (!Double.isNaN(result) && !Double.isInfinite(result)) {
-                    CalculatorResult calcResult = new CalculatorResult(trimmed, result);
-                    mResultHandler.post(() -> callback.accept(List.of(calcResult)));
-                    return;
+        mCancelled = false;
+        MODEL_EXECUTOR.execute(() -> {
+            if (mCancelled) return;
+            try {
+                Expression expression = new Expression(trimmed);
+                if (expression.checkSyntax()) {
+                    double result = expression.calculate();
+                    if (!mCancelled && !Double.isNaN(result) && !Double.isInfinite(result)) {
+                        CalculatorResult calcResult = new CalculatorResult(trimmed, result);
+                        mResultHandler.post(() -> callback.accept(List.of(calcResult)));
+                        return;
+                    }
                 }
+            } catch (Exception ignored) {
+                // Not a valid expression
             }
-        } catch (Exception ignored) {
-            // Not a valid expression
-        }
-
-        mResultHandler.post(() -> callback.accept(Collections.emptyList()));
+            if (!mCancelled) {
+                mResultHandler.post(() -> callback.accept(Collections.emptyList()));
+            }
+        });
     }
 
     @Override
     public void cancel() {
+        mCancelled = true;
         mResultHandler.removeCallbacksAndMessages(null);
     }
 
