@@ -27,6 +27,7 @@ Numbered implementation docs tracking each feature and fix:
 
 | # | Change |
 |---|--------|
+| [041](changes/041-settings-code-review-fixes.md) | Settings code review fixes: deduplication, M3 compliance, lifecycle bug, dp→dimens |
 | [040](changes/040-search-quality-fixes.md) | Search quality fixes: FileProvider crash, localization, threading, DiffUtil |
 | [039](changes/039-orthogonal-icon-toggles-provenance-detection.md) | Orthogonal icon toggles & provenance-based detection |
 | [038](changes/038-widget-stack-data-integrity.md) | Widget stack data integrity & restore fixes |

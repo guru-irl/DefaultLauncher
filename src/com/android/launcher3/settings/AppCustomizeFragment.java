@@ -25,7 +25,6 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -41,11 +40,6 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.SwitchPreferenceCompat;
 import androidx.recyclerview.widget.RecyclerView;
-
-import com.google.android.material.button.MaterialButtonToggleGroup;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.textfield.TextInputEditText;
-import com.google.android.material.textfield.TextInputLayout;
 
 import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.LauncherAppState;
@@ -470,74 +464,28 @@ public class AppCustomizeFragment extends SettingsBaseFragment {
                     applyOverrideChange();
                     refreshAllIconPreviews();
                 },
-                () -> showCustomIconSizeDialog(
-                        child.findViewById(R.id.size_toggle_group),
-                        sizePref, isHome));
+                () -> {
+                    String currentVal = getEffectiveSize(
+                            isHome ? getHomeOverride() : getDrawerOverride(), isHome);
+                    IconSettingsHelper.showCustomIconSizeDialog(
+                            getContext(),
+                            child.findViewById(R.id.size_toggle_group),
+                            currentVal,
+                            isHome ? mHomeLastPresetId : mDrawerLastPresetId,
+                            value -> {
+                                savePerAppSize(isHome, value);
+                                sizePref.setSummary(IconSettingsHelper.getIconSizeSummary(
+                                        getContext(), value));
+                                applyOverrideChange();
+                                refreshAllIconPreviews();
+                            });
+                });
 
         if (isHome) {
             mHomeLastPresetId = lastId;
         } else {
             mDrawerLastPresetId = lastId;
         }
-    }
-
-    private void showCustomIconSizeDialog(MaterialButtonToggleGroup toggleGroup,
-            Preference sizePref, boolean isHome) {
-        Context ctx = getContext();
-        if (ctx == null) return;
-        android.content.res.Resources res = ctx.getResources();
-
-        TextInputLayout inputLayout = new TextInputLayout(ctx,
-                null, com.google.android.material.R.attr.textInputOutlinedStyle);
-        inputLayout.setHint("Icon size (50\u2013100%)");
-        int hPad = res.getDimensionPixelSize(R.dimen.settings_dialog_horizontal_pad);
-        int tPad = res.getDimensionPixelSize(R.dimen.settings_card_padding);
-        inputLayout.setPadding(hPad, tPad, hPad, 0);
-
-        TextInputEditText editText = new TextInputEditText(inputLayout.getContext());
-        editText.setInputType(InputType.TYPE_CLASS_NUMBER
-                | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        inputLayout.addView(editText);
-
-        String current = getEffectiveSize(
-                isHome ? getHomeOverride() : getDrawerOverride(), isHome);
-        try {
-            float pct = Float.parseFloat(current) * 100f;
-            editText.setText(String.format("%.0f", pct));
-        } catch (NumberFormatException ignored) { }
-
-        int lastPresetId = isHome ? mHomeLastPresetId : mDrawerLastPresetId;
-        Runnable revertSelection = () -> {
-            if (lastPresetId != View.NO_ID) {
-                toggleGroup.check(lastPresetId);
-            } else {
-                toggleGroup.clearChecked();
-            }
-        };
-
-        new MaterialAlertDialogBuilder(ctx)
-                .setTitle(R.string.icon_size_custom)
-                .setView(inputLayout)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                    String text = editText.getText() != null
-                            ? editText.getText().toString().trim() : "";
-                    try {
-                        float pct = Float.parseFloat(text);
-                        pct = Math.max(50f, Math.min(100f, pct));
-                        String value = String.valueOf(pct / 100f);
-                        savePerAppSize(isHome, value);
-                        sizePref.setSummary(
-                                IconSettingsHelper.getIconSizeSummary(ctx, value));
-                        applyOverrideChange();
-                        refreshAllIconPreviews();
-                    } catch (NumberFormatException ignored) {
-                        revertSelection.run();
-                    }
-                })
-                .setNegativeButton(android.R.string.cancel,
-                        (dialog, which) -> revertSelection.run())
-                .setOnCancelListener(dialog -> revertSelection.run())
-                .show();
     }
 
     // ── Per-app shape picker ──
@@ -1144,6 +1092,8 @@ public class AppCustomizeFragment extends SettingsBaseFragment {
 
     @Override
     public void onDestroyView() {
+        mHomeSizeBound = false;
+        mDrawerSizeBound = false;
         sMainHandler.removeCallbacksAndMessages(null);
         super.onDestroyView();
     }

@@ -20,7 +20,6 @@ package com.android.launcher3.settings;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -122,7 +121,7 @@ public class ColorDebugPreference extends Preference {
             bg.setShape(GradientDrawable.RECTANGLE);
             bg.setCornerRadius(cornerRadius);
             bg.setColor(color);
-            bg.setStroke(1, Color.GRAY);
+            bg.setStroke(1, ctx.getColor(R.color.materialColorOutlineVariant));
             colorRect.setBackground(bg);
             swatch.addView(colorRect);
 

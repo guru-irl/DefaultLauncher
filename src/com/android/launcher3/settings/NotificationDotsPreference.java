@@ -19,7 +19,6 @@ import static com.android.launcher3.settings.SettingsActivity.EXTRA_FRAGMENT_HIG
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.SettingsCache.NOTIFICATION_BADGING_URI;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ComponentName;
 import android.content.Context;
@@ -32,6 +31,8 @@ import android.util.AttributeSet;
 import android.view.View;
 
 import androidx.fragment.app.DialogFragment;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceViewHolder;
 
@@ -157,7 +158,7 @@ public class NotificationDotsPreference extends Preference
             final Context context = getActivity();
             String msg = context.getString(R.string.msg_missing_notification_access,
                     context.getString(R.string.derived_app_name));
-            return new AlertDialog.Builder(context)
+            return new MaterialAlertDialogBuilder(context)
                     .setTitle(R.string.title_missing_notification_access)
                     .setMessage(msg)
                     .setNegativeButton(android.R.string.cancel, null)
