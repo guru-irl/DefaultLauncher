@@ -20,6 +20,7 @@ import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_QUICK_ACTION;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_SECTION_HEADER;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_SHORTCUT;
+import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_TIMEZONE;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_UNIT_CONVERTER;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 
@@ -38,6 +39,7 @@ import com.android.launcher3.search.providers.FileSearchProvider;
 import com.android.launcher3.search.providers.QuickActionProvider;
 import com.android.launcher3.search.providers.SearchProvider;
 import com.android.launcher3.search.providers.ShortcutSearchProvider;
+import com.android.launcher3.search.providers.TimezoneProvider;
 import com.android.launcher3.search.providers.UnitConverterProvider;
 import com.android.launcher3.search.result.CalendarResult;
 import com.android.launcher3.search.result.CalculatorResult;
@@ -45,6 +47,7 @@ import com.android.launcher3.search.result.ContactResult;
 import com.android.launcher3.search.result.FileResult;
 import com.android.launcher3.search.result.QuickAction;
 import com.android.launcher3.search.result.ShortcutResult;
+import com.android.launcher3.search.result.TimezoneResult;
 import com.android.launcher3.search.result.UnitConversion;
 
 import java.util.ArrayList;
@@ -83,6 +86,7 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
         mExtraProviders.add(new QuickActionProvider(context));
         mExtraProviders.add(new CalculatorProvider());
         mExtraProviders.add(new UnitConverterProvider());
+        mExtraProviders.add(new TimezoneProvider());
         mExtraProviders.add(new ContactSearchProvider(context));
         mExtraProviders.add(new CalendarSearchProvider(context));
         mExtraProviders.add(new FileSearchProvider());
@@ -115,6 +119,7 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
             case "files": return prefs.get(LauncherPrefs.SEARCH_FILES);
             case "calculator": return prefs.get(LauncherPrefs.SEARCH_CALCULATOR);
             case "unit_converter": return prefs.get(LauncherPrefs.SEARCH_UNIT_CONVERTER);
+            case "timezone": return prefs.get(LauncherPrefs.SEARCH_TIMEZONE);
             case "quick_actions": return true; // Always enabled
             default: return true;
         }
@@ -148,14 +153,21 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
         }
         mPendingProviders.set(providerCount);
 
-        // Dispatch app search
+        // Dispatch app search — deliver results immediately (progressive delivery)
         if (appsEnabled) {
             mAppProvider.search(query, apps -> {
                 synchronized (mCurrentResult) {
                     mCurrentResult.apps.clear();
                     mCurrentResult.apps.addAll(apps);
                 }
-                onProviderComplete();
+                int remaining = mPendingProviders.decrementAndGet();
+                if (remaining <= 0) {
+                    deliverResults(SearchCallback.FINAL);
+                } else {
+                    // Deliver app results immediately so users see them while I/O
+                    // providers are still running
+                    deliverResults(SearchCallback.INTERMEDIATE);
+                }
             });
         }
 
@@ -204,6 +216,11 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
                             mCurrentResult.unitConversion = (UnitConversion) results.get(0);
                         }
                         break;
+                    case "timezone":
+                        if (!results.isEmpty()) {
+                            mCurrentResult.timezone = (TimezoneResult) results.get(0);
+                        }
+                        break;
                 }
             }
             onProviderComplete();
@@ -213,13 +230,17 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
     private void onProviderComplete() {
         int remaining = mPendingProviders.decrementAndGet();
         if (remaining <= 0) {
-            // Deliver results once all providers have completed to avoid layout jumps
-            deliverResults();
+            deliverResults(SearchCallback.FINAL);
         }
     }
 
     /** Converts the current SearchResult into adapter items respecting filters. */
     private void deliverResults() {
+        deliverResults(SearchCallback.FINAL);
+    }
+
+    /** Converts the current SearchResult into adapter items respecting filters. */
+    private void deliverResults(int resultCode) {
         if (mCurrentCallback == null || mCurrentResult == null) return;
 
         ArrayList<AdapterItem> items = new ArrayList<>();
@@ -248,6 +269,13 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
                     && mFilters.isCategorySelected(SearchFilters.Category.TOOLS)) {
                 items.add(SearchResultAdapterItem.asResult(
                         VIEW_TYPE_SEARCH_UNIT_CONVERTER, mCurrentResult.unitConversion));
+            }
+
+            // Timezone
+            if (mCurrentResult.timezone != null
+                    && mFilters.isCategorySelected(SearchFilters.Category.TOOLS)) {
+                items.add(SearchResultAdapterItem.asResult(
+                        VIEW_TYPE_SEARCH_TIMEZONE, mCurrentResult.timezone));
             }
 
             // Apps
@@ -309,8 +337,8 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
             }
         }
 
-        // If only filter bar and no results, show empty message
-        if (items.size() <= 1) {
+        if (resultCode == SearchCallback.FINAL && items.size() <= 1) {
+            // All providers finished with no results — show empty state
             AdapterItem emptyItem = new AdapterItem(VIEW_TYPE_EMPTY_SEARCH);
             AppInfo placeholder = new AppInfo();
             placeholder.title = mCurrentQuery;
@@ -318,7 +346,7 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
             items.add(emptyItem);
         }
 
-        mCurrentCallback.onSearchResult(mCurrentQuery, items);
+        mCurrentCallback.onSearchResult(mCurrentQuery, items, resultCode);
     }
 
     @Override

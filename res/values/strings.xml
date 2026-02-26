@@ -557,12 +557,19 @@
     <string name="search_files_summary">Requires file access permission</string>
     <string name="search_calculator_title">Calculator</string>
     <string name="search_unit_converter_title">Unit converter</string>
+    <string name="search_timezone_title">World clock</string>
+    <string name="search_timezone_summary">Convert times between timezones</string>
     <string name="search_behavior_title">Behavior</string>
     <string name="search_web_app_title">Web search app</string>
     <string name="search_web_app_summary">Choose which app handles web searches</string>
     <string name="search_web_app_system_default">System default</string>
+    <string name="search_ai_app_title">AI search app</string>
+    <string name="search_ai_app_summary">Send queries to an AI assistant</string>
+    <string name="search_ai_app_auto">Auto-detect</string>
+    <string name="search_ai_app_none">None (disabled)</string>
     <string name="search_auto_keyboard_title">Automatically show keyboard</string>
     <string name="search_auto_keyboard_summary">Focus search bar when opening the app drawer</string>
+    <string name="search_result_copied">Copied to clipboard</string>
     <string name="search_permission_denied">Permission denied. Enable in system settings.</string>
 
     <!-- Search result section headers -->
@@ -571,6 +578,7 @@
     <string name="search_section_contacts">Contacts</string>
     <string name="search_section_calendar">Calendar</string>
     <string name="search_section_files">Files</string>
+    <string name="search_loading">Searching\u2026</string>
 
     <!-- Search quick action labels -->
     <string name="search_action_call">Call <xliff:g id="number" example="555-1234">%1$s</xliff:g></string>

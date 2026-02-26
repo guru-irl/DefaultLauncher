@@ -57,7 +57,7 @@ public class ContactSearchProvider implements SearchProvider<ContactResult> {
         }
 
         mCancelled = false;
-        Executors.MODEL_EXECUTOR.execute(() -> {
+        Executors.THREAD_POOL_EXECUTOR.execute(() -> {
             List<ContactResult> results = queryContacts(query);
             if (!mCancelled) {
                 mResultHandler.post(() -> callback.accept(results));

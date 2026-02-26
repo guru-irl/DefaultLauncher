@@ -17,6 +17,7 @@ import com.android.launcher3.search.result.ContactResult;
 import com.android.launcher3.search.result.FileResult;
 import com.android.launcher3.search.result.QuickAction;
 import com.android.launcher3.search.result.ShortcutResult;
+import com.android.launcher3.search.result.TimezoneResult;
 import com.android.launcher3.search.result.UnitConversion;
 
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ public class SearchResult {
     public final List<QuickAction> quickActions = new ArrayList<>();
     public CalculatorResult calculator;
     public UnitConversion unitConversion;
+    public TimezoneResult timezone;
 
     /** Returns true if all result categories are empty. */
     public boolean isEmpty() {
@@ -46,6 +48,7 @@ public class SearchResult {
                 && files.isEmpty()
                 && quickActions.isEmpty()
                 && calculator == null
-                && unitConversion == null;
+                && unitConversion == null
+                && timezone == null;
     }
 }

@@ -17,6 +17,7 @@ import com.android.launcher3.search.result.ContactResult;
 import com.android.launcher3.search.result.FileResult;
 import com.android.launcher3.search.result.QuickAction;
 import com.android.launcher3.search.result.ShortcutResult;
+import com.android.launcher3.search.result.TimezoneResult;
 import com.android.launcher3.search.result.UnitConversion;
 
 import java.util.Objects;
@@ -34,6 +35,9 @@ public class SearchResultAdapterItem extends AdapterItem {
 
     /** Filter state (for filter bar item). */
     public SearchFilters filters;
+
+    /** Snapshot of filter version at creation time, for DiffUtil content comparison. */
+    int filterVersion;
 
     /** Quick action (for quick action items). */
     public QuickAction quickAction;
@@ -53,6 +57,7 @@ public class SearchResultAdapterItem extends AdapterItem {
     public static SearchResultAdapterItem asFilterBar(int viewType, SearchFilters filters) {
         SearchResultAdapterItem item = new SearchResultAdapterItem(viewType);
         item.filters = filters;
+        item.filterVersion = filters.getVersion();
         return item;
     }
 
@@ -90,8 +95,11 @@ public class SearchResultAdapterItem extends AdapterItem {
         if (!(other instanceof SearchResultAdapterItem otherItem)) return false;
         if (viewType != other.viewType) return false;
 
-        // Filter bar — mutable state, always rebind
-        if (filters != null) return false;
+        // Filter bar — only rebind when filter state has actually changed
+        if (filters != null) {
+            return otherItem.filters != null
+                    && filterVersion == otherItem.filterVersion;
+        }
 
         // Section headers — same if title matches
         if (sectionTitle != null) {
@@ -132,6 +140,11 @@ public class SearchResultAdapterItem extends AdapterItem {
                     && otherItem.resultData instanceof UnitConversion b) {
                 return a.inputValue == b.inputValue
                         && Objects.equals(a.inputUnit, b.inputUnit);
+            }
+            if (resultData instanceof TimezoneResult a
+                    && otherItem.resultData instanceof TimezoneResult b) {
+                return Objects.equals(a.targetTimeFormatted, b.targetTimeFormatted)
+                        && Objects.equals(a.targetZoneName, b.targetZoneName);
             }
         }
 

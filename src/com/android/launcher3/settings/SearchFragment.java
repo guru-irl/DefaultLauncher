@@ -143,6 +143,16 @@ public class SearchFragment extends SettingsBaseFragment {
                 return true;
             });
         }
+
+        // AI search app picker
+        Preference aiAppPref = findPreference("pref_search_ai_app");
+        if (aiAppPref != null) {
+            updateAiAppSummary(aiAppPref);
+            aiAppPref.setOnPreferenceClickListener(pref -> {
+                showAiSearchAppChooser(pref);
+                return true;
+            });
+        }
     }
 
     @Override
@@ -189,8 +199,12 @@ public class SearchFragment extends SettingsBaseFragment {
         String currentValue = LauncherPrefs.get(requireContext()).get(LauncherPrefs.SEARCH_WEB_APP);
 
         // Add "System default" option
-        addWebAppOption(container, null, getString(R.string.search_web_app_system_default),
-                null, "default".equals(currentValue), "default", pref, dialog);
+        addChooserOption(container, null, R.drawable.ic_web_search,
+                getString(R.string.search_web_app_system_default),
+                "default".equals(currentValue), () -> {
+                    LauncherPrefs.get(requireContext()).put(LauncherPrefs.SEARCH_WEB_APP, "default");
+                    updateWebAppSummary(pref);
+                }, dialog);
 
         // Find apps that handle ACTION_WEB_SEARCH
         Intent webSearchIntent = new Intent(Intent.ACTION_WEB_SEARCH);
@@ -203,8 +217,11 @@ public class SearchFragment extends SettingsBaseFragment {
             String componentStr = new ComponentName(ai.packageName, ai.name).flattenToString();
             Drawable icon = ai.loadIcon(pm);
             String label = ai.loadLabel(pm).toString();
-            addWebAppOption(container, icon, label, null,
-                    componentStr.equals(currentValue), componentStr, pref, dialog);
+            addChooserOption(container, icon, R.drawable.ic_web_search, label,
+                    componentStr.equals(currentValue), () -> {
+                        LauncherPrefs.get(requireContext()).put(LauncherPrefs.SEARCH_WEB_APP, componentStr);
+                        updateWebAppSummary(pref);
+                    }, dialog);
             addedPackages.add(ai.packageName);
         }
 
@@ -217,17 +234,26 @@ public class SearchFragment extends SettingsBaseFragment {
             String componentStr = new ComponentName(ai.packageName, ai.name).flattenToString();
             Drawable icon = ai.loadIcon(pm);
             String label = ai.loadLabel(pm).toString();
-            addWebAppOption(container, icon, label, null,
-                    componentStr.equals(currentValue), componentStr, pref, dialog);
+            addChooserOption(container, icon, R.drawable.ic_web_search, label,
+                    componentStr.equals(currentValue), () -> {
+                        LauncherPrefs.get(requireContext()).put(LauncherPrefs.SEARCH_WEB_APP, componentStr);
+                        updateWebAppSummary(pref);
+                    }, dialog);
             addedPackages.add(ai.packageName);
         }
 
         dialog.show();
     }
 
-    private void addWebAppOption(android.widget.LinearLayout container, Drawable icon,
-            String label, String subtitle, boolean isSelected, String value,
-            Preference pref, BottomSheetDialog dialog) {
+    /**
+     * Adds a chooser option row to a bottom sheet list (reused for web search and AI app).
+     *
+     * @param fallbackIcon Resource ID for the icon when {@code icon} is null.
+     * @param onSelect     Runnable invoked when this option is tapped (after dismiss).
+     */
+    private void addChooserOption(android.widget.LinearLayout container, Drawable icon,
+            int fallbackIcon, String label, boolean isSelected,
+            Runnable onSelect, BottomSheetDialog dialog) {
         View item = LayoutInflater.from(requireContext())
                 .inflate(R.layout.item_web_search_app, container, false);
 
@@ -238,17 +264,76 @@ public class SearchFragment extends SettingsBaseFragment {
         if (icon != null) {
             iconView.setImageDrawable(icon);
         } else {
-            iconView.setImageResource(R.drawable.ic_web_search);
+            iconView.setImageResource(fallbackIcon);
         }
         labelView.setText(label);
         radio.setChecked(isSelected);
 
         item.setOnClickListener(v -> {
-            LauncherPrefs.get(requireContext()).put(LauncherPrefs.SEARCH_WEB_APP, value);
-            updateWebAppSummary(pref);
+            onSelect.run();
             dialog.dismiss();
         });
 
         container.addView(item);
+    }
+
+    private void updateAiAppSummary(Preference pref) {
+        String value = LauncherPrefs.get(requireContext()).get(LauncherPrefs.SEARCH_AI_APP);
+        if ("none".equals(value)) {
+            pref.setSummary(R.string.search_ai_app_none);
+        } else if (value == null || value.isEmpty()) {
+            pref.setSummary(R.string.search_ai_app_auto);
+        } else {
+            try {
+                PackageManager pm = requireContext().getPackageManager();
+                pref.setSummary(pm.getApplicationLabel(pm.getApplicationInfo(value, 0)));
+                return;
+            } catch (Exception ignored) {}
+            pref.setSummary(R.string.search_ai_app_auto);
+        }
+    }
+
+    private void showAiSearchAppChooser(Preference pref) {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        View contentView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_web_search_chooser, null);
+        dialog.setContentView(contentView);
+
+        android.widget.LinearLayout container = contentView.findViewById(R.id.web_app_list);
+        PackageManager pm = requireContext().getPackageManager();
+        String currentValue = LauncherPrefs.get(requireContext()).get(LauncherPrefs.SEARCH_AI_APP);
+
+        // Auto-detect option
+        addChooserOption(container, null, R.drawable.ic_ai_search,
+                getString(R.string.search_ai_app_auto),
+                currentValue == null || currentValue.isEmpty(), () -> {
+                    LauncherPrefs.get(requireContext()).put(LauncherPrefs.SEARCH_AI_APP, "");
+                    updateAiAppSummary(pref);
+                }, dialog);
+
+        // List installed AI apps
+        for (String pkg : LauncherPrefs.AI_APP_PACKAGES) {
+            try {
+                Drawable icon = pm.getApplicationIcon(pkg);
+                String label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString();
+                addChooserOption(container, icon, R.drawable.ic_ai_search, label,
+                        pkg.equals(currentValue), () -> {
+                            LauncherPrefs.get(requireContext()).put(LauncherPrefs.SEARCH_AI_APP, pkg);
+                            updateAiAppSummary(pref);
+                        }, dialog);
+            } catch (PackageManager.NameNotFoundException ignored) {
+                // App not installed, skip
+            }
+        }
+
+        // None (disabled) option
+        addChooserOption(container, null, R.drawable.ic_ai_search,
+                getString(R.string.search_ai_app_none),
+                "none".equals(currentValue), () -> {
+                    LauncherPrefs.get(requireContext()).put(LauncherPrefs.SEARCH_AI_APP, "none");
+                    updateAiAppSummary(pref);
+                }, dialog);
+
+        dialog.show();
     }
 }

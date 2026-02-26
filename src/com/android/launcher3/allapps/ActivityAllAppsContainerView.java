@@ -36,9 +36,11 @@ import android.app.SearchManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-
+import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -62,6 +64,7 @@ import android.view.ViewOutlineProvider;
 import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 
 import androidx.annotation.NonNull;
@@ -72,8 +75,11 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.graphics.ColorUtils;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.color.MaterialColors;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+import com.android.app.animation.Interpolators;
 import com.android.launcher3.allapps.search.AppsSearchContainerLayout;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.DeviceProfile.OnDeviceProfileChangeListener;
@@ -88,6 +94,7 @@ import com.android.launcher3.Utilities;
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
 import com.android.launcher3.allapps.search.AllAppsSearchUiDelegate;
 import com.android.launcher3.allapps.search.SearchAdapterProvider;
+import com.android.launcher3.search.SearchCallback;
 import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.keyboard.FocusedItemDecorator;
 import com.android.launcher3.keyboard.ViewGroupFocusHelper;
@@ -196,6 +203,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private float mBottomSheetBackgroundAlpha = 1f;
     private int mTabsProtectionAlpha;
     @Nullable private AllAppsTransitionController mAllAppsTransitionController;
+    private LinearLayout mFabContainer;
+    private FloatingActionButton mAiSearchFab;
     private ExtendedFloatingActionButton mSearchOnlineFab;
     private String mCurrentSearchQuery;
 
@@ -307,28 +316,54 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         }
         mSearchUiManager = (SearchUiManager) mSearchContainer;
 
-        // Create "Web search" FAB — use the same M3 themed context as search result cards
+        // Create FAB container — vertical stack: AI medium FAB above, web Extended FAB below
         Context materialCtx = new android.view.ContextThemeWrapper(
                 getContext(), R.style.HomeSettings_Theme);
         materialCtx = com.google.android.material.color.DynamicColors
                 .wrapContextIfAvailable(materialCtx);
+        float density = getResources().getDisplayMetrics().density;
+
+        mFabContainer = new LinearLayout(materialCtx);
+        mFabContainer.setOrientation(LinearLayout.VERTICAL);
+        mFabContainer.setGravity(android.view.Gravity.END | android.view.Gravity.BOTTOM);
+        mFabContainer.setVisibility(GONE);
+
+        int fabSpacing = (int) (16 * density);
+
+        // AI search medium FAB (56dp, icon-only) with M3 tertiary container colors
+        mAiSearchFab = new FloatingActionButton(materialCtx);
+        mAiSearchFab.setSize(FloatingActionButton.SIZE_NORMAL);
+        mAiSearchFab.setImageResource(R.drawable.ic_ai_search);
+        int tertiaryContainer = MaterialColors.getColor(
+                mAiSearchFab, com.google.android.material.R.attr.colorTertiaryContainer);
+        int onTertiaryContainer = MaterialColors.getColor(
+                mAiSearchFab, com.google.android.material.R.attr.colorOnTertiaryContainer);
+        mAiSearchFab.setBackgroundTintList(ColorStateList.valueOf(tertiaryContainer));
+        mAiSearchFab.setImageTintList(ColorStateList.valueOf(onTertiaryContainer));
+        mAiSearchFab.setOnClickListener(v -> launchAiSearch());
+        LinearLayout.LayoutParams aiLp = new LinearLayout.LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        aiLp.bottomMargin = fabSpacing;
+        mFabContainer.addView(mAiSearchFab, aiLp);
+
+        // Web search Extended FAB (56dp, text+icon) with default M3 rounded rectangle shape
         mSearchOnlineFab = new ExtendedFloatingActionButton(materialCtx);
         mSearchOnlineFab.setText(R.string.search_online);
         mSearchOnlineFab.setIconResource(R.drawable.ic_web_search);
-        // M3: use tonal elevation (0dp shadow) — the FAB background color provides elevation cue.
-        // Null the stateListAnimator to prevent the default M3 animator from adding shadow.
-        mSearchOnlineFab.setStateListAnimator(null);
-        mSearchOnlineFab.setElevation(0f);
-        mSearchOnlineFab.setVisibility(GONE);
         mSearchOnlineFab.setOnClickListener(v -> launchWebSearch());
+        mFabContainer.addView(mSearchOnlineFab, new LinearLayout.LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+
         RelativeLayout.LayoutParams fabLp = new RelativeLayout.LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
         fabLp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
         fabLp.addRule(RelativeLayout.ALIGN_PARENT_END);
-        int fabMargin = (int) (16 * getResources().getDisplayMetrics().density);
+        int fabMargin = (int) (16 * density);
         fabLp.bottomMargin = fabMargin;
         fabLp.setMarginEnd(fabMargin);
-        addView(mSearchOnlineFab, fabLp);
+        addView(mFabContainer, fabLp);
+
+        loadAiAppIcon();
     }
 
     @Override
@@ -337,6 +372,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
         mAH.get(SEARCH).setup(mSearchRecyclerView,
                 /* Filter out A-Z apps */ itemInfo -> false);
+        mSearchRecyclerView.initSearchAnimator();
         rebindAdapters(true /* force */);
         float cornerRadius = Themes.getDialogCornerRadius(getContext());
         mBottomSheetCornerRadii = new float[]{
@@ -386,7 +422,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         getMainAdapterProvider().clearHighlightedItem();
         animateToSearchState(false);
         rebindAdapters();
-        updateSearchOnlineFab(null);
+        updateSearchFabs(null);
     }
 
     /**
@@ -410,19 +446,22 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
      * Shows or hides the "Search online" FAB based on current search state and query text.
      * Called from AppsSearchContainerLayout when search results change.
      */
-    public void updateSearchOnlineFab(@Nullable String query) {
+    public void updateSearchFabs(@Nullable String query) {
         mCurrentSearchQuery = query;
         // Show when we have a non-empty query and are in or transitioning to search mode
         boolean inSearch = isSearching() || mSearchTransitionController.isRunning();
         boolean show = query != null && !query.isEmpty() && inSearch;
-        if (show && mSearchOnlineFab.getVisibility() != VISIBLE) {
-            mSearchOnlineFab.setVisibility(VISIBLE);
-            mSearchOnlineFab.setScaleX(0f);
-            mSearchOnlineFab.setScaleY(0f);
-            mSearchOnlineFab.animate().scaleX(1f).scaleY(1f).setDuration(200).start();
-        } else if (!show && mSearchOnlineFab.getVisibility() == VISIBLE) {
-            mSearchOnlineFab.animate().scaleX(0f).scaleY(0f).setDuration(150)
-                    .withEndAction(() -> mSearchOnlineFab.setVisibility(GONE)).start();
+        if (show && mFabContainer.getVisibility() != VISIBLE) {
+            loadAiAppIcon();  // Re-evaluate AI app availability before showing
+            mFabContainer.setVisibility(VISIBLE);
+            mFabContainer.setScaleX(0f);
+            mFabContainer.setScaleY(0f);
+            mFabContainer.animate().scaleX(1f).scaleY(1f).setDuration(200)
+                    .setInterpolator(Interpolators.EMPHASIZED_DECELERATE).start();
+        } else if (!show && mFabContainer.getVisibility() == VISIBLE) {
+            mFabContainer.animate().scaleX(0f).scaleY(0f).setDuration(200)
+                    .setInterpolator(Interpolators.EMPHASIZED_ACCELERATE)
+                    .withEndAction(() -> mFabContainer.setVisibility(GONE)).start();
         }
     }
 
@@ -445,11 +484,76 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         getContext().startActivity(intent);
     }
 
+    /** Hides the AI FAB if no AI app is installed. The sparkle icon stays as-is. */
+    private void loadAiAppIcon() {
+        String pkg = resolveAiPackage();
+        mAiSearchFab.setVisibility(pkg != null ? VISIBLE : GONE);
+    }
+
+    /** Sends the current search query to the configured AI app. */
+    private void launchAiSearch() {
+        if (mCurrentSearchQuery == null || mCurrentSearchQuery.isEmpty()) return;
+        String pkg = resolveAiPackage();
+        if (pkg == null) return;
+
+        Intent sendIntent = new Intent(Intent.ACTION_SEND);
+        sendIntent.setType("text/plain");
+        sendIntent.putExtra(Intent.EXTRA_TEXT, mCurrentSearchQuery);
+        sendIntent.setPackage(pkg);
+        sendIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getContext().startActivity(sendIntent);
+        } catch (android.content.ActivityNotFoundException e) {
+            // Fallback: launch the app's main activity
+            PackageManager pm = getContext().getPackageManager();
+            Intent launchIntent = pm.getLaunchIntentForPackage(pkg);
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(launchIntent);
+            }
+        }
+    }
+
+    /**
+     * Resolves the AI app package from prefs or auto-detection.
+     * Returns null if disabled or no AI app is installed.
+     */
+    @Nullable
+    private String resolveAiPackage() {
+        String pref = LauncherPrefs.get(getContext()).get(LauncherPrefs.SEARCH_AI_APP);
+        if ("none".equals(pref)) return null;
+
+        if (pref != null && !pref.isEmpty()) {
+            // Verify the app is still installed
+            if (isPackageInstalled(pref)) return pref;
+        }
+
+        // Auto-detect: return the first installed AI app
+        for (String pkg : LauncherPrefs.AI_APP_PACKAGES) {
+            if (isPackageInstalled(pkg)) return pkg;
+        }
+        return null;
+    }
+
+    private boolean isPackageInstalled(String pkg) {
+        try {
+            getContext().getPackageManager().getPackageInfo(pkg, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
     /**
      * Sets results list for search
      */
     public void setSearchResults(ArrayList<AdapterItem> results) {
         getMainAdapterProvider().clearHighlightedItem();
+        // End running animations before DiffUtil to prevent overlap with new items
+        RecyclerView.ItemAnimator animator = getSearchRecyclerView().getItemAnimator();
+        if (animator != null) {
+            animator.endAnimations();
+        }
         if (getSearchResultList().setSearchResults(results)) {
             getSearchRecyclerView().onSearchResultsChanged();
         }
@@ -465,6 +569,13 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
      *                         since we can get search results from multiple sources.
      */
     public void setSearchResults(ArrayList<AdapterItem> results, int searchResultCode) {
+        // Only animate the final batch — intermediate results appear instantly
+        // to prevent animation overlap during progressive delivery.
+        RecyclerView.ItemAnimator animator = getSearchRecyclerView().getItemAnimator();
+        if (animator instanceof SearchItemAnimator) {
+            ((SearchItemAnimator) animator).setAnimationsEnabled(
+                    searchResultCode == SearchCallback.FINAL);
+        }
         setSearchResults(results);
         mSearchUiDelegate.onSearchResultsChanged(results, searchResultCode);
     }
@@ -1479,15 +1590,15 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mNavBarScrimHeight = computeNavBarScrimHeight(insets);
         applyAdapterSideAndBottomPaddings(mActivityContext.getDeviceProfile());
 
-        // Position the search-online FAB above the IME or nav bar
-        if (mSearchOnlineFab != null) {
+        // Position the FAB container above the IME or nav bar
+        if (mFabContainer != null) {
             int imeBottom = insets.getInsets(WindowInsets.Type.ime()).bottom;
             int navBottom = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
             int fabMargin = (int) (16 * getResources().getDisplayMetrics().density);
             RelativeLayout.LayoutParams fabLp =
-                    (RelativeLayout.LayoutParams) mSearchOnlineFab.getLayoutParams();
+                    (RelativeLayout.LayoutParams) mFabContainer.getLayoutParams();
             fabLp.bottomMargin = Math.max(imeBottom, navBottom) + fabMargin;
-            mSearchOnlineFab.setLayoutParams(fabLp);
+            mFabContainer.setLayoutParams(fabLp);
         }
 
         return super.dispatchApplyWindowInsets(insets);

@@ -27,6 +27,7 @@ Numbered implementation docs tracking each feature and fix:
 
 | # | Change |
 |---|--------|
+| [042](changes/042-search-enhancements.md) | Search enhancements: timezone provider, AI FAB, fuzzy scoring, progressive delivery, animations |
 | [041](changes/041-settings-code-review-fixes.md) | Settings code review fixes: deduplication, M3 compliance, lifecycle bug, dp→dimens |
 | [040](changes/040-search-quality-fixes.md) | Search quality fixes: FileProvider crash, localization, threading, DiffUtil |
 | [039](changes/039-orthogonal-icon-toggles-provenance-detection.md) | Orthogonal icon toggles & provenance-based detection |

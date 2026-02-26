@@ -15,6 +15,8 @@
  */
 package com.android.launcher3.allapps.search;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
@@ -40,6 +42,8 @@ public class AllAppsSearchBarController
         implements TextWatcher, OnEditorActionListener, ExtendedEditText.OnBackKeyListener {
 
     private static final String TAG = "AllAppsSearchBarController";
+    private static final long DEBOUNCE_DELAY_MS = 150;
+
     protected ActivityContext mLauncher;
     protected SearchCallback<AdapterItem> mCallback;
     protected ExtendedEditText mInput;
@@ -47,6 +51,9 @@ public class AllAppsSearchBarController
     private String[] mTextConversions;
 
     protected SearchAlgorithm<AdapterItem> mSearchAlgorithm;
+
+    private final Handler mDebounceHandler = new Handler(Looper.getMainLooper());
+    private final Runnable mDebouncedSearch = this::dispatchSearch;
 
     public void setVisibility(int visibility) {
         mInput.setVisibility(visibility);
@@ -97,15 +104,25 @@ public class AllAppsSearchBarController
     @Override
     public void afterTextChanged(final Editable s) {
         mQuery = s.toString();
+        mDebounceHandler.removeCallbacks(mDebouncedSearch);
+        // Cancel any in-flight search immediately so stale results from
+        // the previous query can't arrive during the debounce window.
+        mSearchAlgorithm.cancel(true);
         if (mQuery.isEmpty()) {
-            mSearchAlgorithm.cancel(true);
             // Show A-Z apps while keeping search bar active (keyboard up, focused).
             // Search is dismissed by back key (onBackKey) or scrolling away.
             mCallback.onSearchResult("", null);
         } else {
-            mSearchAlgorithm.cancel(false);
-            mSearchAlgorithm.doSearch(mQuery, mTextConversions, mCallback);
+            // Debounce: wait 150ms before dispatching search to avoid thrashing
+            // providers on every keystroke during fast typing
+            mDebounceHandler.postDelayed(mDebouncedSearch, DEBOUNCE_DELAY_MS);
         }
+    }
+
+    private void dispatchSearch() {
+        if (mQuery == null || mQuery.isEmpty()) return;
+        mSearchAlgorithm.cancel(false);
+        mSearchAlgorithm.doSearch(mQuery, mTextConversions, mCallback);
     }
 
     public void refreshSearchResult() {
@@ -128,6 +145,9 @@ public class AllAppsSearchBarController
             } else {
                 Log.i(TAG, "User tapped ime search button");
             }
+            // Dispatch immediately on explicit IME action (don't wait for debounce)
+            mDebounceHandler.removeCallbacks(mDebouncedSearch);
+            dispatchSearch();
             // selectFocusedView should return SearchTargetEvent that is passed onto onClick
             return mLauncher.getAppsView().getMainAdapterProvider().launchHighlightedItem();
         }
@@ -149,6 +169,7 @@ public class AllAppsSearchBarController
      * Resets the search bar state.
      */
     public void reset() {
+        mDebounceHandler.removeCallbacks(mDebouncedSearch);
         mCallback.clearSearchResult();
         mInput.reset();
         mInput.clearFocus();

@@ -16,6 +16,8 @@ import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.widget.Toast;
 
+import com.android.launcher3.R;
+
 import java.util.List;
 
 /**
@@ -46,7 +48,7 @@ public class UnitConversion implements Launchable {
         }
         ClipboardManager cm = context.getSystemService(ClipboardManager.class);
         cm.setPrimaryClip(ClipData.newPlainText("Unit Conversion", sb.toString().trim()));
-        Toast.makeText(context, "Copied conversions", Toast.LENGTH_SHORT).show();
+        Toast.makeText(context, R.string.search_result_copied, Toast.LENGTH_SHORT).show();
         return true;
     }
 

@@ -19,6 +19,7 @@ import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_QUICK_ACTION;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_SECTION_HEADER;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_SHORTCUT;
+import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_TIMEZONE;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_UNIT_CONVERTER;
 
 import android.content.Context;
@@ -46,6 +47,7 @@ import com.android.launcher3.search.result.FileResult;
 import com.android.launcher3.search.result.Launchable;
 import com.android.launcher3.search.result.QuickAction;
 import com.android.launcher3.search.result.ShortcutResult;
+import com.android.launcher3.search.result.TimezoneResult;
 import com.android.launcher3.search.result.UnitConversion;
 import com.android.launcher3.views.ActivityContext;
 
@@ -86,7 +88,8 @@ public class UniversalSearchAdapterProvider extends SearchAdapterProvider<Activi
                 || viewType == VIEW_TYPE_SEARCH_FILE
                 || viewType == VIEW_TYPE_SEARCH_QUICK_ACTION
                 || viewType == VIEW_TYPE_SEARCH_CALCULATOR
-                || viewType == VIEW_TYPE_SEARCH_UNIT_CONVERTER;
+                || viewType == VIEW_TYPE_SEARCH_UNIT_CONVERTER
+                || viewType == VIEW_TYPE_SEARCH_TIMEZONE;
     }
 
     @Override
@@ -127,6 +130,9 @@ public class UniversalSearchAdapterProvider extends SearchAdapterProvider<Activi
             case VIEW_TYPE_SEARCH_UNIT_CONVERTER:
                 return new AllAppsGridAdapter.ViewHolder(
                         themedInflater.inflate(R.layout.search_result_unit_converter, parent, false));
+            case VIEW_TYPE_SEARCH_TIMEZONE:
+                return new AllAppsGridAdapter.ViewHolder(
+                        themedInflater.inflate(R.layout.search_result_timezone, parent, false));
             default:
                 return null;
         }
@@ -170,6 +176,9 @@ public class UniversalSearchAdapterProvider extends SearchAdapterProvider<Activi
                 break;
             case VIEW_TYPE_SEARCH_UNIT_CONVERTER:
                 bindUnitConverter(holder.itemView, item);
+                break;
+            case VIEW_TYPE_SEARCH_TIMEZONE:
+                bindTimezone(holder.itemView, item);
                 break;
         }
     }
@@ -432,6 +441,37 @@ public class UniversalSearchAdapterProvider extends SearchAdapterProvider<Activi
         conversions.setText(sb.toString());
 
         getCard(view).setOnClickListener(v -> conversion.launch(view.getContext()));
+    }
+
+    private void bindTimezone(View view, SearchResultAdapterItem item) {
+        if (!(item.resultData instanceof TimezoneResult tz)) return;
+
+        View sourceRow = view.findViewById(R.id.tz_source_row);
+        TextView sourceTime = view.findViewById(R.id.tz_source_time);
+        TextView sourceZone = view.findViewById(R.id.tz_source_zone);
+        TextView targetTime = view.findViewById(R.id.tz_target_time);
+        TextView targetZone = view.findViewById(R.id.tz_target_zone);
+        TextView targetDate = view.findViewById(R.id.tz_target_date);
+
+        if (tz.isCurrentTimeQuery) {
+            sourceRow.setVisibility(View.GONE);
+        } else {
+            sourceRow.setVisibility(View.VISIBLE);
+            sourceTime.setText(tz.sourceTimeFormatted);
+            sourceZone.setText(tz.sourceZoneName);
+        }
+
+        targetTime.setText(tz.targetTimeFormatted);
+        targetZone.setText(tz.targetZoneName);
+
+        if (tz.targetDate != null) {
+            targetDate.setVisibility(View.VISIBLE);
+            targetDate.setText(tz.targetDate);
+        } else {
+            targetDate.setVisibility(View.GONE);
+        }
+
+        getCard(view).setOnClickListener(v -> tz.launch(view.getContext()));
     }
 
     /** Returns the MaterialCardView child inside the FrameLayout wrapper. */

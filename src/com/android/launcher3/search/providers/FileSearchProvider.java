@@ -56,7 +56,7 @@ public class FileSearchProvider implements SearchProvider<FileResult> {
         }
 
         mCancelled = false;
-        Executors.MODEL_EXECUTOR.execute(() -> {
+        Executors.THREAD_POOL_EXECUTOR.execute(() -> {
             List<FileResult> results = searchFiles(query);
             if (!mCancelled) {
                 mResultHandler.post(() -> callback.accept(results));
