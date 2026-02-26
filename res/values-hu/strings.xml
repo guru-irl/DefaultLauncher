@@ -78,9 +78,7 @@
     <string name="widgets_list_expanded" msgid="7374857868788557730">"Összes modul megjelenítése…"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Ide koppintva módosíthatja a modulbeállításokat"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"A modulbeállítások módosítása"</string>
-    <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Alkalmazások keresése"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"Alkalmazások betöltése…"</string>
-    <string name="all_apps_no_search_results" msgid="3200346862396363786">"Nem található alkalmazás a(z) „<xliff:g id="QUERY">%1$s</xliff:g>” lekérdezésre"</string>
     <string name="label_application" msgid="8531721983832654978">"Alkalmazás"</string>
     <string name="all_apps_label" msgid="5015784846527570951">"Összes alkalmazás"</string>
     <string name="all_apps_list_label" msgid="5106226764073070906">"Alkalmazások listája"</string>

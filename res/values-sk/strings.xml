@@ -78,9 +78,7 @@
     <string name="widgets_list_expanded" msgid="7374857868788557730">"Zobrazujú sa všetky miniaplikácie"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Klepnutím zmeňte nastavenia miniaplikácie"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"Zmena nastavení miniaplikácie"</string>
-    <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Hľadať aplikácie"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"Načítavajú sa aplikácie…"</string>
-    <string name="all_apps_no_search_results" msgid="3200346862396363786">"Nenašli sa žiadne aplikácie zodpovedajúce dopytu <xliff:g id="QUERY">%1$s</xliff:g>"</string>
     <string name="label_application" msgid="8531721983832654978">"Aplikácia"</string>
     <string name="all_apps_label" msgid="5015784846527570951">"Všetky aplikácie"</string>
     <string name="all_apps_list_label" msgid="5106226764073070906">"Zoznam aplikácií"</string>

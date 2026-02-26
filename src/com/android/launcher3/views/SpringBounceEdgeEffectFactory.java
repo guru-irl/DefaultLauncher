@@ -31,38 +31,11 @@ public class SpringBounceEdgeEffectFactory extends RecyclerView.EdgeEffectFactor
 
     private final RecyclerView mRecyclerView;
     private final float mMaxOverscrollPx;
-    private SpringAnimation mSpringAnimation;
-    private float mCurrentOverscroll;
 
     public SpringBounceEdgeEffectFactory(RecyclerView recyclerView) {
         mRecyclerView = recyclerView;
         mMaxOverscrollPx = MAX_OVERSCROLL_DP * recyclerView.getResources()
                 .getDisplayMetrics().density;
-        mSpringAnimation = createSpringAnimation();
-    }
-
-    private SpringAnimation createSpringAnimation() {
-        SpringAnimation anim = new SpringAnimation(
-                mRecyclerView,
-                new FloatPropertyCompat<RecyclerView>("overscrollTranslationY") {
-                    @Override
-                    public float getValue(RecyclerView view) {
-                        return mCurrentOverscroll;
-                    }
-
-                    @Override
-                    public void setValue(RecyclerView view, float value) {
-                        mCurrentOverscroll = value;
-                        view.setTranslationY(value);
-                    }
-                },
-                0f);
-        anim.setMinimumVisibleChange(0.5f);
-        anim.getSpring()
-                .setStiffness(SPRING_STIFFNESS)
-                .setDampingRatio(SPRING_DAMPING_RATIO)
-                .setFinalPosition(0f);
-        return anim;
     }
 
     @NonNull
@@ -84,11 +57,38 @@ public class SpringBounceEdgeEffectFactory extends RecyclerView.EdgeEffectFactor
 
         private final int mDirection; // -1 for top (translate down), +1 for bottom (translate up)
         private float mPullDistance;
+        private float mCurrentOverscroll;
+        private final SpringAnimation mSpringAnimation;
 
         SpringBounceEdgeEffect(int factoryDirection) {
             super(mRecyclerView.getContext());
             // DIRECTION_TOP = 0 → translate positive (down), DIRECTION_BOTTOM = 2 → translate negative (up)
             mDirection = (factoryDirection == DIRECTION_TOP) ? 1 : -1;
+            mSpringAnimation = createSpringAnimation();
+        }
+
+        private SpringAnimation createSpringAnimation() {
+            SpringAnimation anim = new SpringAnimation(
+                    mRecyclerView,
+                    new FloatPropertyCompat<RecyclerView>("overscrollTranslationY") {
+                        @Override
+                        public float getValue(RecyclerView view) {
+                            return mCurrentOverscroll;
+                        }
+
+                        @Override
+                        public void setValue(RecyclerView view, float value) {
+                            mCurrentOverscroll = value;
+                            view.setTranslationY(value);
+                        }
+                    },
+                    0f);
+            anim.setMinimumVisibleChange(0.5f);
+            anim.getSpring()
+                    .setStiffness(SPRING_STIFFNESS)
+                    .setDampingRatio(SPRING_DAMPING_RATIO)
+                    .setFinalPosition(0f);
+            return anim;
         }
 
         @Override

@@ -105,7 +105,7 @@ Each provider runs its search on a background thread (or synchronously if cheap)
 | `CalculatorProvider` | calculator | 1 | `CalculatorResult` | `javax.script.ScriptEngine` (Rhino) |
 | `UnitConverterProvider` | unit_converter | 2 | `UnitConversion` | Regex parsing + conversion tables |
 | `ContactSearchProvider` | contacts | 2 | `ContactResult` | `ContactsContract.Contacts` |
-| `CalendarSearchProvider` | calendar | 2 | `CalendarResult` | `CalendarContract.Events` (next 30 days) |
+| `CalendarSearchProvider` | calendar | 2 | `CalendarResult` | `CalendarContract.Events` (next 365 days) |
 | `FileSearchProvider` | files | 3 | `FileResult` | `MediaStore.Files` |
 
 ### Provider Enable/Disable

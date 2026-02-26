@@ -149,9 +149,14 @@ public class SearchFragment extends SettingsBaseFragment {
     public void onResume() {
         super.onResume();
         // Re-check file access permission when returning from system settings
-        if (mFilesPref != null && Environment.isExternalStorageManager()) {
-            mFilesPref.setChecked(true);
-            LauncherPrefs.get(requireContext()).put(LauncherPrefs.SEARCH_FILES, true);
+        if (mFilesPref != null) {
+            if (Environment.isExternalStorageManager()) {
+                mFilesPref.setChecked(true);
+                LauncherPrefs.get(requireContext()).put(LauncherPrefs.SEARCH_FILES, true);
+            } else {
+                mFilesPref.setChecked(false);
+                LauncherPrefs.get(requireContext()).put(LauncherPrefs.SEARCH_FILES, false);
+            }
         }
     }
 

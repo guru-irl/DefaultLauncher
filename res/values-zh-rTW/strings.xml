@@ -78,9 +78,7 @@
     <string name="widgets_list_expanded" msgid="7374857868788557730">"現已顯示所有小工具"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"輕觸即可變更小工具設定"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"變更小工具設定"</string>
-    <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"搜尋應用程式"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"正在載入應用程式…"</string>
-    <string name="all_apps_no_search_results" msgid="3200346862396363786">"找不到與「<xliff:g id="QUERY">%1$s</xliff:g>」相符的應用程式"</string>
     <string name="label_application" msgid="8531721983832654978">"應用程式"</string>
     <string name="all_apps_label" msgid="5015784846527570951">"所有應用程式"</string>
     <string name="all_apps_list_label" msgid="5106226764073070906">"應用程式清單"</string>

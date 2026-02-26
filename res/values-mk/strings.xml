@@ -78,9 +78,7 @@
     <string name="widgets_list_expanded" msgid="7374857868788557730">"Се прикажуваат сите виџети"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Допрете за да ги промените поставките за виџетот"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"Промени ги поставките за виџетот"</string>
-    <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Пребарувајте апликации"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"Се вчитуваат апликации…"</string>
-    <string name="all_apps_no_search_results" msgid="3200346862396363786">"Не се најдени апликации што одговараат на „<xliff:g id="QUERY">%1$s</xliff:g>“"</string>
     <string name="label_application" msgid="8531721983832654978">"Апликација"</string>
     <string name="all_apps_label" msgid="5015784846527570951">"Сите апликации"</string>
     <string name="all_apps_list_label" msgid="5106226764073070906">"Список со апликации"</string>

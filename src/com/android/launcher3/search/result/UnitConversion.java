@@ -61,14 +61,7 @@ public class UnitConversion implements Launchable {
     }
 
     public static String formatValue(double value) {
-        if (value == Math.floor(value) && !Double.isInfinite(value) && Math.abs(value) < 1e15) {
-            return String.valueOf((long) value);
-        }
-        String formatted = String.format("%.6g", value);
-        if (formatted.contains(".")) {
-            formatted = formatted.replaceAll("0+$", "").replaceAll("\\.$", "");
-        }
-        return formatted;
+        return NumberFormatUtil.format(value, 6);
     }
 
     /** A single converted value with its unit. */

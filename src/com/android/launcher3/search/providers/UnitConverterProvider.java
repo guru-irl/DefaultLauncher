@@ -11,6 +11,7 @@
 package com.android.launcher3.search.providers;
 
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
+import static com.android.launcher3.util.Executors.MODEL_EXECUTOR;
 
 import android.os.Handler;
 
@@ -41,6 +42,7 @@ public class UnitConverterProvider implements SearchProvider<UnitConversion> {
             Pattern.compile("^(\\d+\\.?\\d*)\\s*(\\w+)$", Pattern.CASE_INSENSITIVE);
 
     private final Handler mResultHandler;
+    private volatile boolean mCancelled;
 
     // Unit tables: map unit name -> (base factor, dimension)
     // All units are stored relative to a base unit per dimension
@@ -129,70 +131,85 @@ public class UnitConverterProvider implements SearchProvider<UnitConversion> {
     @Override
     public void search(String query, Consumer<List<UnitConversion>> callback) {
         String trimmed = query.trim();
+        mCancelled = false;
 
-        // Try "100 km to miles" pattern first
-        Matcher toMatcher = CONVERT_TO_PATTERN.matcher(trimmed);
-        if (toMatcher.matches()) {
-            double value = Double.parseDouble(toMatcher.group(1));
-            String fromUnit = toMatcher.group(2).toLowerCase();
-            String toUnit = toMatcher.group(3).toLowerCase();
+        MODEL_EXECUTOR.execute(() -> {
+            if (mCancelled) return;
 
-            UnitDef from = UNITS.get(fromUnit);
-            UnitDef to = UNITS.get(toUnit);
+            // Try "100 km to miles" pattern first
+            Matcher toMatcher = CONVERT_TO_PATTERN.matcher(trimmed);
+            if (toMatcher.matches()) {
+                double value = Double.parseDouble(toMatcher.group(1));
+                String fromUnit = toMatcher.group(2).toLowerCase();
+                String toUnit = toMatcher.group(3).toLowerCase();
 
-            if (from != null && to != null && from.dimension.equals(to.dimension)) {
-                double converted = convert(value, from, to);
-                UnitConversion.ConvertedValue cv =
-                        new UnitConversion.ConvertedValue(converted, to.displayName);
-                UnitConversion result = new UnitConversion(
-                        value, from.displayName, from.dimension, List.of(cv));
-                mResultHandler.post(() -> callback.accept(List.of(result)));
-                return;
-            }
-        }
+                UnitDef from = UNITS.get(fromUnit);
+                UnitDef to = UNITS.get(toUnit);
 
-        // Try "100 km" pattern (show all conversions in same dimension)
-        Matcher unitMatcher = UNIT_PATTERN.matcher(trimmed);
-        if (unitMatcher.matches()) {
-            double value = Double.parseDouble(unitMatcher.group(1));
-            String unitStr = unitMatcher.group(2).toLowerCase();
-
-            UnitDef from = UNITS.get(unitStr);
-            if (from != null) {
-                List<UnitConversion.ConvertedValue> conversions = new ArrayList<>();
-                // Find all units in same dimension
-                Map<String, UnitDef> seenDefs = new LinkedHashMap<>();
-                for (Map.Entry<String, UnitDef> entry : UNITS.entrySet()) {
-                    UnitDef def = entry.getValue();
-                    if (def.dimension.equals(from.dimension)
-                            && def != from
-                            && !seenDefs.containsKey(def.displayName)) {
-                        seenDefs.put(def.displayName, def);
-                    }
-                }
-
-                int count = 0;
-                for (UnitDef to : seenDefs.values()) {
-                    if (count >= 5) break;
+                if (from != null && to != null && from.dimension.equals(to.dimension)) {
                     double converted = convert(value, from, to);
-                    conversions.add(new UnitConversion.ConvertedValue(converted, to.displayName));
-                    count++;
-                }
-
-                if (!conversions.isEmpty()) {
+                    UnitConversion.ConvertedValue cv =
+                            new UnitConversion.ConvertedValue(converted, to.displayName);
                     UnitConversion result = new UnitConversion(
-                            value, from.displayName, from.dimension, conversions);
-                    mResultHandler.post(() -> callback.accept(List.of(result)));
+                            value, from.displayName, from.dimension, List.of(cv));
+                    if (!mCancelled) {
+                        mResultHandler.post(() -> callback.accept(List.of(result)));
+                    }
                     return;
                 }
             }
-        }
 
-        mResultHandler.post(() -> callback.accept(Collections.emptyList()));
+            if (mCancelled) return;
+
+            // Try "100 km" pattern (show all conversions in same dimension)
+            Matcher unitMatcher = UNIT_PATTERN.matcher(trimmed);
+            if (unitMatcher.matches()) {
+                double value = Double.parseDouble(unitMatcher.group(1));
+                String unitStr = unitMatcher.group(2).toLowerCase();
+
+                UnitDef from = UNITS.get(unitStr);
+                if (from != null) {
+                    List<UnitConversion.ConvertedValue> conversions = new ArrayList<>();
+                    // Find all units in same dimension
+                    Map<String, UnitDef> seenDefs = new LinkedHashMap<>();
+                    for (Map.Entry<String, UnitDef> entry : UNITS.entrySet()) {
+                        UnitDef def = entry.getValue();
+                        if (def.dimension.equals(from.dimension)
+                                && def != from
+                                && !seenDefs.containsKey(def.displayName)) {
+                            seenDefs.put(def.displayName, def);
+                        }
+                    }
+
+                    int count = 0;
+                    for (UnitDef to : seenDefs.values()) {
+                        if (count >= 5) break;
+                        double converted = convert(value, from, to);
+                        conversions.add(
+                                new UnitConversion.ConvertedValue(converted, to.displayName));
+                        count++;
+                    }
+
+                    if (!conversions.isEmpty()) {
+                        UnitConversion result = new UnitConversion(
+                                value, from.displayName, from.dimension, conversions);
+                        if (!mCancelled) {
+                            mResultHandler.post(() -> callback.accept(List.of(result)));
+                        }
+                        return;
+                    }
+                }
+            }
+
+            if (!mCancelled) {
+                mResultHandler.post(() -> callback.accept(Collections.emptyList()));
+            }
+        });
     }
 
     @Override
     public void cancel() {
+        mCancelled = true;
         mResultHandler.removeCallbacksAndMessages(null);
     }
 

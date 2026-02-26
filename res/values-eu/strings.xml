@@ -78,9 +78,7 @@
     <string name="widgets_list_expanded" msgid="7374857868788557730">"Widget guztiak erakusten"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Sakatu hau widgeten ezarpenak aldatzeko"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"Aldatu widgeten ezarpenak"</string>
-    <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Bilatu aplikazioetan"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"Aplikazioak kargatzen…"</string>
-    <string name="all_apps_no_search_results" msgid="3200346862396363786">"Ez da aurkitu \"<xliff:g id="QUERY">%1$s</xliff:g>\" bilaketaren emaitzarik"</string>
     <string name="label_application" msgid="8531721983832654978">"Aplikazioa"</string>
     <string name="all_apps_label" msgid="5015784846527570951">"Aplikazio guztiak"</string>
     <string name="all_apps_list_label" msgid="5106226764073070906">"Aplikazioen zerrenda"</string>

@@ -78,9 +78,7 @@
     <string name="widgets_list_expanded" msgid="7374857868788557730">"Näytetään kaikki widgetit"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Napauta, niin voit muuttaa widgetin asetuksia"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"Muuta widgetin asetuksia"</string>
-    <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Hae sovelluksia"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"Ladataan sovelluksia…"</string>
-    <string name="all_apps_no_search_results" msgid="3200346862396363786">"<xliff:g id="QUERY">%1$s</xliff:g> ei palauttanut sovelluksia."</string>
     <string name="label_application" msgid="8531721983832654978">"Sovellus"</string>
     <string name="all_apps_label" msgid="5015784846527570951">"Kaikki sovellukset"</string>
     <string name="all_apps_list_label" msgid="5106226764073070906">"Sovellusluettelo"</string>

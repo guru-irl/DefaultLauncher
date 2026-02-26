@@ -78,9 +78,7 @@
     <string name="widgets_list_expanded" msgid="7374857868788557730">"සියලුම විජට් පෙන්වමින්"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"විජට් සැකසීම් වෙනස් කිරීමට තට්ටු කරන්න"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"විජට් සැකසීම් වෙනස් කරන්න"</string>
-    <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"යෙදුම් සොයන්න"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"යෙදුම් පූරණය වෙමින්…"</string>
-    <string name="all_apps_no_search_results" msgid="3200346862396363786">"\"<xliff:g id="QUERY">%1$s</xliff:g>\" සමග ගැළපෙන යෙදුම් හමු නොවිණි"</string>
     <string name="label_application" msgid="8531721983832654978">"යෙදුම"</string>
     <string name="all_apps_label" msgid="5015784846527570951">"සියලු යෙදුම්"</string>
     <string name="all_apps_list_label" msgid="5106226764073070906">"යෙදුම් ලැයිස්තුව"</string>
