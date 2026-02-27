@@ -39,6 +39,8 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.Objects;
+
 import com.android.launcher3.BubbleTextView;
 import com.android.launcher3.R;
 import com.android.launcher3.allapps.search.SearchAdapterProvider;
@@ -78,8 +80,10 @@ public abstract class BaseAllAppsAdapter<T extends Context & ActivityContext> ex
     public static final int VIEW_TYPE_SEARCH_QUICK_ACTION = 1 << 15;
     public static final int VIEW_TYPE_SEARCH_CALCULATOR = 1 << 16;
     public static final int VIEW_TYPE_SEARCH_UNIT_CONVERTER = 1 << 17;
+    public static final int VIEW_TYPE_SEARCH_TIMEZONE = 1 << 18;
+    public static final int VIEW_TYPE_SEARCH_LOADING = 1 << 19;
 
-    public static final int NEXT_ID = 18;
+    public static final int NEXT_ID = 20;
 
     // Common view type masks
     public static final int VIEW_TYPE_MASK_DIVIDER = VIEW_TYPE_ALL_APPS_DIVIDER;
@@ -149,7 +153,14 @@ public abstract class BaseAllAppsAdapter<T extends Context & ActivityContext> ex
          * Returns true if the items represent the same object
          */
         public boolean isSameAs(AdapterItem other) {
-            return (other.viewType == viewType) && (other.getClass() == getClass());
+            if (other.viewType != viewType || other.getClass() != getClass()) return false;
+            // For app icons, compare by component name + user so DiffUtil can
+            // distinguish individual apps and dispatch proper insert/remove ops.
+            if (viewType == VIEW_TYPE_ICON && itemInfo != null && other.itemInfo != null) {
+                return Objects.equals(itemInfo.componentName, other.itemInfo.componentName)
+                        && Objects.equals(itemInfo.user, other.itemInfo.user);
+            }
+            return true;
         }
 
         /**

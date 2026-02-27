@@ -15,7 +15,7 @@
   <img alt="API 33+" src="https://img.shields.io/badge/API-33%2B-brightgreen">
   <img alt="Android 16" src="https://img.shields.io/badge/AOSP-Android%2016-blue">
   <img alt="Material 3" src="https://img.shields.io/badge/Material%203-Dynamic%20Colors-purple">
-  <img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-orange">
+  <img alt="License" src="https://img.shields.io/badge/License-Apache%202.0%20%2B%20GPL--3.0-orange">
 </p>
 
 <p align="center">
@@ -63,10 +63,19 @@
 - Background color and opacity controls
 - Custom scrollbar color
 
+### Widget Stacks
+
+- Stack multiple widgets in a single grid cell and swipe between them
+- Bottom sheet editor to reorder, remove, and add widgets
+- Page indicator dots with smooth animations
+
 ### Universal Search
 
 - Search apps, shortcuts, contacts, calendar events, and files from one place
-- Built-in calculator and unit converter
+- Built-in calculator, unit converter, and timezone converter
+- Timezone queries: "5pm India to Chicago", "chicago time", "4pm chicago time tuesday to tokyo"
+- Quick actions auto-detect phone numbers, emails, and URLs in your query
+- AI search FAB sends your query to ChatGPT, Claude, or Gemini
 - Choose your web search app
 - Filter results with category chips
 

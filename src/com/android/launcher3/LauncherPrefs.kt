@@ -362,8 +362,18 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField val SEARCH_FILES = backedUpItem("pref_search_files", false)
         @JvmField val SEARCH_CALCULATOR = backedUpItem("pref_search_calculator", true)
         @JvmField val SEARCH_UNIT_CONVERTER = backedUpItem("pref_search_unit_converter", true)
+        @JvmField val SEARCH_TIMEZONE = backedUpItem("pref_search_timezone", true)
         @JvmField val SEARCH_WEB_APP = backedUpItem("pref_search_web_app", "default")
+        @JvmField val SEARCH_AI_APP = backedUpItem("pref_search_ai_app", "")
         @JvmField val SEARCH_AUTO_KEYBOARD = backedUpItem("pref_search_auto_keyboard", false)
+
+        /** AI app packages in auto-detection priority order. */
+        @JvmField val AI_APP_PACKAGES = arrayOf(
+            "com.openai.chatgpt",
+            "com.anthropic.claude",
+            "ai.perplexity.app.android",
+            "com.google.android.apps.bard"
+        )
 
         @JvmField
         val NON_FIXED_LANDSCAPE_GRID_NAME =

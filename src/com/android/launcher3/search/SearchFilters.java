@@ -28,6 +28,13 @@ public class SearchFilters {
     /** The set of individually selected categories (used when mShowAll is false). */
     private final Set<Category> mSelected = EnumSet.noneOf(Category.class);
 
+    /** Monotonic counter incremented on each filter change, used by DiffUtil. */
+    private int mVersion;
+
+    public int getVersion() {
+        return mVersion;
+    }
+
     /** Listener for filter changes. */
     public interface OnFilterChangedListener {
         void onFilterChanged();
@@ -79,6 +86,7 @@ public class SearchFilters {
     }
 
     private void notifyChanged() {
+        mVersion++;
         if (mListener != null) {
             mListener.onFilterChanged();
         }

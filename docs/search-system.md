@@ -4,7 +4,7 @@ Universal multi-source search for the all-apps drawer, inspired by [Kvaesitso](h
 
 ## Overview
 
-The search system replaces AOSP's app-only search with a universal search that queries multiple providers in parallel (apps, shortcuts, contacts, calendar, files, calculator, unit converter) and displays categorized results in a single scrollable list with filter chips. A floating "Web search" FAB appears above the keyboard for quick web lookups.
+The search system replaces AOSP's app-only search with a universal search that queries multiple providers in parallel (apps, shortcuts, contacts, calendar, files, calculator, unit converter, timezone) and displays categorized results in a single scrollable list with filter chips. Two floating FABs appear above the keyboard: an AI search FAB (icon-only, sends query to ChatGPT/Claude/etc.) and a web search Extended FAB for quick web lookups.
 
 The search UX has three distinct visual states:
 
@@ -20,15 +20,16 @@ The search UX has three distinct visual states:
 
 ```
 User types → AllAppsSearchBarController.afterTextChanged()
+           → 150ms debounce (cancelled on new input)
            → UniversalSearchAlgorithm.doSearch()
-           → dispatches to N providers in parallel
-           → each provider calls back with results
-           → onProviderComplete() decrements counter
-           → when all providers done → deliverResults()
+           → dispatches apps provider + N I/O providers in parallel
+           → app provider completes first → deliverResults(INTERMEDIATE)
+           → remaining providers complete → deliverResults(FINAL)
            → converts SearchResult → ArrayList<AdapterItem>
-           → SearchCallback.onSearchResult(query, items)
+           → SearchCallback.onSearchResult(query, items, resultCode)
            → AppsSearchContainerLayout.onSearchResult()
            → ActivityAllAppsContainerView.setSearchResults()
+           → SearchItemAnimator animates new items (fade+slide-up)
            → animateToSearchState(true) [crossfade]
 ```
 
@@ -38,19 +39,22 @@ User types → AllAppsSearchBarController.afterTextChanged()
 com.android.launcher3.search/
 ├── SearchAlgorithm.java          # Interface: doSearch(), cancel(), destroy()
 ├── SearchCallback.java           # Interface: onSearchResult(), clearSearchResult()
-├── SearchFilters.java            # Filter chips state (EnumSet<Category>)
+├── SearchFilters.java            # Filter chips state (EnumSet<Category>) + version counter
 ├── SearchResult.java             # Aggregated container for all result categories
 ├── SearchResultAdapterItem.java  # Extended AdapterItem for non-app results
-├── StringMatcherUtility.java     # AOSP fuzzy string matching
+├── SearchScorer.java             # Jaro-Winkler scoring with prefix/substring bonuses
+├── StringMatcherUtility.java     # AOSP fuzzy string matching (legacy)
 ├── UniversalSearchAlgorithm.java # Orchestrator: dispatches to providers, aggregates
 ├── UniversalSearchAdapterProvider.java  # Creates/binds ViewHolders for result types
 ├── providers/
 │   ├── SearchProvider.java       # Interface: search(), cancel(), category()
-│   ├── AppSearchProvider.java    # App name/package matching
+│   ├── AppSearchProvider.java    # App name matching (Jaro-Winkler scored)
 │   ├── ShortcutSearchProvider.java    # LauncherApps shortcut search
 │   ├── QuickActionProvider.java       # Pattern detection (phone, email, URL, web search)
 │   ├── CalculatorProvider.java        # Math expression evaluation
 │   ├── UnitConverterProvider.java     # Unit conversion (length, weight, temp, etc.)
+│   ├── TimezoneProvider.java          # Timezone conversion ("5pm India to Chicago", "4pm chicago time tue")
+│   ├── TimezoneResolver.java          # Auto-generated ~650+ zone lookups (IANA/ICU/Locale)
 │   ├── ContactSearchProvider.java     # ContactsContract lookup
 │   ├── CalendarSearchProvider.java    # CalendarContract event search
 │   └── FileSearchProvider.java        # MediaStore file search
@@ -62,7 +66,8 @@ com.android.launcher3.search/
     ├── CalendarResult.java       # Event title + time + location + color
     ├── FileResult.java           # File name + path + size + MIME
     ├── CalculatorResult.java     # Expression + result + hex/oct formats
-    └── UnitConversion.java       # Input value/unit + list of conversions
+    ├── UnitConversion.java       # Input value/unit + list of conversions
+    └── TimezoneResult.java       # Source/target time + zone names + date
 ```
 
 ### AOSP Integration Points
@@ -71,11 +76,11 @@ The search system hooks into AOSP's existing search infrastructure at these poin
 
 | AOSP Class | Role | Our Changes |
 |------------|------|-------------|
-| [`AllAppsSearchBarController`](../src/com/android/launcher3/allapps/search/AllAppsSearchBarController.java) | Text watcher, dispatches to `SearchAlgorithm` | Modified `afterTextChanged()` for persistent search mode |
+| [`AllAppsSearchBarController`](../src/com/android/launcher3/allapps/search/AllAppsSearchBarController.java) | Text watcher, dispatches to `SearchAlgorithm` | 150ms debounce, persistent search mode, immediate cancel on new input |
 | [`AppsSearchContainerLayout`](../src/com/android/launcher3/allapps/search/AppsSearchContainerLayout.java) | `SearchUiManager` + `SearchCallback` impl | Routes results to container; handles empty-query → apps |
-| [`ActivityAllAppsContainerView`](../src/com/android/launcher3/allapps/ActivityAllAppsContainerView.java) | Container managing search/apps RV visibility | Added FAB, `showAppsWhileSearchActive()`, spring overscroll |
-| [`SearchTransitionController`](../src/com/android/launcher3/allapps/SearchTransitionController.java) | Crossfade animation between A-Z and search | Overrides `shouldAnimate()` to animate all items (not just app icons) |
-| [`BaseAllAppsAdapter`](../src/com/android/launcher3/allapps/BaseAllAppsAdapter.java) | View type constants | Added `VIEW_TYPE_SEARCH_*` constants for all result types |
+| [`ActivityAllAppsContainerView`](../src/com/android/launcher3/allapps/ActivityAllAppsContainerView.java) | Container managing search/apps RV visibility | AI FAB + web FAB, `showAppsWhileSearchActive()`, spring overscroll |
+| [`SearchTransitionController`](../src/com/android/launcher3/allapps/SearchTransitionController.java) | Transition animation between A-Z and search | Slide-up for content items, scaleY for filter bar |
+| [`BaseAllAppsAdapter`](../src/com/android/launcher3/allapps/BaseAllAppsAdapter.java) | View type constants + DiffUtil identity | Added `VIEW_TYPE_SEARCH_*` constants; `isSameAs()` compares by component for apps |
 | [`AllAppsSearchUiDelegate`](../src/com/android/launcher3/allapps/search/AllAppsSearchUiDelegate.java) | Factory for search adapter provider | Returns `UniversalSearchAdapterProvider` |
 
 ---
@@ -99,11 +104,12 @@ Each provider runs its search on a background thread (or synchronously if cheap)
 
 | Provider | Category | Min Query | Result Type | Data Source |
 |----------|----------|-----------|-------------|-------------|
-| `AppSearchProvider` | apps | 1 | `AppInfo` | `AllAppsStore` via `StringMatcherUtility` |
+| `AppSearchProvider` | apps | 1 | `AppInfo` | `AllAppsStore` via `SearchScorer` (Jaro-Winkler) |
 | `ShortcutSearchProvider` | shortcuts | 2 | `ShortcutResult` | `LauncherApps.getShortcuts()` |
 | `QuickActionProvider` | quick_actions | 1 | `QuickAction` | Pattern detection (regex for phone/email/URL) |
 | `CalculatorProvider` | calculator | 1 | `CalculatorResult` | `javax.script.ScriptEngine` (Rhino) |
 | `UnitConverterProvider` | unit_converter | 2 | `UnitConversion` | Regex parsing + conversion tables |
+| `TimezoneProvider` | timezone | 6 | `TimezoneResult` | Regex parsing + `java.time` APIs |
 | `ContactSearchProvider` | contacts | 2 | `ContactResult` | `ContactsContract.Contacts` |
 | `CalendarSearchProvider` | calendar | 2 | `CalendarResult` | `CalendarContract.Events` (next 365 days) |
 | `FileSearchProvider` | files | 3 | `FileResult` | `MediaStore.Files` |
@@ -121,6 +127,7 @@ Each provider (except `quick_actions`) can be toggled on/off from the Search set
 | Files | `pref_search_files` | `false` |
 | Calculator | `pref_search_calculator` | `true` |
 | Unit Converter | `pref_search_unit_converter` | `true` |
+| Timezone | `pref_search_timezone` | `true` |
 
 Contacts, Calendar, and Files default to `false` because they require runtime permissions.
 
@@ -136,9 +143,12 @@ The algorithm:
 2. Creates a fresh `SearchResult` container
 3. Counts how many providers will run (respecting `minQueryLength` + pref toggles)
 4. Sets `mPendingProviders` to that count
-5. Dispatches all enabled providers in parallel
-6. Each provider callback decrements `mPendingProviders`
-7. When `mPendingProviders` reaches 0 → `deliverResults()`
+5. Dispatches app provider and I/O providers in parallel
+6. App provider completes → `deliverResults(INTERMEDIATE)` (users see apps immediately)
+7. Each I/O provider callback decrements `mPendingProviders`
+8. When `mPendingProviders` reaches 0 → `deliverResults(FINAL)`
+
+Progressive delivery ensures users see app results instantly while I/O-bound providers (contacts, calendar, files, shortcuts) run in parallel on `THREAD_POOL_EXECUTOR`.
 
 ### `deliverResults()` — Result Ordering
 
@@ -148,12 +158,13 @@ Results are converted to `AdapterItem` list in this fixed order:
 2. **Quick actions** (call, email, URL — but NOT web search, which is now the FAB)
 3. **Calculator** (if `TOOLS` filter active)
 4. **Unit converter** (if `TOOLS` filter active)
-5. **Apps** with "Apps" section header (if `APPS` filter active)
-6. **Shortcuts** with "Shortcuts" section header (if `SHORTCUTS` filter active)
-7. **Contacts** with "Contacts" section header (if `CONTACTS` filter active)
-8. **Calendar** with "Calendar" section header (if `CALENDAR` filter active)
-9. **Files** with "Files" section header (if `FILES` filter active)
-10. **Empty state** (if only filter bar present — i.e., no results)
+5. **Timezone** (if `TOOLS` filter active)
+6. **Apps** with "Apps" section header (if `APPS` filter active)
+7. **Shortcuts** with "Shortcuts" section header (if `SHORTCUTS` filter active)
+8. **Contacts** with "Contacts" section header (if `CONTACTS` filter active)
+9. **Calendar** with "Calendar" section header (if `CALENDAR` filter active)
+10. **Files** with "Files" section header (if `FILES` filter active)
+11. **Empty state** (only on `FINAL` delivery if no results)
 
 The `WEB_SEARCH` quick action type is skipped in the delivery loop because it's replaced by the floating "Web search" FAB (see below).
 
@@ -175,14 +186,30 @@ The filter bar uses M3 Filter Chips in a horizontal scroll. State is tracked by 
 
 **File:** [`SearchTransitionController.java`](../src/com/android/launcher3/allapps/SearchTransitionController.java) (extends [`RecyclerViewAnimationController`](../src/com/android/launcher3/allapps/RecyclerViewAnimationController.java))
 
-The transition between A-Z apps and search results is a crossfade animation:
+The transition between A-Z apps and search results uses two different animations depending on the item type:
 
-- **Entering search** (`goingToSearch = true`): Search RV items scale from 0 to 1 (height), A-Z container translates down and fades out
-- **Exiting search** (`goingToSearch = false`): Reverse — search items collapse, A-Z slides back up
+- **Filter bar**: scaleY "unsqueeze from top" (pivotY=0), matching the base class behavior
+- **Content items**: translationY slide-up + staggered fade, matching `SearchItemAnimator`'s visual so the entry and exit animations are consistent
 
-Key override: `shouldAnimate()` returns `true` for all views (not just app icons as in AOSP), so all search result types (cards, headers, filter bar) participate in the animation.
+Key behaviors:
+- **Entering search** (`goingToSearch = true`): Content items slide up from 16dp offset while fading in, A-Z container translates down and fades out
+- **Exiting search** (`goingToSearch = false`): Reverse — content slides down while fading out, A-Z slides back up
+- Uses `EMPHASIZED` interpolator when already in all-apps, or `INSTANT` when transitioning to all-apps simultaneously. Duration is 300ms.
 
-The animation uses `DECELERATE_1_7` interpolator when already in all-apps, or `INSTANT` when transitioning to all-apps simultaneously. Duration is 300ms.
+### Search Item Animator
+
+**File:** [`SearchItemAnimator.java`](../src/com/android/launcher3/allapps/SearchItemAnimator.java)
+
+Custom `DefaultItemAnimator` for the search RecyclerView. Handles DiffUtil-dispatched animations for progressive result delivery:
+
+| Operation | Behavior | Duration |
+|-----------|----------|----------|
+| ADD | Fade-in + 16dp slide-up | 200ms, EMPHASIZED_DECELERATE |
+| MOVE | Fade-in + 16dp slide-up (same as add) | 200ms, EMPHASIZED_DECELERATE |
+| REMOVE | Instant | 0ms |
+| CHANGE | Instant | 0ms |
+
+Structural items (filter bar, section headers) never animate. The `setAnimationsEnabled(false)` method suppresses add animations during `INTERMEDIATE` result delivery to prevent overlap, then re-enables for `FINAL` delivery.
 
 ### Transition State Machine
 
@@ -248,29 +275,48 @@ When the user backspaces to empty text, the search bar stays active instead of d
 
 ---
 
-## "Web Search" FAB
+## Search FABs
 
-A floating `ExtendedFloatingActionButton` that appears above the keyboard when search has a non-empty query.
+Two floating action buttons appear above the keyboard when search has a non-empty query, stacked vertically in a `LinearLayout` container (AI FAB above, web search Extended FAB below).
 
-### Creation
+### FAB Container
 
 Created programmatically in `ActivityAllAppsContainerView.initContent()`:
 
-- **Theme**: Uses `ContextThemeWrapper(context, R.style.HomeSettings_Theme)` + `DynamicColors.wrapContextIfAvailable()` — same M3 themed context as search result cards in `UniversalSearchAdapterProvider`
-- **Elevation**: `0dp` (M3 tonal elevation — the container color provides the elevation cue, no shadow)
+- **Theme**: Uses `ContextThemeWrapper(context, R.style.HomeSettings_Theme)` + `DynamicColors.wrapContextIfAvailable()`
 - **Position**: `ALIGN_PARENT_BOTTOM | ALIGN_PARENT_END` with 16dp margins
+- **Gravity**: `END | BOTTOM` (AI FAB right-aligned with Extended FAB's right edge)
+- **Spacing**: 16dp between FABs
+- **Elevation**: M3 default 6dp with state animations (pressed/hovered)
+
+### AI Search FAB
+
+A 56dp icon-only `FloatingActionButton` with M3 tertiary container colors:
+
+- **Icon**: `R.drawable.ic_ai_search` (Material Symbols sparkle)
+- **Colors**: `colorTertiaryContainer` background, `colorOnTertiaryContainer` icon tint
+- **Visibility**: Shown only when an AI app is installed (auto-detected or configured in settings)
+- **Auto-detection**: Checks `LauncherPrefs.SEARCH_AI_APP` preference, then falls through to `AI_APP_PACKAGES` array (ChatGPT, Claude, Perplexity, Gemini) in priority order
+- **Re-evaluation**: `loadAiAppIcon()` runs when the FAB container transitions from GONE→VISIBLE, covering app install/uninstall between search sessions
+- **Launch**: Sends `ACTION_SEND` with `text/plain` EXTRA_TEXT to the AI app; falls back to the app's main activity if no send handler
+
+### Web Search Extended FAB
+
+A standard `ExtendedFloatingActionButton` (56dp height, text+icon):
+
 - **Icon**: `R.drawable.ic_web_search`
 - **Text**: "Web search" (`R.string.search_online`)
+- **Shape**: M3 default rounded rectangle (not pill)
 
-### Show/Hide Logic (`updateSearchOnlineFab`)
+### Show/Hide Logic (`updateSearchFabs`)
 
 ```
 show = query != null && !query.isEmpty()
        && (isSearching() || searchTransitionController.isRunning())
 ```
 
-- **Show**: Scale-in animation (scaleX/Y 0→1, 200ms)
-- **Hide**: Scale-out animation (scaleX/Y 1→0, 150ms, then `GONE`)
+- **Show**: Scale-in animation (scaleX/Y 0→1, 200ms, EMPHASIZED_DECELERATE)
+- **Hide**: Scale-out animation (scaleX/Y 1→0, 200ms, EMPHASIZED_ACCELERATE, then `GONE`)
 - Called from `AppsSearchContainerLayout.onSearchResult()` with the current query
 - Called with `null` from `onClearSearchResult()` (full search exit)
 
@@ -284,7 +330,7 @@ int navBottom = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
 fabLp.bottomMargin = Math.max(imeBottom, navBottom) + 16dp;
 ```
 
-The FAB repositions automatically when the keyboard appears/disappears.
+The FAB container repositions automatically when the keyboard appears/disappears.
 
 ### Web Search Intent
 
@@ -292,7 +338,7 @@ The FAB repositions automatically when the keyboard appears/disappears.
 - `"default"` → system default `ACTION_WEB_SEARCH` handler
 - Component string → sets explicit component on the intent
 
-The intent uses `SearchManager.QUERY` extra with the current search text. This is the same logic as `QuickActionProvider.buildWebSearchIntent()` — the inline web search card was removed from results (the `WEB_SEARCH` type is skipped in `deliverResults()`).
+The intent uses `SearchManager.QUERY` extra with the current search text.
 
 ---
 
@@ -353,6 +399,8 @@ All search-specific view types are defined in `BaseAllAppsAdapter`:
 | `VIEW_TYPE_SEARCH_QUICK_ACTION` | 206 | `search_result_quick_action.xml` | Quick action pill (call, email, open URL) |
 | `VIEW_TYPE_SEARCH_CALCULATOR` | 207 | `search_result_calculator.xml` | Calculator with expression + result + alt formats |
 | `VIEW_TYPE_SEARCH_UNIT_CONVERTER` | 208 | `search_result_unit_converter.xml` | Unit conversion with input + output values |
+| `VIEW_TYPE_SEARCH_TIMEZONE` | 209 | `search_result_timezone.xml` | Timezone conversion with source/target times |
+| `VIEW_TYPE_SEARCH_LOADING` | 210 | `search_loading_indicator.xml` | M3 loading indicator (reserved) |
 
 ---
 
@@ -388,7 +436,9 @@ Search result cards use `?attr/colorSecondaryContainer` / `?attr/colorOnSecondar
 | `pref_search_files` | `boolean` | `false` | Enable file search |
 | `pref_search_calculator` | `boolean` | `true` | Enable calculator |
 | `pref_search_unit_converter` | `boolean` | `true` | Enable unit converter |
+| `pref_search_timezone` | `boolean` | `true` | Enable timezone conversion |
 | `pref_search_web_app` | `String` | `"default"` | Preferred web search app component |
+| `pref_search_ai_app` | `String` | `""` | AI app package (empty=auto-detect, "none"=disabled) |
 | `pref_drawer_search_bg_color` | `String` | `""` | Custom search bar background color |
 
 ---
@@ -397,23 +447,28 @@ Search result cards use `?attr/colorSecondaryContainer` / `?attr/colorOnSecondar
 
 | File | Purpose |
 |------|---------|
-| `src/.../search/UniversalSearchAlgorithm.java` | Orchestrates parallel provider dispatch and result aggregation |
+| `src/.../search/UniversalSearchAlgorithm.java` | Orchestrates parallel provider dispatch and progressive result delivery |
 | `src/.../search/UniversalSearchAdapterProvider.java` | ViewHolder creation/binding for all search result types |
-| `src/.../search/SearchFilters.java` | Filter chip state management |
+| `src/.../search/SearchFilters.java` | Filter chip state management with version counter |
 | `src/.../search/SearchResult.java` | Aggregated result container |
 | `src/.../search/SearchResultAdapterItem.java` | Extended `AdapterItem` for search results |
+| `src/.../search/SearchScorer.java` | Jaro-Winkler scoring with prefix/substring bonuses |
 | `src/.../search/providers/SearchProvider.java` | Provider interface |
 | `src/.../search/providers/QuickActionProvider.java` | Pattern detection (phone, email, URL, web search) |
+| `src/.../search/providers/TimezoneProvider.java` | Timezone conversion, timed-place, and current-time queries |
+| `src/.../search/providers/TimezoneResolver.java` | Auto-generated ~650+ zone lookups from IANA/ICU/Locale APIs |
 | `src/.../search/result/QuickAction.java` | Quick action data class with Type enum |
-| `src/.../allapps/search/AllAppsSearchBarController.java` | Text watcher, drives persistent search mode |
+| `src/.../search/result/TimezoneResult.java` | Timezone result data class |
+| `src/.../allapps/search/AllAppsSearchBarController.java` | Text watcher with 150ms debounce, drives persistent search mode |
 | `src/.../allapps/search/AppsSearchContainerLayout.java` | Search UI manager, routes results to container |
-| `src/.../allapps/ActivityAllAppsContainerView.java` | Container: FAB, `showAppsWhileSearchActive()`, overscroll |
-| `src/.../allapps/SearchTransitionController.java` | A-Z ↔ search crossfade animation |
-| `src/.../allapps/SearchRecyclerView.java` | Search RV with scroll-to-dismiss |
+| `src/.../allapps/ActivityAllAppsContainerView.java` | Container: AI FAB + web FAB, `showAppsWhileSearchActive()`, overscroll |
+| `src/.../allapps/SearchItemAnimator.java` | Custom item animator (fade+slide for adds/moves, instant removes) |
+| `src/.../allapps/SearchTransitionController.java` | A-Z ↔ search transition (slide-up for content, scaleY for filter bar) |
+| `src/.../allapps/SearchRecyclerView.java` | Search RV with scroll-to-dismiss and search animator |
 | `src/.../allapps/AllAppsRecyclerView.java` | A-Z RV with scroll-to-dismiss (when search active) |
 | `src/.../views/SpringBounceEdgeEffectFactory.java` | M3 spring bounce overscroll effect |
 | `src/.../views/SpringRelativeLayout.java` | Factory method for spring bounce |
-| `src/.../settings/SearchFragment.java` | Search settings page |
+| `src/.../settings/SearchFragment.java` | Search settings page (web app + AI app choosers) |
 | `res/xml/search_preferences.xml` | Search settings preference hierarchy |
 | `res/layout/search_filter_bar.xml` | Filter chip bar layout |
 | `res/layout/search_result_*.xml` | Result type layouts |

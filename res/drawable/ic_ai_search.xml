@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2025 DefaultLauncher Contributors
+  SPDX-License-Identifier: GPL-3.0-or-later
+
+  Material Symbols "auto_awesome" (sparkle) outlined icon for AI search FAB.
+  Source: https://fonts.google.com/icons?icon.query=auto_awesome&icon.style=Outlined
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960"
+    android:tint="?android:attr/textColorSecondary">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/white"
+            android:fillType="evenOdd"
+            android:pathData="m760,-600 -50,-110 -110,-50 110,-50 50,-110 50,110 110,50 -110,50 -50,110Zm0,560 -50,-110 -110,-50 110,-50 50,-110 50,110 110,50 -110,50 -50,110ZM360,-160l-100,-220 -220,-100 220,-100 100,-220 100,220 220,100 -220,100 -100,220Zm0,-194 40,-86 86,-40 -86,-40 -40,-86 -40,86 -86,40 86,40 40,86Zm0,-126Z" />
+    </group>
+</vector>

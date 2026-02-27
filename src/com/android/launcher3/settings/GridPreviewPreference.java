@@ -19,7 +19,6 @@
 package com.android.launcher3.settings;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -29,9 +28,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.preference.Preference;
-import androidx.preference.PreferenceManager;
 import androidx.preference.PreferenceViewHolder;
 
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 
 /**
@@ -101,12 +100,7 @@ public class GridPreviewPreference extends Preference {
                 (int) (PREVIEW_HEIGHT_DP * density));
         mPreviewView.setLayoutParams(previewParams);
 
-        // Read current column count from shared preferences
-        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(ctx);
-        // Use the preference manager's shared preferences (LauncherFiles.SHARED_PREFERENCES_KEY)
-        int currentCols = getSharedPreferences() != null
-                ? getSharedPreferences().getInt("pref_grid_columns", 6)
-                : sp.getInt("pref_grid_columns", 6);
+        int currentCols = LauncherPrefs.get(ctx).get(LauncherPrefs.GRID_COLUMNS);
         mPreviewView.setColumns(currentCols);
 
         container.addView(mPreviewView);

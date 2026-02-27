@@ -66,6 +66,10 @@
     <dimen name="settings_slider_thumb_height">28dp</dimen>
     <dimen name="settings_slider_track_offset">8dp</dimen>
 
+    <!-- Color picker -->
+    <dimen name="settings_color_picker_swatch_default_size">36dp</dimen>
+    <dimen name="settings_color_picker_selected_stroke">3dp</dimen>
+
     <!-- Dialog & labels -->
     <dimen name="settings_value_label_min_width">24dp</dimen>
     <dimen name="settings_dialog_horizontal_pad">24dp</dimen>

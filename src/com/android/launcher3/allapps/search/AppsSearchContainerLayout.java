@@ -245,13 +245,13 @@ public class AppsSearchContainerLayout extends ExtendedEditText
         if (query != null && query.isEmpty()) {
             // Empty query — show A-Z apps while keeping search bar active
             mAppsView.showAppsWhileSearchActive();
-            mAppsView.updateSearchOnlineFab(null);
+            mAppsView.updateSearchFabs(null);
             return;
         }
         if (items != null) {
             mAppsView.setSearchResults(items);
         }
-        mAppsView.updateSearchOnlineFab(query);
+        mAppsView.updateSearchFabs(query);
     }
 
     @Override

@@ -17,7 +17,7 @@ import android.os.Handler;
 
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.model.data.AppInfo;
-import com.android.launcher3.search.StringMatcherUtility;
+import com.android.launcher3.search.SearchScorer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,18 +57,35 @@ public class AppSearchProvider implements SearchProvider<AppInfo> {
     }
 
     private static List<AppInfo> getTitleMatchResult(List<AppInfo> apps, String query) {
-        final String queryLower = query.toLowerCase();
-        final List<AppInfo> result = new ArrayList<>();
-        StringMatcherUtility.StringMatcher matcher =
-                StringMatcherUtility.StringMatcher.getInstance();
-
+        // Score every app using Jaro-Winkler with prefix/substring bonuses
+        List<ScoredApp> scored = new ArrayList<>();
         int total = apps.size();
-        for (int i = 0; i < total && result.size() < MAX_RESULTS; i++) {
+        for (int i = 0; i < total; i++) {
             AppInfo info = apps.get(i);
-            if (StringMatcherUtility.matches(queryLower, info.title.toString(), matcher)) {
-                result.add(info);
+            float s = SearchScorer.score(query, info.title.toString());
+            if (s > 0f) {
+                scored.add(new ScoredApp(info, s));
             }
         }
+
+        // Sort by score descending (best match first)
+        scored.sort((a, b) -> Float.compare(b.score, a.score));
+
+        List<AppInfo> result = new ArrayList<>();
+        int cap = Math.min(scored.size(), MAX_RESULTS);
+        for (int i = 0; i < cap; i++) {
+            result.add(scored.get(i).app);
+        }
         return result;
+    }
+
+    private static class ScoredApp {
+        final AppInfo app;
+        final float score;
+
+        ScoredApp(AppInfo app, float score) {
+            this.app = app;
+            this.score = score;
+        }
     }
 }

@@ -21,6 +21,8 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.core.util.Consumer;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.launcher3.ExtendedEditText;
 import com.android.launcher3.views.ActivityContext;
@@ -44,9 +46,27 @@ public class SearchRecyclerView extends AllAppsRecyclerView {
     public SearchRecyclerView(Context context, AttributeSet attrs, int defStyleAttr,
             int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-        // Disable item animator to prevent add/remove animations that cause
-        // items to briefly render with zero height during progressive search updates.
-        setItemAnimator(null);
+    }
+
+    /**
+     * Only scroll to top if the user has scrolled away from position 0.
+     * Avoids interfering with DiffUtil animations during fast typing.
+     */
+    @Override
+    public void onSearchResultsChanged() {
+        RecyclerView.LayoutManager lm = getLayoutManager();
+        if (lm instanceof LinearLayoutManager) {
+            int firstVisible = ((LinearLayoutManager) lm).findFirstVisibleItemPosition();
+            if (firstVisible > 0) {
+                scrollToTop();
+            }
+        }
+    }
+
+    /** Installs the search item animator. Call after adapter setup (which nullifies animators). */
+    public void initSearchAnimator() {
+        setItemAnimator(new SearchItemAnimator(
+                getContext().getResources().getDisplayMetrics().density));
     }
 
     @Override

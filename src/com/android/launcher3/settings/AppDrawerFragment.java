@@ -18,22 +18,14 @@
  */
 package com.android.launcher3.settings;
 
-import android.content.Context;
-import android.content.res.Resources;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.text.InputType;
 import android.view.View;
 
 import androidx.preference.Preference;
 import androidx.preference.SwitchPreferenceCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.textfield.TextInputEditText;
-import com.google.android.material.textfield.TextInputLayout;
 
 import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.LauncherAppState;
@@ -298,71 +290,30 @@ public class AppDrawerFragment extends SettingsBaseFragment {
                         InvariantDeviceProfile.INSTANCE.get(getContext())
                                 .onConfigChanged(getContext()));
                 },
-                () -> showCustomIconSizeDialog(
-                        child.findViewById(R.id.size_toggle_group), iconSizePref));
-    }
-
-    private void showCustomIconSizeDialog(
-            MaterialButtonToggleGroup toggleGroup, Preference iconSizePref) {
-        Context ctx = getContext();
-        Resources res = ctx.getResources();
-
-        TextInputLayout inputLayout = new TextInputLayout(ctx,
-                null, com.google.android.material.R.attr.textInputOutlinedStyle);
-        inputLayout.setHint("Icon size (50\u2013100%)");
-        int hPad = res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal);
-        int tPad = res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical);
-        inputLayout.setPadding(hPad, tPad, hPad, 0);
-
-        TextInputEditText editText = new TextInputEditText(inputLayout.getContext());
-        editText.setInputType(InputType.TYPE_CLASS_NUMBER
-                | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        inputLayout.addView(editText);
-
-        try {
-            String cur = LauncherPrefs.get(ctx)
-                    .get(LauncherPrefs.ICON_SIZE_SCALE_DRAWER);
-            float pct = Float.parseFloat(cur) * 100f;
-            editText.setText(String.format("%.0f", pct));
-        } catch (NumberFormatException ignored) { }
-
-        Runnable revertSelection = () -> {
-            if (mLastPresetButtonId != View.NO_ID) {
-                toggleGroup.check(mLastPresetButtonId);
-            } else {
-                toggleGroup.clearChecked();
-            }
-        };
-
-        new MaterialAlertDialogBuilder(ctx)
-                .setTitle(R.string.icon_size_custom)
-                .setView(inputLayout)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                    String text = editText.getText() != null
-                            ? editText.getText().toString().trim() : "";
-                    try {
-                        float pct = Float.parseFloat(text);
-                        pct = Math.max(50f, Math.min(100f, pct));
-                        String value = String.valueOf(pct / 100f);
-                        LauncherPrefs.get(ctx)
-                                .put(LauncherPrefs.ICON_SIZE_SCALE_DRAWER, value);
-                        updateIconSizeSummary(iconSizePref);
-                        getListView().post(() ->
-                            InvariantDeviceProfile.INSTANCE.get(ctx)
-                                    .onConfigChanged(ctx));
-                    } catch (NumberFormatException ignored) {
-                        revertSelection.run();
-                    }
-                })
-                .setNegativeButton(android.R.string.cancel,
-                        (dialog, which) -> revertSelection.run())
-                .setOnCancelListener(dialog -> revertSelection.run())
-                .show();
+                () -> IconSettingsHelper.showCustomIconSizeDialog(
+                        getContext(),
+                        child.findViewById(R.id.size_toggle_group),
+                        LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_SIZE_SCALE_DRAWER),
+                        mLastPresetButtonId,
+                        value -> {
+                            LauncherPrefs.get(getContext())
+                                    .put(LauncherPrefs.ICON_SIZE_SCALE_DRAWER, value);
+                            updateIconSizeSummary(iconSizePref);
+                            getListView().post(() ->
+                                InvariantDeviceProfile.INSTANCE.get(getContext())
+                                        .onConfigChanged(getContext()));
+                        }));
     }
 
     private void updateIconSizeSummary(Preference pref) {
         String current = LauncherPrefs.get(getContext()).get(LauncherPrefs.ICON_SIZE_SCALE_DRAWER);
         pref.setSummary(IconSettingsHelper.getIconSizeSummary(getContext(), current));
+    }
+
+    @Override
+    public void onDestroyView() {
+        mIconSizeBound = false;
+        super.onDestroyView();
     }
 
     /** Re-reads the adaptive shape pref and updates the switch + all dependent visibility. */

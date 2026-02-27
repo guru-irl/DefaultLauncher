@@ -32,6 +32,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -50,7 +51,10 @@ import androidx.preference.PreferenceFragmentCompat;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.shape.ShapeAppearanceModel;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import com.android.launcher3.ConstantItem;
 import com.android.launcher3.InvariantDeviceProfile;
@@ -367,7 +371,7 @@ public class IconSettingsHelper {
                 mgr.getCurrentPack();
 
                 // Auto-detect adaptive on background thread
-                autoDetectAdaptiveAsync(ctx, mgr, false);
+                autoDetectAdaptive(ctx, mgr, false);
 
                 app.getIconCache().clearAllIcons();
                 Executors.MAIN_EXECUTOR.execute(() -> {
@@ -396,12 +400,6 @@ public class IconSettingsHelper {
                 isDrawer ? LauncherPrefs.APPLY_ADAPTIVE_SHAPE_DRAWER
                          : LauncherPrefs.APPLY_ADAPTIVE_SHAPE,
                 isAdaptive);
-    }
-
-    /** Background-thread version for home packs where parsing might be slow. */
-    private static void autoDetectAdaptiveAsync(Context ctx, IconPackManager mgr,
-            boolean isDrawer) {
-        autoDetectAdaptive(ctx, mgr, isDrawer);
     }
 
     /**
@@ -827,6 +825,71 @@ public class IconSettingsHelper {
             });
             anim.start();
         });
+    }
+
+    /**
+     * Show the custom icon size input dialog. Creates a TextInputLayout pre-filled with the
+     * current percentage, validates 50-100 range, and calls onValueAccepted with the scale
+     * string (e.g. "0.75"). On cancel or invalid input, reverts the toggle to lastPresetButtonId.
+     *
+     * @param ctx              activity context
+     * @param toggleGroup      the toggle group to revert on cancel
+     * @param currentValue     current icon size scale string (e.g. "0.8")
+     * @param lastPresetButtonId the last preset button ID to revert to on cancel
+     * @param onValueAccepted  called with the new scale string when user confirms
+     */
+    public static void showCustomIconSizeDialog(Context ctx,
+            MaterialButtonToggleGroup toggleGroup,
+            String currentValue,
+            int lastPresetButtonId,
+            Consumer<String> onValueAccepted) {
+        Resources res = ctx.getResources();
+
+        TextInputLayout inputLayout = new TextInputLayout(ctx,
+                null, com.google.android.material.R.attr.textInputOutlinedStyle);
+        inputLayout.setHint(R.string.icon_size_hint);
+        int hPad = res.getDimensionPixelSize(R.dimen.settings_dialog_horizontal_pad);
+        int tPad = res.getDimensionPixelSize(R.dimen.settings_card_padding);
+        inputLayout.setPadding(hPad, tPad, hPad, 0);
+
+        TextInputEditText editText = new TextInputEditText(inputLayout.getContext());
+        editText.setInputType(InputType.TYPE_CLASS_NUMBER
+                | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        inputLayout.addView(editText);
+
+        // Pre-fill with current value as percentage
+        try {
+            float pct = Float.parseFloat(currentValue) * 100f;
+            editText.setText(String.format("%.0f", pct));
+        } catch (NumberFormatException ignored) { }
+
+        Runnable revertSelection = () -> {
+            if (lastPresetButtonId != View.NO_ID) {
+                toggleGroup.check(lastPresetButtonId);
+            } else {
+                toggleGroup.clearChecked();
+            }
+        };
+
+        new MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.icon_size_custom)
+                .setView(inputLayout)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    String text = editText.getText() != null
+                            ? editText.getText().toString().trim() : "";
+                    try {
+                        float pct = Float.parseFloat(text);
+                        pct = Math.max(50f, Math.min(100f, pct));
+                        String value = String.valueOf(pct / 100f);
+                        onValueAccepted.accept(value);
+                    } catch (NumberFormatException ignored) {
+                        revertSelection.run();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel,
+                        (dialog, which) -> revertSelection.run())
+                .setOnCancelListener(dialog -> revertSelection.run())
+                .show();
     }
 
     /**

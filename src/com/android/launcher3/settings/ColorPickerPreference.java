@@ -30,7 +30,6 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.preference.Preference;
@@ -121,13 +120,15 @@ public class ColorPickerPreference extends Preference {
 
     private void updateSwatchColor() {
         if (mSwatchView == null) return;
+        Resources res = getContext().getResources();
         int color = resolveCurrentColor();
+        int swatchSize = res.getDimensionPixelSize(R.dimen.settings_swatch_size);
         GradientDrawable circle = new GradientDrawable();
         circle.setShape(GradientDrawable.OVAL);
         circle.setColor(color);
-        circle.setSize(dp(24), dp(24));
+        circle.setSize(swatchSize, swatchSize);
         int outlineColor = getContext().getColor(R.color.materialColorOutline);
-        circle.setStroke(dp(1), outlineColor);
+        circle.setStroke(1, outlineColor);
         mSwatchView.setBackground(circle);
     }
 
@@ -142,72 +143,45 @@ public class ColorPickerPreference extends Preference {
         if (mDialog != null && mDialog.isShowing()) {
             mDialog.dismiss();
         }
-        BottomSheetDialog sheet = new BottomSheetDialog(ctx);
-        mDialog = sheet;
 
-        LinearLayout root = new LinearLayout(ctx);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, 0, 0,
-                res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal));
-
-        SettingsSheetBuilder.addSheetHandle(root, ctx, res);
-
-        // Title
-        TextView titleView = new TextView(ctx);
-        titleView.setText(getTitle());
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
-                res.getDimension(R.dimen.settings_sheet_title_text_size));
-        titleView.setTextColor(ctx.getColor(R.color.materialColorOnSurface));
-        int titlePadH = res.getDimensionPixelSize(
-                R.dimen.settings_card_padding_horizontal);
-        int titlePadV = res.getDimensionPixelSize(
-                R.dimen.settings_card_padding_vertical);
-        titleView.setPadding(titlePadH, titlePadV, titlePadH, titlePadV);
-        root.addView(titleView);
-
-        // Scrollable content with palette groups
-        ScrollView scrollView = new ScrollView(ctx);
-        scrollView.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        LinearLayout content = new LinearLayout(ctx);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setLayoutParams(new ScrollView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
+        SettingsSheetBuilder.SheetComponents c = new SettingsSheetBuilder(ctx)
+                .setTitle(getTitle())
+                .build();
+        mDialog = c.sheet;
 
         String currentValue = getCurrentValue();
         if (currentValue == null) currentValue = "";
         int outlineColor = ctx.getColor(R.color.materialColorOutline);
 
         // "Default" row
-        addDefaultRow(content, ctx, currentValue, outlineColor, sheet);
+        addDefaultRow(c.contentArea, ctx, res, currentValue, outlineColor, c.sheet);
 
         // Tonal palette groups
         List<PaletteGroup> groups = AllAppsColorResolver.getPaletteGroups();
         for (PaletteGroup group : groups) {
-            addPaletteGroupRow(content, ctx, group, currentValue, outlineColor, sheet);
+            addPaletteGroupRow(c.contentArea, ctx, res, group, currentValue, outlineColor, c.sheet);
         }
 
-        scrollView.addView(content);
-        root.addView(scrollView);
-        sheet.setContentView(root);
-        sheet.show();
+        c.showScrollable();
     }
 
-    private void addDefaultRow(LinearLayout parent, Context ctx,
+    private void addDefaultRow(LinearLayout parent, Context ctx, Resources res,
             String currentValue, int outlineColor, BottomSheetDialog sheet) {
+        int padH = res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal);
+        int padV = res.getDimensionPixelSize(R.dimen.settings_vertical_pad_large);
+        int padGap = res.getDimensionPixelSize(R.dimen.settings_item_gap);
+
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(24), dp(12), dp(24), dp(4));
+        row.setPadding(padH, padV, padH, padGap);
 
         boolean isSelected = currentValue.isEmpty();
 
         // Default swatch
         View swatch = new View(ctx);
-        int swatchSize = dp(36);
+        int swatchSize = res.getDimensionPixelSize(
+                R.dimen.settings_color_picker_swatch_default_size);
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(swatchSize, swatchSize);
         swatch.setLayoutParams(slp);
 
@@ -216,7 +190,8 @@ public class ColorPickerPreference extends Preference {
         circle.setShape(GradientDrawable.OVAL);
         circle.setColor(defaultColor);
         if (isSelected) {
-            circle.setStroke(dp(3), outlineColor);
+            circle.setStroke(res.getDimensionPixelSize(
+                    R.dimen.settings_color_picker_selected_stroke), outlineColor);
         }
         swatch.setBackground(circle);
 
@@ -228,7 +203,7 @@ public class ColorPickerPreference extends Preference {
         LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        llp.setMarginStart(dp(12));
+        llp.setMarginStart(res.getDimensionPixelSize(R.dimen.settings_icon_margin_end));
         label.setLayoutParams(llp);
 
         row.addView(swatch);
@@ -249,25 +224,30 @@ public class ColorPickerPreference extends Preference {
         parent.addView(row);
     }
 
-    private void addPaletteGroupRow(LinearLayout parent, Context ctx,
+    private void addPaletteGroupRow(LinearLayout parent, Context ctx, Resources res,
             PaletteGroup group, String currentValue, int outlineColor,
             BottomSheetDialog sheet) {
+        int padH = res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal);
+        int padV = res.getDimensionPixelSize(R.dimen.settings_vertical_pad_large);
+        int padGap = res.getDimensionPixelSize(R.dimen.settings_item_gap);
+
         // Section header
         TextView header = new TextView(ctx);
         header.setText(group.label);
         header.setTextSize(TypedValue.COMPLEX_UNIT_PX,
-                ctx.getResources().getDimension(R.dimen.settings_sheet_category_text_size));
+                res.getDimension(R.dimen.settings_sheet_category_text_size));
         header.setTextColor(ctx.getColor(R.color.materialColorOnSurfaceVariant));
         header.setAllCaps(true);
         header.setLetterSpacing(0.1f);
-        header.setPadding(dp(24), dp(12), dp(24), dp(4));
+        header.setPadding(padH, padV, padH, padGap);
         parent.addView(header);
 
         // Horizontal scrolling row of swatches — edge to edge
+        int scrollPad = res.getDimensionPixelSize(R.dimen.settings_card_margin_horizontal);
         HorizontalScrollView hScroll = new HorizontalScrollView(ctx);
         hScroll.setHorizontalScrollBarEnabled(false);
         hScroll.setClipToPadding(false);
-        hScroll.setPadding(dp(16), 0, dp(16), 0);
+        hScroll.setPadding(scrollPad, 0, scrollPad, 0);
         hScroll.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -276,17 +256,17 @@ public class ColorPickerPreference extends Preference {
         swatchRow.setOrientation(LinearLayout.HORIZONTAL);
 
         for (SwatchEntry entry : group.swatches) {
-            addSwatch(swatchRow, ctx, entry, currentValue, outlineColor, sheet);
+            addSwatch(swatchRow, ctx, res, entry, currentValue, outlineColor, sheet);
         }
 
         hScroll.addView(swatchRow);
         parent.addView(hScroll);
     }
 
-    private void addSwatch(LinearLayout row, Context ctx, SwatchEntry entry,
+    private void addSwatch(LinearLayout row, Context ctx, Resources res, SwatchEntry entry,
             String currentValue, int outlineColor, BottomSheetDialog sheet) {
-        int swatchSize = dp(40);
-        int margin = dp(4);
+        int swatchSize = res.getDimensionPixelSize(R.dimen.settings_pack_icon_size);
+        int margin = res.getDimensionPixelSize(R.dimen.settings_item_gap);
 
         FrameLayout wrapper = new FrameLayout(ctx);
         LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(
@@ -304,7 +284,8 @@ public class ColorPickerPreference extends Preference {
         circle.setShape(GradientDrawable.OVAL);
         circle.setColor(ctx.getColor(entry.androidColorResId));
         if (isSelected) {
-            circle.setStroke(dp(3), outlineColor);
+            circle.setStroke(res.getDimensionPixelSize(
+                    R.dimen.settings_color_picker_selected_stroke), outlineColor);
         }
         swatch.setBackground(circle);
         wrapper.addView(swatch);
@@ -331,11 +312,5 @@ public class ColorPickerPreference extends Preference {
             mDialog.dismiss();
         }
         mDialog = null;
-    }
-
-    private int dp(int value) {
-        return (int) TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP, value,
-                getContext().getResources().getDisplayMetrics());
     }
 }

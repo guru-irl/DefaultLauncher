@@ -357,7 +357,7 @@ public class AlphabeticalAppsList<T extends Context & ActivityContext> implement
         }
 
         if (mAdapter != null) {
-            DiffUtil.calculateDiff(new MyDiffCallback(oldItems, mAdapterItems), false)
+            DiffUtil.calculateDiff(new MyDiffCallback(oldItems, mAdapterItems), true)
                     .dispatchUpdatesTo(mAdapter);
         }
     }

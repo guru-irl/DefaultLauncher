@@ -50,7 +50,7 @@ public class ShortcutSearchProvider implements SearchProvider<ShortcutResult> {
     @Override
     public void search(String query, Consumer<List<ShortcutResult>> callback) {
         mCancelled = false;
-        Executors.MODEL_EXECUTOR.execute(() -> {
+        Executors.THREAD_POOL_EXECUTOR.execute(() -> {
             List<ShortcutResult> results = searchShortcuts(query);
             if (!mCancelled) {
                 mResultHandler.post(() -> callback.accept(results));

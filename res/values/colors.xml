@@ -202,4 +202,7 @@
     <color name="materialColorSecondary">@color/system_secondary_light</color>
     <color name="materialColorTertiary">@color/system_tertiary_light</color>
     <color name="materialColorError">@color/system_error_light</color>
+
+    <!-- Semantic: search result card background (light=lowest, dark=high) -->
+    <color name="searchResultCardBackground">@color/materialColorSurfaceContainerLowest</color>
 </resources>

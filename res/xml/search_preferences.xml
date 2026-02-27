@@ -56,6 +56,13 @@
             android:defaultValue="true"
             launcher:iconSpaceReserved="false" />
 
+        <androidx.preference.SwitchPreferenceCompat
+            android:key="pref_search_timezone"
+            android:title="@string/search_timezone_title"
+            android:summary="@string/search_timezone_summary"
+            android:defaultValue="true"
+            launcher:iconSpaceReserved="false" />
+
     </androidx.preference.PreferenceCategory>
 
     <androidx.preference.PreferenceCategory
@@ -66,6 +73,12 @@
             android:key="pref_search_web_app"
             android:title="@string/search_web_app_title"
             android:summary="@string/search_web_app_summary"
+            launcher:iconSpaceReserved="false" />
+
+        <androidx.preference.Preference
+            android:key="pref_search_ai_app"
+            android:title="@string/search_ai_app_title"
+            android:summary="@string/search_ai_app_summary"
             launcher:iconSpaceReserved="false" />
 
         <androidx.preference.SwitchPreferenceCompat

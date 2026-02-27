@@ -57,7 +57,7 @@ public class CalendarSearchProvider implements SearchProvider<CalendarResult> {
         }
 
         mCancelled = false;
-        Executors.MODEL_EXECUTOR.execute(() -> {
+        Executors.THREAD_POOL_EXECUTOR.execute(() -> {
             List<CalendarResult> results = queryCalendar(query);
             if (!mCancelled) {
                 mResultHandler.post(() -> callback.accept(results));
