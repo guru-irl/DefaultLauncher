@@ -14,6 +14,7 @@ Custom Android launcher based on AOSP Launcher3 (Android 16 s2-release).
 | [Icon Shapes & Packs](icon-shapes-and-packs.md) | ADW icon pack support and shape picker |
 | [Per-App Icon Customization](per-app-icon-customization.md) | Individual icon overrides per app |
 | [Folders](folders.md) | Cover icons, expanded grid, resize, shapes, colors |
+| [Widget Stacks](widget-stack.md) | Multiple widgets in a single cell with horizontal swipe navigation |
 
 ## Guides
 
@@ -33,6 +34,12 @@ Numbered implementation docs tracking each feature and fix:
 | [040](changes/040-search-quality-fixes.md) | Search quality fixes: FileProvider crash, localization, threading, DiffUtil |
 | [039](changes/039-orthogonal-icon-toggles-provenance-detection.md) | Orthogonal icon toggles & provenance-based detection |
 | [038](changes/038-widget-stack-data-integrity.md) | Widget stack data integrity & restore fixes |
+| [037](changes/037-settings-duplication-consolidation.md) | Settings component deduplication (~600+ lines eliminated) |
+| [036](changes/036-widget-stack-touch-and-visibility-fixes.md) | Widget stack touch & visibility fixes (Samsung disappearing bug) |
+| [035](changes/035-widget-stack-editor.md) | Widget stack editor (bottom sheet reorder/remove/add) |
+| [034](changes/034-widget-stack-code-quality.md) | Widget stack code quality refactoring |
+| [033](changes/033-folder-and-icon-picker-fixes.md) | Folder & icon picker fixes |
+| [032](changes/032-r8-minification.md) | R8 minification (APK 34 MB → 8.6 MB) |
 | [031](changes/031-app-icon-refresh-and-workspace-clipping-fix.md) | App icon refresh & workspace clipping fix |
 | [030](changes/030-folder-refactoring.md) | Folder refactoring |
 | [029](changes/029-folder-features.md) | Folder features |
