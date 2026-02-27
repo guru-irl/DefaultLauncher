@@ -27,7 +27,7 @@
     android:hint="@string/all_apps_search_bar_hint"
     android:imeOptions="actionSearch|flagNoExtractUi"
     android:importantForAutofill="no"
-    android:inputType="text|textNoSuggestions|textCapWords"
+    android:inputType="text|textNoSuggestions"
     android:maxLines="1"
     android:paddingStart="16dp"
     android:paddingEnd="16dp"

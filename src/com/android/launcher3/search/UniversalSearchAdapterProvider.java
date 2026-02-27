@@ -446,24 +446,25 @@ public class UniversalSearchAdapterProvider extends SearchAdapterProvider<Activi
     private void bindTimezone(View view, SearchResultAdapterItem item) {
         if (!(item.resultData instanceof TimezoneResult tz)) return;
 
-        View sourceRow = view.findViewById(R.id.tz_source_row);
+        // LHS (source / local)
         TextView sourceTime = view.findViewById(R.id.tz_source_time);
         TextView sourceZone = view.findViewById(R.id.tz_source_zone);
+        TextView sourceDate = view.findViewById(R.id.tz_source_date);
+        sourceTime.setText(tz.sourceTimeFormatted);
+        sourceZone.setText(tz.sourceZoneName);
+        if (tz.sourceDate != null) {
+            sourceDate.setVisibility(View.VISIBLE);
+            sourceDate.setText(tz.sourceDate);
+        } else {
+            sourceDate.setVisibility(View.GONE);
+        }
+
+        // RHS (target / requested)
         TextView targetTime = view.findViewById(R.id.tz_target_time);
         TextView targetZone = view.findViewById(R.id.tz_target_zone);
         TextView targetDate = view.findViewById(R.id.tz_target_date);
-
-        if (tz.isCurrentTimeQuery) {
-            sourceRow.setVisibility(View.GONE);
-        } else {
-            sourceRow.setVisibility(View.VISIBLE);
-            sourceTime.setText(tz.sourceTimeFormatted);
-            sourceZone.setText(tz.sourceZoneName);
-        }
-
         targetTime.setText(tz.targetTimeFormatted);
         targetZone.setText(tz.targetZoneName);
-
         if (tz.targetDate != null) {
             targetDate.setVisibility(View.VISIBLE);
             targetDate.setText(tz.targetDate);

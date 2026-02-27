@@ -20,6 +20,7 @@ package com.android.launcher3.settings;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -39,30 +40,111 @@ public class ColorDebugPreference extends Preference {
 
     private static final String GRID_TAG = "color_debug_grid";
 
-    private static final int[] COLOR_RESOURCES = {
-        R.color.materialColorPrimary,
-        R.color.materialColorOnPrimary,
-        R.color.materialColorPrimaryContainer,
-        R.color.materialColorOnPrimaryContainer,
-        R.color.materialColorSecondary,
-        R.color.materialColorOnSecondary,
-        R.color.materialColorTertiary,
-        R.color.materialColorOnTertiary,
-        R.color.materialColorSurface,
-        R.color.materialColorSurfaceContainer,
-        R.color.materialColorSurfaceContainerHigh,
-        R.color.materialColorOnSurface,
-        R.color.materialColorOnSurfaceVariant,
-        R.color.materialColorOutline,
-        R.color.materialColorOutlineVariant,
-        R.color.materialColorError,
+    private static final String[] SECTION_NAMES = {
+        "Primary", "Secondary", "Tertiary", "Error", "Surface", "Outline",
     };
 
-    private static final String[] COLOR_NAMES = {
-        "Primary", "OnPrimary", "PrimaryContainer", "OnPrimaryContainer",
-        "Secondary", "OnSecondary", "Tertiary", "OnTertiary",
-        "Surface", "SurfaceContainer", "SurfaceContainerHigh",
-        "OnSurface", "OnSurfaceVariant", "Outline", "OutlineVariant", "Error",
+    private static final int[][] SECTION_COLORS = {
+        // Primary
+        {
+            R.color.materialColorPrimary,
+            R.color.materialColorOnPrimary,
+            R.color.materialColorPrimaryContainer,
+            R.color.materialColorOnPrimaryContainer,
+            R.color.materialColorPrimaryFixed,
+            R.color.materialColorPrimaryFixedDim,
+            R.color.materialColorOnPrimaryFixed,
+            R.color.materialColorOnPrimaryFixedVariant,
+            R.color.materialColorInversePrimary,
+        },
+        // Secondary
+        {
+            R.color.materialColorSecondary,
+            R.color.materialColorOnSecondary,
+            R.color.materialColorSecondaryContainer,
+            R.color.materialColorOnSecondaryContainer,
+            R.color.materialColorSecondaryFixed,
+            R.color.materialColorSecondaryFixedDim,
+            R.color.materialColorOnSecondaryFixed,
+            R.color.materialColorOnSecondaryFixedVariant,
+        },
+        // Tertiary
+        {
+            R.color.materialColorTertiary,
+            R.color.materialColorOnTertiary,
+            R.color.materialColorTertiaryContainer,
+            R.color.materialColorOnTertiaryContainer,
+            R.color.materialColorTertiaryFixed,
+            R.color.materialColorTertiaryFixedDim,
+            R.color.materialColorOnTertiaryFixed,
+            R.color.materialColorOnTertiaryFixedVariant,
+        },
+        // Error
+        {
+            R.color.materialColorError,
+            R.color.materialColorOnError,
+            R.color.materialColorErrorContainer,
+            R.color.materialColorOnErrorContainer,
+        },
+        // Surface
+        {
+            R.color.materialColorSurface,
+            R.color.materialColorSurfaceDim,
+            R.color.materialColorSurfaceBright,
+            R.color.materialColorSurfaceVariant,
+            R.color.materialColorSurfaceContainerLowest,
+            R.color.materialColorSurfaceContainerLow,
+            R.color.materialColorSurfaceContainer,
+            R.color.materialColorSurfaceContainerHigh,
+            R.color.materialColorSurfaceContainerHighest,
+            R.color.materialColorOnSurface,
+            R.color.materialColorOnSurfaceVariant,
+            R.color.materialColorOnBackground,
+            R.color.materialColorInverseSurface,
+            R.color.materialColorInverseOnSurface,
+        },
+        // Outline
+        {
+            R.color.materialColorOutline,
+            R.color.materialColorOutlineVariant,
+        },
+    };
+
+    private static final String[][] SECTION_LABELS = {
+        // Primary
+        {
+            "Primary", "OnPrimary", "PrimaryContainer", "OnPrimaryContainer",
+            "PrimaryFixed", "PrimaryFixedDim", "OnPrimaryFixed",
+            "OnPrimaryFixedVariant", "InversePrimary",
+        },
+        // Secondary
+        {
+            "Secondary", "OnSecondary", "SecondaryContainer",
+            "OnSecondaryContainer", "SecondaryFixed", "SecondaryFixedDim",
+            "OnSecondaryFixed", "OnSecondaryFixedVariant",
+        },
+        // Tertiary
+        {
+            "Tertiary", "OnTertiary", "TertiaryContainer",
+            "OnTertiaryContainer", "TertiaryFixed", "TertiaryFixedDim",
+            "OnTertiaryFixed", "OnTertiaryFixedVariant",
+        },
+        // Error
+        {
+            "Error", "OnError", "ErrorContainer", "OnErrorContainer",
+        },
+        // Surface
+        {
+            "Surface", "SurfaceDim", "SurfaceBright", "SurfaceVariant",
+            "SrfcContainerLowest", "SrfcContainerLow", "SrfcContainer",
+            "SrfcContainerHigh", "SrfcContainerHighest",
+            "OnSurface", "OnSurfaceVariant", "OnBackground",
+            "InverseSurface", "InverseOnSurface",
+        },
+        // Outline
+        {
+            "Outline", "OutlineVariant",
+        },
     };
 
     public ColorDebugPreference(Context context, AttributeSet attrs) {
@@ -75,7 +157,6 @@ public class ColorDebugPreference extends Preference {
         holder.setDividerAllowedAbove(false);
         holder.setDividerAllowedBelow(false);
 
-        // Work with whatever layout the adapter provides
         ViewGroup root = (ViewGroup) holder.itemView;
 
         // Reuse cached grid if present — just update color values
@@ -103,39 +184,65 @@ public class ColorDebugPreference extends Preference {
         int pad = res.getDimensionPixelSize(R.dimen.settings_vertical_pad_small);
         int swatchSize = res.getDimensionPixelSize(R.dimen.settings_swatch_size);
         float cornerRadius = res.getDimension(R.dimen.settings_card_small_corner_radius);
+        int headerColor = ctx.getColor(R.color.materialColorPrimary);
+        int strokeColor = ctx.getColor(R.color.materialColorOutlineVariant);
 
-        for (int i = 0; i < COLOR_RESOURCES.length; i++) {
-            int color = ctx.getColor(COLOR_RESOURCES[i]);
+        int row = 0;
+        for (int s = 0; s < SECTION_NAMES.length; s++) {
+            // Section header spanning both columns
+            TextView header = new TextView(ctx);
+            header.setText(SECTION_NAMES[s]);
+            header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            header.setTypeface(Typeface.create(Typeface.DEFAULT, 500, false));
+            header.setTextColor(headerColor);
+            header.setPadding(pad, s > 0 ? vertPad : 0, pad, pad / 2);
 
-            LinearLayout swatch = new LinearLayout(ctx);
-            swatch.setOrientation(LinearLayout.HORIZONTAL);
-            swatch.setGravity(Gravity.CENTER_VERTICAL);
-            swatch.setPadding(pad, pad, pad, pad);
+            GridLayout.LayoutParams hp = new GridLayout.LayoutParams();
+            hp.columnSpec = GridLayout.spec(0, 2, 1f);
+            hp.rowSpec = GridLayout.spec(row);
+            hp.width = 0;
+            header.setLayoutParams(hp);
+            grid.addView(header);
+            row++;
 
-            View colorRect = new View(ctx);
-            LinearLayout.LayoutParams rectParams =
-                    new LinearLayout.LayoutParams(swatchSize, swatchSize);
-            rectParams.setMarginEnd(pad * 2);
-            colorRect.setLayoutParams(rectParams);
-            GradientDrawable bg = new GradientDrawable();
-            bg.setShape(GradientDrawable.RECTANGLE);
-            bg.setCornerRadius(cornerRadius);
-            bg.setColor(color);
-            bg.setStroke(1, ctx.getColor(R.color.materialColorOutlineVariant));
-            colorRect.setBackground(bg);
-            swatch.addView(colorRect);
+            // Color swatches in 2-column pairs
+            int[] colors = SECTION_COLORS[s];
+            String[] labels = SECTION_LABELS[s];
+            for (int i = 0; i < colors.length; i++) {
+                int color = ctx.getColor(colors[i]);
 
-            TextView tv = new TextView(ctx);
-            tv.setText(COLOR_NAMES[i] + "\n" + String.format("#%06X", 0xFFFFFF & color));
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-            swatch.addView(tv);
+                LinearLayout swatch = new LinearLayout(ctx);
+                swatch.setOrientation(LinearLayout.HORIZONTAL);
+                swatch.setGravity(Gravity.CENTER_VERTICAL);
+                swatch.setPadding(pad, pad, pad, pad);
 
-            GridLayout.LayoutParams glp = new GridLayout.LayoutParams();
-            glp.columnSpec = GridLayout.spec(i % 2, 1f);
-            glp.rowSpec = GridLayout.spec(i / 2);
-            glp.width = 0;
-            swatch.setLayoutParams(glp);
-            grid.addView(swatch);
+                View colorRect = new View(ctx);
+                LinearLayout.LayoutParams rectParams =
+                        new LinearLayout.LayoutParams(swatchSize, swatchSize);
+                rectParams.setMarginEnd(pad * 2);
+                colorRect.setLayoutParams(rectParams);
+                GradientDrawable bg = new GradientDrawable();
+                bg.setShape(GradientDrawable.RECTANGLE);
+                bg.setCornerRadius(cornerRadius);
+                bg.setColor(color);
+                bg.setStroke(1, strokeColor);
+                colorRect.setBackground(bg);
+                swatch.addView(colorRect);
+
+                TextView tv = new TextView(ctx);
+                tv.setText(labels[i] + "\n"
+                        + String.format("#%06X", 0xFFFFFF & color));
+                tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                swatch.addView(tv);
+
+                GridLayout.LayoutParams glp = new GridLayout.LayoutParams();
+                glp.columnSpec = GridLayout.spec(i % 2, 1f);
+                glp.rowSpec = GridLayout.spec(row + i / 2);
+                glp.width = 0;
+                swatch.setLayoutParams(glp);
+                grid.addView(swatch);
+            }
+            row += (colors.length + 1) / 2;
         }
 
         root.addView(grid);
@@ -143,21 +250,25 @@ public class ColorDebugPreference extends Preference {
 
     private void updateGridColors(GridLayout grid) {
         Context ctx = getContext();
-        for (int i = 0; i < grid.getChildCount() && i < COLOR_RESOURCES.length; i++) {
-            View child = grid.getChildAt(i);
-            if (!(child instanceof LinearLayout)) continue;
-            LinearLayout swatch = (LinearLayout) child;
-            int color = ctx.getColor(COLOR_RESOURCES[i]);
-            // Update color rect background
-            View colorRect = swatch.getChildAt(0);
-            if (colorRect != null && colorRect.getBackground() instanceof GradientDrawable) {
-                ((GradientDrawable) colorRect.getBackground()).setColor(color);
-            }
-            // Update label text
-            View labelChild = swatch.getChildAt(1);
-            if (labelChild instanceof TextView) {
-                ((TextView) labelChild).setText(
-                        COLOR_NAMES[i] + "\n" + String.format("#%06X", 0xFFFFFF & color));
+        int childIdx = 0;
+        for (int s = 0; s < SECTION_COLORS.length; s++) {
+            childIdx++; // skip section header
+            for (int i = 0; i < SECTION_COLORS[s].length; i++) {
+                if (childIdx >= grid.getChildCount()) return;
+                View child = grid.getChildAt(childIdx);
+                childIdx++;
+                if (!(child instanceof LinearLayout swatch)) continue;
+                int color = ctx.getColor(SECTION_COLORS[s][i]);
+                View colorRect = swatch.getChildAt(0);
+                if (colorRect != null
+                        && colorRect.getBackground() instanceof GradientDrawable gd) {
+                    gd.setColor(color);
+                }
+                View labelView = swatch.getChildAt(1);
+                if (labelView instanceof TextView tv) {
+                    tv.setText(SECTION_LABELS[s][i] + "\n"
+                            + String.format("#%06X", 0xFFFFFF & color));
+                }
             }
         }
     }

@@ -17,13 +17,14 @@ import android.os.Handler;
 
 import com.android.launcher3.search.result.TimezoneResult;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -32,7 +33,10 @@ import java.util.regex.Pattern;
 
 /**
  * Parses timezone conversion queries (e.g. "5pm India to Chicago",
- * "time in Tokyo", "3:30pm IST to PST") using java.time APIs.
+ * "time in Tokyo", "chicago time", "3:30pm IST to PST") using java.time APIs.
+ *
+ * <p>Zone resolution is delegated to {@link TimezoneResolver}, which auto-generates
+ * ~650+ location lookups from IANA, ICU, and Locale platform APIs.
  */
 public class TimezoneProvider implements SearchProvider<TimezoneResult> {
 
@@ -46,190 +50,38 @@ public class TimezoneProvider implements SearchProvider<TimezoneResult> {
             "(?:time\\s+in|current\\s+time\\s+in|what\\s+time\\s+(?:is\\s+it\\s+)?in)\\s+(.+)",
             Pattern.CASE_INSENSITIVE);
 
+    // "chicago time", "india time", "tokyo time"
+    private static final Pattern PLACE_TIME_PATTERN = Pattern.compile(
+            "(.+?)\\s+time", Pattern.CASE_INSENSITIVE);
+
+    // "4pm chicago time", "4pm chicago time tuesday", "4pm chicago time tue to tokyo"
+    private static final Pattern TIMED_PLACE_PATTERN = Pattern.compile(
+            "(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)\\s+(.+?)\\s+time"
+            + "(?:\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday"
+            + "|mon|tue|wed|thu|fri|sat|sun))?"
+            + "(?:\\s+(?:to|in|>)\\s+(.+))?$",
+            Pattern.CASE_INSENSITIVE);
+
+    private static final Map<String, DayOfWeek> DAY_OF_WEEK_MAP = Map.ofEntries(
+            Map.entry("monday", DayOfWeek.MONDAY),
+            Map.entry("mon", DayOfWeek.MONDAY),
+            Map.entry("tuesday", DayOfWeek.TUESDAY),
+            Map.entry("tue", DayOfWeek.TUESDAY),
+            Map.entry("wednesday", DayOfWeek.WEDNESDAY),
+            Map.entry("wed", DayOfWeek.WEDNESDAY),
+            Map.entry("thursday", DayOfWeek.THURSDAY),
+            Map.entry("thu", DayOfWeek.THURSDAY),
+            Map.entry("friday", DayOfWeek.FRIDAY),
+            Map.entry("fri", DayOfWeek.FRIDAY),
+            Map.entry("saturday", DayOfWeek.SATURDAY),
+            Map.entry("sat", DayOfWeek.SATURDAY),
+            Map.entry("sunday", DayOfWeek.SUNDAY),
+            Map.entry("sun", DayOfWeek.SUNDAY));
+
     private static final DateTimeFormatter TIME_FORMAT =
             DateTimeFormatter.ofPattern("h:mm a");
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("EEE, MMM d");
-
-    private static final Map<String, ZoneId> ZONES = new HashMap<>();
-
-    static {
-        // Major cities
-        put("new york", "America/New_York");
-        put("nyc", "America/New_York");
-        put("los angeles", "America/Los_Angeles");
-        put("la", "America/Los_Angeles");
-        put("chicago", "America/Chicago");
-        put("houston", "America/Chicago");
-        put("dallas", "America/Chicago");
-        put("denver", "America/Denver");
-        put("phoenix", "America/Phoenix");
-        put("san francisco", "America/Los_Angeles");
-        put("seattle", "America/Los_Angeles");
-        put("miami", "America/New_York");
-        put("boston", "America/New_York");
-        put("atlanta", "America/New_York");
-        put("detroit", "America/Detroit");
-        put("honolulu", "Pacific/Honolulu");
-        put("anchorage", "America/Anchorage");
-        put("toronto", "America/Toronto");
-        put("vancouver", "America/Vancouver");
-        put("montreal", "America/Montreal");
-        put("mexico city", "America/Mexico_City");
-        put("london", "Europe/London");
-        put("paris", "Europe/Paris");
-        put("berlin", "Europe/Berlin");
-        put("rome", "Europe/Rome");
-        put("madrid", "Europe/Madrid");
-        put("amsterdam", "Europe/Amsterdam");
-        put("brussels", "Europe/Brussels");
-        put("zurich", "Europe/Zurich");
-        put("vienna", "Europe/Vienna");
-        put("stockholm", "Europe/Stockholm");
-        put("oslo", "Europe/Oslo");
-        put("copenhagen", "Europe/Copenhagen");
-        put("helsinki", "Europe/Helsinki");
-        put("warsaw", "Europe/Warsaw");
-        put("prague", "Europe/Prague");
-        put("athens", "Europe/Athens");
-        put("istanbul", "Europe/Istanbul");
-        put("moscow", "Europe/Moscow");
-        put("dubai", "Asia/Dubai");
-        put("abu dhabi", "Asia/Dubai");
-        put("riyadh", "Asia/Riyadh");
-        put("doha", "Asia/Qatar");
-        put("mumbai", "Asia/Kolkata");
-        put("delhi", "Asia/Kolkata");
-        put("new delhi", "Asia/Kolkata");
-        put("bangalore", "Asia/Kolkata");
-        put("bengaluru", "Asia/Kolkata");
-        put("hyderabad", "Asia/Kolkata");
-        put("chennai", "Asia/Kolkata");
-        put("kolkata", "Asia/Kolkata");
-        put("karachi", "Asia/Karachi");
-        put("lahore", "Asia/Karachi");
-        put("dhaka", "Asia/Dhaka");
-        put("kathmandu", "Asia/Kathmandu");
-        put("colombo", "Asia/Colombo");
-        put("bangkok", "Asia/Bangkok");
-        put("jakarta", "Asia/Jakarta");
-        put("kuala lumpur", "Asia/Kuala_Lumpur");
-        put("singapore", "Asia/Singapore");
-        put("hong kong", "Asia/Hong_Kong");
-        put("taipei", "Asia/Taipei");
-        put("shanghai", "Asia/Shanghai");
-        put("beijing", "Asia/Shanghai");
-        put("seoul", "Asia/Seoul");
-        put("tokyo", "Asia/Tokyo");
-        put("osaka", "Asia/Tokyo");
-        put("manila", "Asia/Manila");
-        put("sydney", "Australia/Sydney");
-        put("melbourne", "Australia/Melbourne");
-        put("brisbane", "Australia/Brisbane");
-        put("perth", "Australia/Perth");
-        put("auckland", "Pacific/Auckland");
-        put("wellington", "Pacific/Auckland");
-        put("fiji", "Pacific/Fiji");
-        put("sao paulo", "America/Sao_Paulo");
-        put("buenos aires", "America/Argentina/Buenos_Aires");
-        put("lima", "America/Lima");
-        put("bogota", "America/Bogota");
-        put("santiago", "America/Santiago");
-        put("cairo", "Africa/Cairo");
-        put("johannesburg", "Africa/Johannesburg");
-        put("lagos", "Africa/Lagos");
-        put("nairobi", "Africa/Nairobi");
-        put("casablanca", "Africa/Casablanca");
-
-        // Countries
-        put("india", "Asia/Kolkata");
-        put("japan", "Asia/Tokyo");
-        put("china", "Asia/Shanghai");
-        put("korea", "Asia/Seoul");
-        put("south korea", "Asia/Seoul");
-        put("australia", "Australia/Sydney");
-        put("new zealand", "Pacific/Auckland");
-        put("uk", "Europe/London");
-        put("united kingdom", "Europe/London");
-        put("england", "Europe/London");
-        put("france", "Europe/Paris");
-        put("germany", "Europe/Berlin");
-        put("italy", "Europe/Rome");
-        put("spain", "Europe/Madrid");
-        put("russia", "Europe/Moscow");
-        put("brazil", "America/Sao_Paulo");
-        put("argentina", "America/Argentina/Buenos_Aires");
-        put("mexico", "America/Mexico_City");
-        put("canada", "America/Toronto");
-        put("usa", "America/New_York");
-        put("us", "America/New_York");
-        put("pakistan", "Asia/Karachi");
-        put("bangladesh", "Asia/Dhaka");
-        put("nepal", "Asia/Kathmandu");
-        put("sri lanka", "Asia/Colombo");
-        put("thailand", "Asia/Bangkok");
-        put("indonesia", "Asia/Jakarta");
-        put("malaysia", "Asia/Kuala_Lumpur");
-        put("philippines", "Asia/Manila");
-        put("taiwan", "Asia/Taipei");
-        put("egypt", "Africa/Cairo");
-        put("south africa", "Africa/Johannesburg");
-        put("nigeria", "Africa/Lagos");
-        put("kenya", "Africa/Nairobi");
-        put("uae", "Asia/Dubai");
-        put("saudi arabia", "Asia/Riyadh");
-        put("qatar", "Asia/Qatar");
-        put("turkey", "Europe/Istanbul");
-        put("greece", "Europe/Athens");
-        put("poland", "Europe/Warsaw");
-        put("netherlands", "Europe/Amsterdam");
-        put("switzerland", "Europe/Zurich");
-        put("sweden", "Europe/Stockholm");
-        put("norway", "Europe/Oslo");
-        put("denmark", "Europe/Copenhagen");
-        put("finland", "Europe/Helsinki");
-
-        // Timezone abbreviations (ambiguous ones default to US)
-        put("est", "America/New_York");
-        put("edt", "America/New_York");
-        put("cst", "America/Chicago");
-        put("cdt", "America/Chicago");
-        put("mst", "America/Denver");
-        put("mdt", "America/Denver");
-        put("pst", "America/Los_Angeles");
-        put("pdt", "America/Los_Angeles");
-        put("akst", "America/Anchorage");
-        put("hst", "Pacific/Honolulu");
-        put("gmt", "GMT");
-        put("utc", "UTC");
-        put("bst", "Europe/London");
-        put("cet", "Europe/Paris");
-        put("eet", "Europe/Athens");
-        put("ist", "Asia/Kolkata");
-        put("jst", "Asia/Tokyo");
-        put("kst", "Asia/Seoul");
-        put("cst china", "Asia/Shanghai");
-        put("hkt", "Asia/Hong_Kong");
-        put("sgt", "Asia/Singapore");
-        put("aest", "Australia/Sydney");
-        put("acst", "Australia/Adelaide");
-        put("awst", "Australia/Perth");
-        put("nzst", "Pacific/Auckland");
-        put("pkt", "Asia/Karachi");
-        put("bdt", "Asia/Dhaka");
-        put("npt", "Asia/Kathmandu");
-        put("ict", "Asia/Bangkok");
-        put("wib", "Asia/Jakarta");
-        put("msk", "Europe/Moscow");
-        put("gst", "Asia/Dubai");
-        put("ast", "Asia/Riyadh");
-        put("brt", "America/Sao_Paulo");
-        put("art", "America/Argentina/Buenos_Aires");
-    }
-
-    private static void put(String name, String zoneId) {
-        ZONES.put(name, ZoneId.of(zoneId));
-    }
 
     private final Handler mResultHandler;
     private volatile boolean mCancelled;
@@ -247,6 +99,9 @@ public class TimezoneProvider implements SearchProvider<TimezoneResult> {
             if (mCancelled) return;
 
             TimezoneResult result = tryConvert(trimmed);
+            if (result == null && !mCancelled) {
+                result = tryTimedPlace(trimmed);
+            }
             if (result == null && !mCancelled) {
                 result = tryCurrentTime(trimmed);
             }
@@ -282,57 +137,104 @@ public class TimezoneProvider implements SearchProvider<TimezoneResult> {
         LocalTime time = parseTime(m.group(1).trim());
         if (time == null) return null;
 
-        ZoneId sourceZone = resolveZone(m.group(2).trim());
-        ZoneId targetZone = resolveZone(m.group(3).trim());
+        ZoneId sourceZone = TimezoneResolver.getInstance().resolve(m.group(2).trim());
+        ZoneId targetZone = TimezoneResolver.getInstance().resolve(m.group(3).trim());
         if (sourceZone == null || targetZone == null) return null;
 
         ZonedDateTime sourceDateTime = ZonedDateTime.of(
                 LocalDate.now(), time, sourceZone);
         ZonedDateTime targetDateTime = sourceDateTime.withZoneSameInstant(targetZone);
 
-        String targetDate = null;
-        if (!sourceDateTime.toLocalDate().equals(targetDateTime.toLocalDate())) {
-            targetDate = targetDateTime.format(DATE_FORMAT);
-        }
-
         return new TimezoneResult(
                 sourceDateTime.format(TIME_FORMAT),
                 formatZoneName(sourceZone),
+                sourceDateTime.format(DATE_FORMAT),
                 targetDateTime.format(TIME_FORMAT),
                 formatZoneName(targetZone),
-                targetDate,
+                computeRelativeDay(sourceDateTime.toLocalDate(),
+                        targetDateTime.toLocalDate()),
+                targetDateTime.format(DATE_FORMAT),
                 false);
     }
 
     private TimezoneResult tryCurrentTime(String query) {
+        // Try "time in X" patterns first, then "X time"
         Matcher m = CURRENT_TIME_PATTERN.matcher(query);
-        if (!m.matches()) return null;
+        if (!m.matches()) {
+            m = PLACE_TIME_PATTERN.matcher(query);
+            if (!m.matches()) return null;
+        }
 
-        ZoneId zone = resolveZone(m.group(1).trim());
+        ZoneId zone = TimezoneResolver.getInstance().resolve(m.group(1).trim());
         if (zone == null) return null;
 
         ZonedDateTime now = ZonedDateTime.now(zone);
-
-        String dateStr = null;
-        if (!now.toLocalDate().equals(LocalDate.now())) {
-            dateStr = now.format(DATE_FORMAT);
-        }
+        ZonedDateTime localNow = ZonedDateTime.now();
 
         return new TimezoneResult(
-                null, null,
+                localNow.format(TIME_FORMAT),
+                formatZoneName(localNow.getZone()),
+                localNow.format(DATE_FORMAT),
                 now.format(TIME_FORMAT),
                 formatZoneName(zone),
-                dateStr,
+                computeRelativeDay(localNow.toLocalDate(), now.toLocalDate()),
+                now.format(DATE_FORMAT),
                 true);
     }
 
-    private static ZoneId resolveZone(String input) {
-        // Strip trailing "time" suffix: "india time" → "india"
-        String cleaned = input.toLowerCase().replaceAll("\\s+time$", "").trim();
-        return ZONES.get(cleaned);
+    private TimezoneResult tryTimedPlace(String query) {
+        Matcher m = TIMED_PLACE_PATTERN.matcher(query);
+        if (!m.matches()) return null;
+
+        LocalTime time = parseTime(m.group(1).trim());
+        if (time == null) return null;
+
+        ZoneId sourceZone = TimezoneResolver.getInstance().resolve(m.group(2).trim());
+        if (sourceZone == null) return null;
+
+        // Optional day-of-week
+        LocalDate sourceDate = LocalDate.now(sourceZone);
+        if (m.group(3) != null) {
+            DayOfWeek dow = DAY_OF_WEEK_MAP.get(m.group(3).trim().toLowerCase());
+            if (dow != null) {
+                sourceDate = sourceDate.with(TemporalAdjusters.nextOrSame(dow));
+            }
+        }
+
+        // Optional target zone (defaults to device local)
+        ZoneId targetZone;
+        if (m.group(4) != null) {
+            targetZone = TimezoneResolver.getInstance().resolve(m.group(4).trim());
+            if (targetZone == null) return null;
+        } else {
+            targetZone = ZoneId.systemDefault();
+        }
+
+        ZonedDateTime sourceDateTime = ZonedDateTime.of(sourceDate, time, sourceZone);
+        ZonedDateTime targetDateTime = sourceDateTime.withZoneSameInstant(targetZone);
+
+        return new TimezoneResult(
+                sourceDateTime.format(TIME_FORMAT),
+                formatZoneName(sourceZone),
+                sourceDateTime.format(DATE_FORMAT),
+                targetDateTime.format(TIME_FORMAT),
+                formatZoneName(targetZone),
+                computeRelativeDay(sourceDateTime.toLocalDate(),
+                        targetDateTime.toLocalDate()),
+                targetDateTime.format(DATE_FORMAT),
+                false);
     }
 
-    private static String formatZoneName(ZoneId zone) {
+    private static String computeRelativeDay(LocalDate source, LocalDate target) {
+        long dayDiff = target.toEpochDay() - source.toEpochDay();
+        if (dayDiff == 0) return "Same day";
+        if (dayDiff == 1) return "Next day";
+        if (dayDiff == -1) return "Previous day";
+        if (dayDiff > 0) return "+" + dayDiff + " days";
+        return dayDiff + " days";
+    }
+
+    static String formatZoneName(ZoneId zone) {
         String id = zone.getId();
         // Show the city part of "Region/City" or the raw ID
         int slash = id.lastIndexOf('/');

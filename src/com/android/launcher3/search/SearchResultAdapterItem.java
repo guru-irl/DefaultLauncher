@@ -143,8 +143,13 @@ public class SearchResultAdapterItem extends AdapterItem {
             }
             if (resultData instanceof TimezoneResult a
                     && otherItem.resultData instanceof TimezoneResult b) {
-                return Objects.equals(a.targetTimeFormatted, b.targetTimeFormatted)
-                        && Objects.equals(a.targetZoneName, b.targetZoneName);
+                return Objects.equals(a.sourceTimeFormatted, b.sourceTimeFormatted)
+                        && Objects.equals(a.sourceZoneName, b.sourceZoneName)
+                        && Objects.equals(a.sourceDate, b.sourceDate)
+                        && Objects.equals(a.targetTimeFormatted, b.targetTimeFormatted)
+                        && Objects.equals(a.targetZoneName, b.targetZoneName)
+                        && Objects.equals(a.targetDate, b.targetDate)
+                        && Objects.equals(a.targetDateAbsolute, b.targetDateAbsolute);
             }
         }
 

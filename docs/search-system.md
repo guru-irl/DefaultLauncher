@@ -53,7 +53,8 @@ com.android.launcher3.search/
 │   ├── QuickActionProvider.java       # Pattern detection (phone, email, URL, web search)
 │   ├── CalculatorProvider.java        # Math expression evaluation
 │   ├── UnitConverterProvider.java     # Unit conversion (length, weight, temp, etc.)
-│   ├── TimezoneProvider.java          # Timezone conversion ("5pm India to Chicago")
+│   ├── TimezoneProvider.java          # Timezone conversion ("5pm India to Chicago", "4pm chicago time tue")
+│   ├── TimezoneResolver.java          # Auto-generated ~650+ zone lookups (IANA/ICU/Locale)
 │   ├── ContactSearchProvider.java     # ContactsContract lookup
 │   ├── CalendarSearchProvider.java    # CalendarContract event search
 │   └── FileSearchProvider.java        # MediaStore file search
@@ -454,7 +455,8 @@ Search result cards use `?attr/colorSecondaryContainer` / `?attr/colorOnSecondar
 | `src/.../search/SearchScorer.java` | Jaro-Winkler scoring with prefix/substring bonuses |
 | `src/.../search/providers/SearchProvider.java` | Provider interface |
 | `src/.../search/providers/QuickActionProvider.java` | Pattern detection (phone, email, URL, web search) |
-| `src/.../search/providers/TimezoneProvider.java` | Timezone conversion and current-time queries |
+| `src/.../search/providers/TimezoneProvider.java` | Timezone conversion, timed-place, and current-time queries |
+| `src/.../search/providers/TimezoneResolver.java` | Auto-generated ~650+ zone lookups from IANA/ICU/Locale APIs |
 | `src/.../search/result/QuickAction.java` | Quick action data class with Type enum |
 | `src/.../search/result/TimezoneResult.java` | Timezone result data class |
 | `src/.../allapps/search/AllAppsSearchBarController.java` | Text watcher with 150ms debounce, drives persistent search mode |

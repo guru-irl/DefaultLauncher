@@ -25,36 +25,39 @@ public class TimezoneResult implements Launchable {
 
     public final String sourceTimeFormatted;
     public final String sourceZoneName;
+    /** Absolute date for the source side (e.g. "Thu, Feb 27"). Always non-null. */
+    public final String sourceDate;
     public final String targetTimeFormatted;
     public final String targetZoneName;
-    /** Non-null if the target date differs from the source date (e.g. crosses midnight). */
+    /** Relative day label for the target side (e.g. "Same day", "Next day"). Always non-null. */
     public final String targetDate;
+    /** Absolute target date for clipboard (e.g. "Fri, Feb 28"). Always non-null. */
+    public final String targetDateAbsolute;
     public final boolean isCurrentTimeQuery;
 
     public TimezoneResult(String sourceTimeFormatted, String sourceZoneName,
+            String sourceDate,
             String targetTimeFormatted, String targetZoneName,
-            String targetDate, boolean isCurrentTimeQuery) {
+            String targetDate, String targetDateAbsolute,
+            boolean isCurrentTimeQuery) {
         this.sourceTimeFormatted = sourceTimeFormatted;
         this.sourceZoneName = sourceZoneName;
+        this.sourceDate = sourceDate;
         this.targetTimeFormatted = targetTimeFormatted;
         this.targetZoneName = targetZoneName;
         this.targetDate = targetDate;
+        this.targetDateAbsolute = targetDateAbsolute;
         this.isCurrentTimeQuery = isCurrentTimeQuery;
     }
 
     @Override
     public boolean launch(Context context) {
         StringBuilder sb = new StringBuilder();
-        if (isCurrentTimeQuery) {
-            sb.append(targetTimeFormatted).append(" ").append(targetZoneName);
-        } else {
-            sb.append(sourceTimeFormatted).append(" ").append(sourceZoneName)
-                    .append(" = ")
-                    .append(targetTimeFormatted).append(" ").append(targetZoneName);
-        }
-        if (targetDate != null) {
-            sb.append(" (").append(targetDate).append(")");
-        }
+        sb.append(sourceTimeFormatted).append(" ").append(sourceZoneName);
+        sb.append(" (").append(sourceDate).append(")");
+        sb.append(" = ");
+        sb.append(targetTimeFormatted).append(" ").append(targetZoneName);
+        sb.append(" (").append(targetDateAbsolute).append(")");
         ClipboardManager cm = context.getSystemService(ClipboardManager.class);
         cm.setPrimaryClip(ClipData.newPlainText("Timezone", sb.toString()));
         Toast.makeText(context, R.string.search_result_copied, Toast.LENGTH_SHORT).show();

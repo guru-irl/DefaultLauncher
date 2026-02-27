@@ -27,6 +27,7 @@ Numbered implementation docs tracking each feature and fix:
 
 | # | Change |
 |---|--------|
+| [043](changes/043-timezone-date-clarity-and-timed-place-queries.md) | Timezone date clarity, timed-place queries, search card light mode fix, debug color categories |
 | [042](changes/042-search-enhancements.md) | Search enhancements: timezone provider, AI FAB, fuzzy scoring, progressive delivery, animations |
 | [041](changes/041-settings-code-review-fixes.md) | Settings code review fixes: deduplication, M3 compliance, lifecycle bug, dp→dimens |
 | [040](changes/040-search-quality-fixes.md) | Search quality fixes: FileProvider crash, localization, threading, DiffUtil |
