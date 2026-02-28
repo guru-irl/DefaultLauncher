@@ -313,6 +313,14 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField
         val GRID_COLUMNS = backedUpItem("pref_grid_columns", 6)
         @JvmField
+        val GRID_ROWS = nonRestorableItem("pref_grid_rows", -1)
+        @JvmField
+        val GRID_GAP = nonRestorableItem("pref_grid_gap", -1)
+        @JvmField
+        val GRID_ROWS_COLUMNS = nonRestorableItem("pref_grid_rows_columns", -1)
+        @JvmField
+        val GRID_ROWS_NAV_HEIGHT = nonRestorableItem("pref_grid_rows_nav_height", -1)
+        @JvmField
         val ALLAPPS_ROW_GAP = backedUpItem("pref_allapps_row_gap", 16)
         @JvmField
         val ALLAPPS_LABEL_SIZE = backedUpItem("pref_allapps_label_size", 14)
@@ -350,6 +358,7 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         // Folder appearance preferences (store color resource name or shape key; empty = default)
         // Pref key is "pref_folder_icon_color" for backward compat; stores cover background color
         @JvmField val FOLDER_COVER_BG_COLOR = backedUpItem("pref_folder_icon_color", "")
+        @JvmField val FOLDER_COVER_ICON_COLOR = backedUpItem("pref_folder_cover_icon_color", "")
         @JvmField val FOLDER_ICON_SHAPE = backedUpItem("pref_folder_icon_shape", "")
         @JvmField val FOLDER_BG_COLOR = backedUpItem("pref_folder_bg_color", "")
         @JvmField val FOLDER_BG_OPACITY = backedUpItem("pref_folder_bg_opacity", 95)

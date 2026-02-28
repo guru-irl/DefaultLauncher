@@ -35,6 +35,7 @@ import android.os.Looper;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -74,6 +75,7 @@ import com.android.launcher3.util.Executors;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -799,6 +801,21 @@ public class IconSettingsHelper {
             }
         });
 
+        // Touch listener on Custom button so re-tapping it when already checked
+        // still opens the dialog. Uses onTouch (not onClick) to avoid overriding
+        // the toggle group's internal click handler. At ACTION_UP the checked state
+        // still reflects the pre-click value, so isChecked()==true means re-tap.
+        MaterialButton customBtn = toggleGroup.findViewById(R.id.btn_size_custom);
+        if (customBtn != null) {
+            customBtn.setOnTouchListener((v, event) -> {
+                if (event.getAction() == MotionEvent.ACTION_UP
+                        && customBtn.isChecked() && onCustomClick != null) {
+                    onCustomClick.run();
+                }
+                return false;
+            });
+        }
+
         return lastPresetId[0];
     }
 
@@ -880,7 +897,10 @@ public class IconSettingsHelper {
                     try {
                         float pct = Float.parseFloat(text);
                         pct = Math.max(50f, Math.min(100f, pct));
-                        String value = String.valueOf(pct / 100f);
+                        // Use 5-decimal format so custom values never string-match
+                        // a preset (e.g. "0.80000" != "0.8"). toFloatOrNull() in
+                        // ThemeManager parses both identically.
+                        String value = String.format(Locale.US, "%.5f", pct / 100f);
                         onValueAccepted.accept(value);
                     } catch (NumberFormatException ignored) {
                         revertSelection.run();

@@ -77,6 +77,12 @@
             launcher:iconSpaceReserved="false" />
 
         <com.android.launcher3.settings.ColorPickerPreference
+            android:key="pref_folder_cover_icon_color"
+            android:title="@string/folder_cover_icon_color_title"
+            android:summary="@string/folder_cover_icon_color_summary"
+            launcher:iconSpaceReserved="false" />
+
+        <com.android.launcher3.settings.ColorPickerPreference
             android:key="pref_folder_bg_color"
             android:title="@string/folder_bg_color_title"
             android:summary="@string/folder_bg_color_summary"

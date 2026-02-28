@@ -822,20 +822,18 @@ public class DeviceProfile {
 
         calculateAndSetWorkspaceVerticalPadding(context, inv, extraSpace);
 
-        int cellLayoutPadding;
         if (inv.isSquareGrid) {
-            cellLayoutPadding = pxFromDp(InvariantDeviceProfile.SQUARE_GRID_EDGE_GAP_DP, mMetrics);
+            // Placeholder — actual values set by deriveSquareGridRows() below
+            cellLayoutPaddingPx = new Rect();
         } else {
-            cellLayoutPadding = isTwoPanels ? cellLayoutBorderSpacePx.x / 2
+            int cellLayoutPadding = isTwoPanels ? cellLayoutBorderSpacePx.x / 2
                     : res.getDimensionPixelSize(R.dimen.cell_layout_padding);
+            cellLayoutPaddingPx = new Rect(cellLayoutPadding, cellLayoutPadding, cellLayoutPadding,
+                    cellLayoutPadding);
         }
-        cellLayoutPaddingPx = new Rect(cellLayoutPadding, cellLayoutPadding, cellLayoutPadding,
-                cellLayoutPadding);
         // Square grid: minimum margin between hotseat icons and screen bottom
         if (inv.isSquareGrid && !isVerticalBarLayout()) {
-            hotseatBarBottomSpacePx = Math.max(
-                    pxFromDp(InvariantDeviceProfile.SQUARE_GRID_MIN_TB_MARGIN_DP, mMetrics),
-                    mInsets.bottom);
+            hotseatBarBottomSpacePx = Math.max(getSquareGridMinMarginPx(), mInsets.bottom);
             hotseatBarSizePx = cellHeightPx + hotseatBarBottomSpacePx;
         }
         updateWorkspacePadding();
@@ -1098,6 +1096,11 @@ public class DeviceProfile {
 
     private Point getCellLayoutBorderSpace(InvariantDeviceProfile idp, float scale) {
         if (idp.isSquareGrid) {
+            if (idp.persistedGridGap >= 0) {
+                // LOCKED: use persisted pixel gap — DPI-independent
+                return new Point(idp.persistedGridGap, idp.persistedGridGap);
+            }
+            // First computation: use dp-based value
             int spacePx = pxFromDp(idp.squareGridSpacingDp, mMetrics, scale);
             return new Point(spacePx, spacePx);
         }
@@ -1114,6 +1117,20 @@ public class DeviceProfile {
         }
 
         return new Point(horizontalSpacePx, verticalSpacePx);
+    }
+
+    /** Edge gap in pixels: locked or dp-based fallback. */
+    private int getSquareGridEdgeGapPx() {
+        return (inv.persistedGridGap >= 0)
+                ? inv.persistedGridGap * InvariantDeviceProfile.EDGE_TO_GAP_RATIO
+                : pxFromDp(InvariantDeviceProfile.SQUARE_GRID_EDGE_GAP_DP, mMetrics);
+    }
+
+    /** Min bottom margin in pixels: locked or dp-based fallback. */
+    private int getSquareGridMinMarginPx() {
+        return (inv.persistedGridGap >= 0)
+                ? inv.persistedGridGap * InvariantDeviceProfile.MARGIN_TO_GAP_RATIO
+                : pxFromDp(InvariantDeviceProfile.SQUARE_GRID_MIN_TB_MARGIN_DP, mMetrics);
     }
 
     public Info getDisplayInfo() {
@@ -1208,28 +1225,37 @@ public class DeviceProfile {
         }
 
         float density = mMetrics.density;
-        int interGap = cellLayoutBorderSpacePx.x;  // inter-cell gap (4dp → px)
-        int edgeGap = pxFromDp(InvariantDeviceProfile.SQUARE_GRID_EDGE_GAP_DP, mMetrics);
-        int bottomMargin = hotseatBarBottomSpacePx;  // max(16dp, navBar), from constructor
+        int edgeGap = getSquareGridEdgeGapPx();
+        int bottomMargin = hotseatBarBottomSpacePx;  // max(margin, navBar), from constructor
 
         // Total available height: from below status bar to above bottom margin.
         // This holds ALL icon rows (workspace + hotseat) and inter-cell gaps.
         int availH = heightPx - mInsets.top - bottomMargin;
 
-        // Derive total icon rows (workspace + hotseat) that fit with inter-cell gaps.
-        // totalRows * cellH + (totalRows - 1) * interGap <= availH
-        int totalRows = (availH + interGap) / (cellHeightPx + interGap);
-        if (totalRows < 2) totalRows = 2;  // at least 1 workspace row + hotseat
-        numRows = totalRows - 1;  // subtract hotseat row
+        int totalRows;
+        int gap;
 
-        // Compute vertical gap: spread evenly between all rows (totalRows-1 gaps).
-        int adjustedGap = (availH - totalRows * cellHeightPx) / Math.max(totalRows - 1, 1);
+        if (inv.persistedGridRows > 0 && inv.persistedGridGap >= 0) {
+            // LOCKED: use persisted row count and gap from column-setting time.
+            // The grid geometry is fully deterministic — only slop absorbs
+            // any runtime difference in available space.
+            numRows = inv.persistedGridRows;
+            totalRows = numRows + 1;
+            gap = inv.persistedGridGap;
+        } else {
+            // FIRST COMPUTATION: derive from available height (uses current insets).
+            // Result will be persisted by InvariantDeviceProfile after profile build.
+            int initialGap = cellLayoutBorderSpacePx.x;  // initial inter-cell gap from constructor
+            totalRows = (availH + initialGap) / (cellHeightPx + initialGap);
+            if (totalRows < 2) totalRows = 2;
+            numRows = totalRows - 1;
 
-        // Cap gap for horizontal fit: numCols*cellW + (numCols-1)*gap + 2*edgeGap <= width
-        int cellLayoutW = getCellLayoutWidth();
-        int maxGap = (cellLayoutW - inv.numColumns * cellWidthPx - 2 * edgeGap)
-                / Math.max(inv.numColumns - 1, 1);
-        int gap = Math.max(0, Math.min(adjustedGap, maxGap));
+            int adjustedGap = (availH - totalRows * cellHeightPx) / Math.max(totalRows - 1, 1);
+            int cellLayoutW = getCellLayoutWidth();
+            int maxGap = (cellLayoutW - inv.numColumns * cellWidthPx - 2 * edgeGap)
+                    / Math.max(inv.numColumns - 1, 1);
+            gap = Math.max(0, Math.min(adjustedGap, maxGap));
+        }
 
         // Square rule: same inter-cell gap on both axes
         cellLayoutBorderSpacePx.x = gap;
@@ -1263,7 +1289,7 @@ public class DeviceProfile {
 
         // Horizontal edges: centered
         int hGridWidth = inv.numColumns * cellWidthPx + (inv.numColumns - 1) * gap;
-        int hEdgeTotal = cellLayoutW - hGridWidth;
+        int hEdgeTotal = getCellLayoutWidth() - hGridWidth;
         cellLayoutPaddingPx.left = hEdgeTotal / 2;
         cellLayoutPaddingPx.right = hEdgeTotal - hEdgeTotal / 2;
 
@@ -1273,18 +1299,19 @@ public class DeviceProfile {
                     "Screen: %dx%d  density=%.1f  insets.top=%d insets.bottom=%d",
                     widthPx, heightPx, density, mInsets.top, mInsets.bottom));
             Log.d(TAG, String.format(
-                    "Cell: %dx%d (%.1fx%.1fdp)  interGap=%dpx(%.1fdp)  edgeGap=%dpx(%.1fdp)",
+                    "Cell: %dx%d (%.1fx%.1fdp)  gap=%dpx(%.1fdp)  edgeGap=%dpx(%.1fdp)",
                     cellWidthPx, cellHeightPx, cellWidthPx/density, cellHeightPx/density,
-                    interGap, interGap/density, edgeGap, edgeGap/density));
+                    gap, gap/density, edgeGap, edgeGap/density));
             Log.d(TAG, String.format(
                     "AvailH: %dpx = %d(screenH) - %d(statusBar) - %d(bottomMargin %.1fdp)",
                     availH, heightPx, mInsets.top, bottomMargin, bottomMargin/density));
             Log.d(TAG, String.format(
-                    "Rows: totalRows=%d  workspaceRows=%d  cols=%d",
-                    totalRows, numRows, inv.numColumns));
+                    "Rows: totalRows=%d  workspaceRows=%d  cols=%d  persisted=%b",
+                    totalRows, numRows, inv.numColumns,
+                    inv.persistedGridRows > 0));
             Log.d(TAG, String.format(
-                    "Gap: adjusted=%d  maxH=%d  final=%dpx(%.1fdp)",
-                    adjustedGap, maxGap, gap, gap/density));
+                    "Gap: final=%dpx(%.1fdp)  persistedRows=%d  persistedGap=%d",
+                    gap, gap/density, inv.persistedGridRows, inv.persistedGridGap));
             Log.d(TAG, String.format(
                     "GridH: %d  totalUsed=%d  slop=%d  slopTop=%d  slopBottom=%d",
                     gridH, totalUsed, slop, slopTop, slopBottom));
@@ -1508,16 +1535,14 @@ public class DeviceProfile {
 
             if (inv.isSquareGrid) {
                 // Square grid: cell size from available width, with separate edge/inter-cell gaps
-                int interGapPx = cellLayoutBorderSpacePx.x;  // inter-cell gap (4dp)
-                int edgeGapPx = pxFromDp(InvariantDeviceProfile.SQUARE_GRID_EDGE_GAP_DP, mMetrics);
+                int interGapPx = cellLayoutBorderSpacePx.x;  // locked or dp-based (from getCellLayoutBorderSpace)
+                int edgeGapPx = getSquareGridEdgeGapPx();
                 int availW = availableWidthPx - 2 * edgeGapPx;  // edge gaps on each side
                 cellWidthPx = (availW - (inv.numColumns - 1) * interGapPx) / inv.numColumns;
                 cellHeightPx = cellWidthPx;  // square
 
-                // Shrink icon if it doesn't fit in the cell width
-                if (iconSizePx > cellWidthPx) {
-                    iconSizePx = mIconSizeSteps.getIconSmallerThan(cellWidthPx);
-                }
+                // Icon fills the cell — DPI-independent
+                iconSizePx = cellWidthPx;
 
                 // Save base icon size BEFORE workspace label adjustments.
                 // Hotseat and all-apps use this so they don't change when labels
@@ -1582,8 +1607,16 @@ public class DeviceProfile {
             allAppsIconDrawablePaddingPx =
                     (int) (getNormalizedIconDrawablePadding() * iconScale);
             allAppsCellWidthPx = cellWidthPx;
-            // Horizontal gap matches workspace; vertical gap is a fixed constant
-            int allAppsRowSpacingPx = pxFromDp(inv.allAppsRowSpacingDp, mMetrics);
+            // Horizontal gap matches workspace; vertical gap scaled from locked gap
+            int allAppsRowSpacingPx;
+            if (inv.persistedGridGap >= 0) {
+                // DPI-independent: scale locked gap by user's chosen ratio
+                float ratio = inv.allAppsRowSpacingDp
+                        / InvariantDeviceProfile.SQUARE_GRID_INTER_CELL_GAP_DP;
+                allAppsRowSpacingPx = Math.round(inv.persistedGridGap * ratio);
+            } else {
+                allAppsRowSpacingPx = pxFromDp(inv.allAppsRowSpacingDp, mMetrics);
+            }
             allAppsBorderSpacePx = new Point(cellLayoutBorderSpacePx.x, allAppsRowSpacingPx);
             // Cell height = content + row gap (baked in, matching AOSP pattern)
             int allAppsContentHeight = allAppsIconSizePx
@@ -1763,8 +1796,7 @@ public class DeviceProfile {
             allAppsLeftRightMargin = Math.max(1, (availableWidthPx - usedWidth) / 2);
         } else if (inv.isSquareGrid) {
             // Use the same edge gap as the home screen
-            allAppsPadding.left = allAppsPadding.right =
-                    pxFromDp(InvariantDeviceProfile.SQUARE_GRID_EDGE_GAP_DP, mMetrics);
+            allAppsPadding.left = allAppsPadding.right = getSquareGridEdgeGapPx();
         } else if (!mIsResponsiveGrid) {
             allAppsPadding.left = allAppsPadding.right =
                     Math.max(0, desiredWorkspaceHorizontalMarginPx + cellLayoutHorizontalPadding

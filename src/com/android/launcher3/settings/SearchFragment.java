@@ -327,7 +327,7 @@ public class SearchFragment extends SettingsBaseFragment {
         }
 
         // None (disabled) option
-        addChooserOption(container, null, R.drawable.ic_ai_search,
+        addChooserOption(container, null, R.drawable.ic_none_disabled,
                 getString(R.string.search_ai_app_none),
                 "none".equals(currentValue), () -> {
                     LauncherPrefs.get(requireContext()).put(LauncherPrefs.SEARCH_AI_APP, "none");

@@ -57,9 +57,17 @@ public class FolderSettingsHelper {
     /** Default open folder panel bg = materialColorSurfaceContainerLow (matches drawer bg default). */
     static final int DEFAULT_FOLDER_PANEL_COLOR_RES = R.color.materialColorSurfaceContainerLow;
 
+    /** Default cover icon color = materialColorOnSurface (monochrome emoji fill). */
+    static final int DEFAULT_COVER_ICON_COLOR_RES = R.color.materialColorOnSurface;
+
     /** Returns the default cover background color. */
     public static int getDefaultCoverBgColor(Context ctx) {
         return ctx.getColor(DEFAULT_COVER_BG_COLOR_RES);
+    }
+
+    /** Returns the default cover icon color (materialColorOnSurface). */
+    public static int getDefaultCoverIconColor(Context ctx) {
+        return ctx.getColor(DEFAULT_COVER_ICON_COLOR_RES);
     }
 
     /** Returns the default uncovered folder icon background color. */
@@ -113,6 +121,21 @@ public class FolderSettingsHelper {
     }
 
     // ---- Effective colors (centralized resolve + fallback + opacity) ----
+
+    /**
+     * Resolves the cover icon color (emoji tint) from prefs.
+     * @return the color int, or 0 to use theme default (onSurface).
+     */
+    public static int resolveFolderCoverIconColor(Context ctx) {
+        String key = LauncherPrefs.get(ctx).get(LauncherPrefs.FOLDER_COVER_ICON_COLOR);
+        return AllAppsColorResolver.resolveColorByName(ctx, key);
+    }
+
+    /** Returns the effective cover icon color (custom or materialColorOnSurface). */
+    public static int getEffectiveCoverIconColor(Context ctx) {
+        int color = resolveFolderCoverIconColor(ctx);
+        return color != 0 ? color : getDefaultCoverIconColor(ctx);
+    }
 
     /** Returns the effective cover background color (custom or default). */
     public static int getEffectiveCoverBgColor(Context ctx) {

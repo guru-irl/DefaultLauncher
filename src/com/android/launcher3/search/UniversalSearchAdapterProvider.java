@@ -393,6 +393,7 @@ public class UniversalSearchAdapterProvider extends SearchAdapterProvider<Activi
         icon.setImageResource(action.iconRes);
 
         getCard(view).setOnClickListener(v -> action.launch(ctx));
+        trackBestMatch(action, 0);
     }
 
     private void bindCalculator(View view, SearchResultAdapterItem item) {
@@ -490,6 +491,11 @@ public class UniversalSearchAdapterProvider extends SearchAdapterProvider<Activi
     @Override
     public boolean launchHighlightedItem() {
         if (mAppsList == null) return false;
+
+        // Priority 0: quick actions (phone, email, URL) take precedence
+        if (mBestMatch != null && mBestMatchPriority < 1) {
+            return mBestMatch.launch((Context) mLauncher);
+        }
 
         // Priority 1: first app result
         for (AdapterItem item : mAppsList.getAdapterItems()) {

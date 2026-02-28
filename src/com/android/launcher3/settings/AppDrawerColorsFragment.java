@@ -56,6 +56,9 @@ public class AppDrawerColorsFragment extends SettingsBaseFragment {
         configureColorPickerWithDefault("pref_folder_icon_color",
                 LauncherPrefs.FOLDER_COVER_BG_COLOR,
                 FolderSettingsHelper.getDefaultCoverBgColor(getContext()));
+        configureColorPickerWithDefault("pref_folder_cover_icon_color",
+                LauncherPrefs.FOLDER_COVER_ICON_COLOR,
+                FolderSettingsHelper.getDefaultCoverIconColor(getContext()));
         configureColorPickerWithDefault("pref_folder_bg_color",
                 LauncherPrefs.FOLDER_BG_COLOR,
                 FolderSettingsHelper.getDefaultFolderBgColor(getContext()));

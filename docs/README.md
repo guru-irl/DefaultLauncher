@@ -28,6 +28,8 @@ Numbered implementation docs tracking each feature and fix:
 
 | # | Change |
 |---|--------|
+| [045](changes/045-bug-fixes-and-folder-cover-icon-color.md) | Bug fixes (search, ripple, icon size) and folder cover icon color setting |
+| [044](changes/044-dpi-independent-grid.md) | DPI-independent grid: Display Size changes no longer break layout |
 | [043](changes/043-timezone-date-clarity-and-timed-place-queries.md) | Timezone date clarity, timed-place queries, search card light mode fix, debug color categories |
 | [042](changes/042-search-enhancements.md) | Search enhancements: timezone provider, AI FAB, fuzzy scoring, progressive delivery, animations |
 | [041](changes/041-settings-code-review-fixes.md) | Settings code review fixes: deduplication, M3 compliance, lifecycle bug, dp→dimens |
