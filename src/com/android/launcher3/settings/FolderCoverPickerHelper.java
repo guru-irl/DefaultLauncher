@@ -218,8 +218,8 @@ public class FolderCoverPickerHelper {
         int padH = res.getDimensionPixelSize(R.dimen.settings_card_padding_horizontal);
         int padV = res.getDimensionPixelSize(R.dimen.settings_card_padding_vertical);
 
-        // M3 colors — resolve from BottomSheetDialog's context for proper day/night
-        int colorOnSurface = themed.getColor(R.color.materialColorOnSurface);
+        // Emoji icon color — use user's custom cover icon color for picker preview
+        int colorOnSurface = FolderSettingsHelper.getEffectiveCoverIconColor(themed);
         BottomSheetDialog sheet = new BottomSheetDialog(themed);
         sheet.getBehavior().setPeekHeight(
                 res.getDisplayMetrics().heightPixels * 2 / 3);

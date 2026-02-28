@@ -37,6 +37,7 @@ import com.android.launcher3.R;
 import com.android.launcher3.icons.pack.IconPack;
 import com.android.launcher3.icons.pack.IconPackManager;
 import com.android.launcher3.dagger.LauncherComponentProvider;
+import com.android.launcher3.settings.FolderSettingsHelper;
 
 /**
  * Manages per-folder custom cover icons stored in SharedPreferences.
@@ -244,12 +245,12 @@ public class FolderCoverManager {
 
     /**
      * Renders an emoji string into a BitmapDrawable using the Noto Emoji monochrome font.
-     * The emoji is rendered in M3 onSurface color for proper theming.
+     * Uses the user's chosen cover icon color, falling back to M3 onSurface.
      */
     private Drawable renderEmoji(String emoji) {
         int sizePx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
                 EMOJI_RENDER_SIZE_DP, mContext.getResources().getDisplayMetrics());
-        int color = mContext.getColor(R.color.materialColorOnSurface);
+        int color = FolderSettingsHelper.getEffectiveCoverIconColor(mContext);
         return renderEmojiInternal(emoji, sizePx, color, EMOJI_TEXT_SIZE_RATIO_LARGE);
     }
 

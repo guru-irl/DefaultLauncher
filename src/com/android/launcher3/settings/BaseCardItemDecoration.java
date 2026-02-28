@@ -127,7 +127,7 @@ public abstract class BaseCardItemDecoration extends RecyclerView.ItemDecoration
 
     private void applyRipple(View child, float[] radii) {
         Object tag = child.getTag(mRippleTagId);
-        if (tag instanceof RippleDrawable) {
+        if (tag instanceof RippleDrawable && child.getBackground() == tag) {
             RippleDrawable rd = (RippleDrawable) tag;
             GradientDrawable mask = (GradientDrawable) rd.findDrawableByLayerId(
                     android.R.id.mask);

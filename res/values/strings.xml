@@ -751,6 +751,8 @@
     <string name="folder_bg_color_summary">Background for the folder icon and open panel</string>
     <string name="folder_cover_bg_title">Folder cover background</string>
     <string name="folder_cover_bg_summary">Background color when a cover icon is set</string>
+    <string name="folder_cover_icon_color_title">Folder cover icon color</string>
+    <string name="folder_cover_icon_color_summary">Color of the emoji icon on a folder cover</string>
     <string name="folder_bg_opacity_title">Open folder opacity</string>
     <string name="home_screen_colors_category">Colors</string>
     <string name="folder_color_default">Default</string>
