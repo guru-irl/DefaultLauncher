@@ -442,6 +442,27 @@ Derived:
 | `SQUARE_GRID_EDGE_GAP_DP` (12dp) | Between screen edges and outermost cells | Cell width computation (`updateIconSize`), initial `cellLayoutPaddingPx`, horizontal centering in `deriveSquareGridRows` |
 | `SQUARE_GRID_MIN_TB_MARGIN_DP` (16dp) | Below hotseat to screen bottom (minimum) | `hotseatBarBottomSpacePx` in constructor |
 
+### DPI independence (grid geometry lock)
+
+Changing Android's Display Size setting changes `DisplayMetrics.density` without changing the physical pixel count. Since all grid dimensions were computed via `pxFromDp()`, a DPI change would produce different pixel values — cells shrink, gaps shift, the bottom row gets clipped.
+
+**Solution:** On first computation, the inter-cell gap is persisted in pixels (`LauncherPrefs.GRID_GAP`). On subsequent rebuilds, the locked pixel value is used directly — no `pxFromDp()` calls, no density dependency. Edge gap and bottom margin are derived from the persisted gap using fixed integer ratios:
+
+| Derived value | Formula | Constant |
+|--------------|---------|----------|
+| Edge gap | `persistedGridGap * EDGE_TO_GAP_RATIO` | 3 (12dp / 4dp) |
+| Min bottom margin | `persistedGridGap * MARGIN_TO_GAP_RATIO` | 4 (16dp / 4dp) |
+
+**Invalidation keys:** The grid recomputes only when:
+- Column count changes (`LauncherPrefs.GRID_ROWS_COLUMNS`)
+- Navbar height changes (`LauncherPrefs.GRID_ROWS_NAV_HEIGHT`) — e.g., switching gesture ↔ 3-button nav
+
+DPI changes, font size changes, and locale changes do NOT invalidate the grid.
+
+**Helper methods** in `DeviceProfile`:
+- `getSquareGridEdgeGapPx()` — returns locked or dp-based edge gap
+- `getSquareGridMinMarginPx()` — returns locked or dp-based bottom margin
+
 ### Calculation pipeline
 
 The square grid calculation happens across three phases:
@@ -449,20 +470,22 @@ The square grid calculation happens across three phases:
 **Phase 1: Cell sizing** (`updateIconSize()`, called from `updateAvailableDimensions()`):
 
 ```
-interGapPx = pxFromDp(INTER_CELL_GAP_DP)     // e.g., 14px at 3.5 density
-edgeGapPx  = pxFromDp(EDGE_GAP_DP)           // e.g., 42px at 3.5 density
+// Gap: locked pixel value OR dp-based on first computation
+interGapPx = getCellLayoutBorderSpace()       // persistedGridGap or pxFromDp(4dp)
+edgeGapPx  = getSquareGridEdgeGapPx()         // persistedGridGap*3 or pxFromDp(12dp)
 availW     = availableWidthPx - 2 * edgeGapPx
 cellWidthPx  = (availW - (numColumns - 1) * interGapPx) / numColumns
 cellHeightPx = cellWidthPx                    // square
+iconSizePx   = cellWidthPx                    // icon fills cell
 ```
 
-`cellLayoutBorderSpacePx` is set to `(interGapPx, interGapPx)` initially by `getCellLayoutBorderSpace()` reading `squareGridSpacingDp = INTER_CELL_GAP_DP`.
+`cellLayoutBorderSpacePx` is set by `getCellLayoutBorderSpace()`: if `persistedGridGap >= 0`, returns the locked pixel value directly; otherwise falls back to `pxFromDp(squareGridSpacingDp)`.
 
 **Phase 2: Hotseat and workspace padding** (constructor, after `updateAvailableDimensions()`):
 
 ```
-cellLayoutPaddingPx = edgeGapPx on all sides (initial, overridden in Phase 3)
-hotseatBarBottomSpacePx = max(pxFromDp(MIN_TB_MARGIN_DP), mInsets.bottom)
+cellLayoutPaddingPx = empty Rect()            // placeholder, overridden in Phase 3
+hotseatBarBottomSpacePx = max(getSquareGridMinMarginPx(), mInsets.bottom)
 hotseatBarSizePx = cellHeightPx + hotseatBarBottomSpacePx
 ```
 
@@ -477,13 +500,20 @@ padding.right  = 0
 **Phase 3: Row derivation and final layout** (`deriveSquareGridRows()`, called after `updateWorkspacePadding()`):
 
 ```
-availH    = heightPx - mInsets.top - hotseatBarBottomSpacePx
-totalRows = (availH + interGap) / (cellHeightPx + interGap)
-numRows   = totalRows - 1     // subtract hotseat row
+availH = heightPx - mInsets.top - hotseatBarBottomSpacePx
 
-adjustedGap = (availH - totalRows * cellHeightPx) / (totalRows - 1)
-maxGap      = (cellLayoutW - numCols * cellW - 2 * edgeGap) / (numCols - 1)
-gap         = min(adjustedGap, maxGap)    // square rule: same on both axes
+if (persistedGridRows > 0 && persistedGridGap >= 0):
+    // LOCKED: use persisted values — DPI-independent
+    numRows   = persistedGridRows
+    totalRows = numRows + 1
+    gap       = persistedGridGap
+else:
+    // FIRST COMPUTATION: derive from available height
+    totalRows = (availH + initialGap) / (cellHeightPx + initialGap)
+    numRows   = totalRows - 1
+    adjustedGap = (availH - totalRows * cellHeightPx) / (totalRows - 1)
+    maxGap      = (cellLayoutW - numCols * cellW - 2 * edgeGap) / (numCols - 1)
+    gap         = min(adjustedGap, maxGap)
 
 cellLayoutBorderSpacePx = (gap, gap)      // final gap (may differ from initial interGapPx)
 
@@ -588,7 +618,8 @@ The app drawer column count matches the workspace. Cell sizing is independent (f
 |------|------|
 | [`device_profiles.xml`](../res/xml/device_profiles.xml) | All grid specifications |
 | [`InvariantDeviceProfile.java`](../src/com/android/launcher3/InvariantDeviceProfile.java) | Parses XML, selects grid, stores invariant config |
-| [`DeviceProfile.java`](../src/com/android/launcher3/DeviceProfile.java) | DP-to-pixel conversion, all cell size calculations |
+| [`DeviceProfile.java`](../src/com/android/launcher3/DeviceProfile.java) | Pixel-level grid calculations; DPI-independent via locked gap values |
+| [`LauncherPrefs.kt`](../src/com/android/launcher3/LauncherPrefs.kt) | Grid geometry persistence (GRID_ROWS, GRID_GAP, GRID_ROWS_NAV_HEIGHT) |
 | [`CellLayout.java`](../src/com/android/launcher3/CellLayout.java) | Workspace grid ViewGroup, measures/positions cells |
 | [`ShortcutAndWidgetContainer.java`](../src/com/android/launcher3/ShortcutAndWidgetContainer.java) | Positions child views within CellLayout cells |
 | [`CellLayoutLayoutParams.java`](../src/com/android/launcher3/celllayout/CellLayoutLayoutParams.java) | Per-child position and size within the grid |

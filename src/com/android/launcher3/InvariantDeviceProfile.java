@@ -151,6 +151,11 @@ public class InvariantDeviceProfile {
     /** Minimum top/bottom margin (dp) above workspace and below hotseat. */
     public static final float SQUARE_GRID_MIN_TB_MARGIN_DP = 16;
 
+    /** Edge gap = inter-cell gap * this ratio (12dp / 4dp = 3). */
+    public static final int EDGE_TO_GAP_RATIO = 3;
+    /** Min bottom margin = inter-cell gap * this ratio (16dp / 4dp = 4). */
+    public static final int MARGIN_TO_GAP_RATIO = 4;
+
     /** Valid row gap values (dp) for the all-apps drawer. */
     public static final float[] ALLAPPS_ROW_GAP_OPTIONS = {16f, 24f, 32f};
 
@@ -173,6 +178,11 @@ public class InvariantDeviceProfile {
 
     /** Whether the custom square grid mode is active. */
     public boolean isSquareGrid;
+
+    /** Locked visible workspace row count, or -1 if not yet computed. */
+    public int persistedGridRows = -1;
+    /** Locked inter-cell gap in pixels, or -1 if not yet computed. */
+    public int persistedGridGap = -1;
 
     /** Whether workspace icon labels are hidden. */
     public boolean hideWorkspaceLabels;
@@ -520,6 +530,25 @@ public class InvariantDeviceProfile {
             numRows = 20;
         }
 
+        // --- Read persisted grid rows + gap (locked geometry) ---
+        int savedRows = mPrefs.get(LauncherPrefs.GRID_ROWS);
+        int savedGap = mPrefs.get(LauncherPrefs.GRID_GAP);
+        int savedCols = mPrefs.get(LauncherPrefs.GRID_ROWS_COLUMNS);
+        int savedNavHeight = mPrefs.get(LauncherPrefs.GRID_ROWS_NAV_HEIGHT);
+
+        // Get portrait bottom inset (navbar height) from display bounds
+        int currentNavHeight = -1;
+        for (WindowBounds bounds : displayInfo.supportedBounds) {
+            if (bounds.bounds.height() > bounds.bounds.width()) {
+                currentNavHeight = bounds.insets.bottom;
+                break;
+            }
+        }
+
+        boolean match = savedCols == userColumns && savedNavHeight == currentNavHeight;
+        persistedGridRows = (match && savedRows > 0) ? savedRows : -1;
+        persistedGridGap = (match && savedGap >= 0) ? savedGap : -1;
+
         final List<DeviceProfile> localSupportedProfiles = new ArrayList<>();
         defaultWallpaperSize = new Point(displayInfo.currentSize);
         SparseArray<DotRenderer> dotRendererCache = new SparseArray<>();
@@ -546,6 +575,22 @@ public class InvariantDeviceProfile {
                     Math.max(defaultWallpaperSize.x, Math.round(parallaxFactor * displayWidth));
         }
         supportedProfiles = Collections.unmodifiableList(localSupportedProfiles);
+
+        // --- Persist grid rows + gap if first computation ---
+        if (isSquareGrid && persistedGridRows == -1) {
+            for (DeviceProfile dp : localSupportedProfiles) {
+                if (!dp.isLandscape) {
+                    persistedGridRows = dp.numRows;
+                    persistedGridGap = dp.cellLayoutBorderSpacePx.x;
+                    mPrefs.put(
+                            LauncherPrefs.GRID_ROWS.to(persistedGridRows),
+                            LauncherPrefs.GRID_GAP.to(persistedGridGap),
+                            LauncherPrefs.GRID_ROWS_COLUMNS.to(userColumns),
+                            LauncherPrefs.GRID_ROWS_NAV_HEIGHT.to(currentNavHeight));
+                    break;
+                }
+            }
+        }
 
         int numMinShownHotseatIconsForTablet = supportedProfiles
                 .stream()

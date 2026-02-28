@@ -313,6 +313,14 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField
         val GRID_COLUMNS = backedUpItem("pref_grid_columns", 6)
         @JvmField
+        val GRID_ROWS = nonRestorableItem("pref_grid_rows", -1)
+        @JvmField
+        val GRID_GAP = nonRestorableItem("pref_grid_gap", -1)
+        @JvmField
+        val GRID_ROWS_COLUMNS = nonRestorableItem("pref_grid_rows_columns", -1)
+        @JvmField
+        val GRID_ROWS_NAV_HEIGHT = nonRestorableItem("pref_grid_rows_nav_height", -1)
+        @JvmField
         val ALLAPPS_ROW_GAP = backedUpItem("pref_allapps_row_gap", 16)
         @JvmField
         val ALLAPPS_LABEL_SIZE = backedUpItem("pref_allapps_label_size", 14)
