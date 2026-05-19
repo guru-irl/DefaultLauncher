@@ -250,6 +250,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             boolean colorOrOpacityChanged = changes.contains(LauncherPrefs.DRAWER_BG_COLOR)
                     || changes.contains(LauncherPrefs.DRAWER_BG_OPACITY);
             boolean hideTabsChanged = changes.contains(LauncherPrefs.DRAWER_HIDE_TABS);
+            boolean tabColorChanged = changes.contains(LauncherPrefs.DRAWER_TAB_SELECTED_COLOR)
+                    || changes.contains(LauncherPrefs.DRAWER_TAB_UNSELECTED_COLOR);
             if (hideTabsChanged) {
                 mDrawerHideTabs = LauncherPrefs.get(getContext())
                         .get(LauncherPrefs.DRAWER_HIDE_TABS);
@@ -258,6 +260,9 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             }
             if (colorOrOpacityChanged) {
                 refreshCustomColors();
+            }
+            if (tabColorChanged) {
+                applyCustomTabColors();
             }
         }
     };
@@ -466,7 +471,9 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 .subscribe(mDrawerPrefSubscriber,
                         LauncherPrefs.DRAWER_BG_COLOR,
                         LauncherPrefs.DRAWER_BG_OPACITY,
-                        LauncherPrefs.DRAWER_HIDE_TABS);
+                        LauncherPrefs.DRAWER_HIDE_TABS,
+                        LauncherPrefs.DRAWER_TAB_SELECTED_COLOR,
+                        LauncherPrefs.DRAWER_TAB_UNSELECTED_COLOR);
     }
 
     @Override
