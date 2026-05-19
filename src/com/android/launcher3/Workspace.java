@@ -1289,8 +1289,14 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         }
 
         if (mStripScreensOnPageStopMoving) {
-            stripEmptyScreens();
-            mStripScreensOnPageStopMoving = false;
+            // Hold the deferred strip until the drag finishes; running it
+            // while a drag is in flight can remove pages the drag is still
+            // targeting. The flag stays true so the next page-end transition
+            // (after the drag completes) runs the strip.
+            if (!mDragController.isDragging()) {
+                stripEmptyScreens();
+                mStripScreensOnPageStopMoving = false;
+            }
         }
 
         // Inform the Launcher activity that the page transition ended so that it can react to the
