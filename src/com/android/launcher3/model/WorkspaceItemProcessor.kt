@@ -245,7 +245,7 @@ class WorkspaceItemProcessor(
                                 // would silently lose the shortcut after the next
                                 // memory-pressure event.
                                 if (ServiceReadiness.isPackageProbablyInstalled(
-                                        context, targetPkg, c.user)) {
+                                        context, targetPkg)) {
                                     FileLog.w(
                                         TAG,
                                         "Deferring delete of $targetPkg id=${c.id}:" +
@@ -284,7 +284,7 @@ class WorkspaceItemProcessor(
                         // the LauncherApps null was transient (LMK reclaim, service
                         // rebind) and deletion would be data loss.
                         if (ServiceReadiness.isPackageProbablyInstalled(
-                                context, targetPkg, c.user)) {
+                                context, targetPkg)) {
                             FileLog.w(
                                 TAG,
                                 "Deferring delete of $targetPkg id=${c.id}: " +

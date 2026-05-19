@@ -99,9 +99,10 @@ constructor(
             if (appWidgetInfo == null) {
                 // Same transient-null guard as the RESTORE_COMPLETED branch below.
                 val providerPkg = item.providerName?.packageName
+                        ?: item.targetComponent?.packageName
                 if (providerPkg != null
                         && ServiceReadiness.isPackageProbablyInstalled(
-                            context, providerPkg, item.user)) {
+                            context, providerPkg)) {
                     FileLog.w(Launcher.TAG,
                             "Deferring restored-widget delete: appWidgetInfo null but"
                                     + " provider pkg=" + providerPkg + " still installed."
@@ -198,9 +199,10 @@ constructor(
                 // memory reclaim, host rebind race) must not cause permanent DB
                 // deletion. See ServiceReadiness for the double-check rationale.
                 val providerPkg = item.providerName?.packageName
+                        ?: item.targetComponent?.packageName
                 if (providerPkg != null
                         && ServiceReadiness.isPackageProbablyInstalled(
-                            context, providerPkg, item.user)) {
+                            context, providerPkg)) {
                     FileLog.w(Launcher.TAG,
                             "Deferring widget delete: appWidgetInfo null but provider"
                                     + " pkg=" + providerPkg + " still installed."

@@ -12,7 +12,6 @@ package com.android.launcher3.util;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.os.UserHandle;
 
 import com.android.launcher3.Utilities;
 import com.android.launcher3.logging.FileLog;
@@ -41,9 +40,16 @@ public final class ServiceReadiness {
      * returns NameNotFoundException with the most permissive flags). A null or
      * exception result from an unhealthy service is treated as "probably still
      * installed" so callers defer the deletion rather than commit it.
+     *
+     * <p>Limitation: this probe queries the launcher's own user namespace via
+     * {@link PackageManager#getPackageInfo}. For cross-user work-profile widgets,
+     * a package that's installed only in the work profile would return
+     * {@code false} here even if it's genuinely present in that profile. The
+     * primary failure mode this guard addresses — transient service unavailability
+     * during cold-start under memory pressure — is overwhelmingly per-launcher-user,
+     * so this trade-off favors the common case.
      */
-    public static boolean isPackageProbablyInstalled(Context context, String pkg,
-            UserHandle user) {
+    public static boolean isPackageProbablyInstalled(Context context, String pkg) {
         if (pkg == null || pkg.isEmpty()) return false;
         try {
             int flags = PackageManager.MATCH_UNINSTALLED_PACKAGES
