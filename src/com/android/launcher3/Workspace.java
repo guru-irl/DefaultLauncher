@@ -226,6 +226,14 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
      */
     private CellLayout mDropToLayout = null;
 
+    // Snapshot of mDropToLayout taken at the moment acceptDrop() succeeded.
+    // acceptDrop() and onDrop() are nominally sequential, but onDragEnter() can
+    // fire between them (e.g. a synthetic re-enter from an accessibility path or
+    // a fast-restart drag) and null mDropToLayout out. onDrop() reads this
+    // snapshot first so it operates on the layout that was actually accepted.
+    // Cleared in onDragEnd().
+    private CellLayout mAcceptedDropLayout = null;
+
     @Thunk
     final Launcher mLauncher;
     @Thunk
@@ -592,6 +600,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         cleanupWidgetStackVisualState();
         mDragInfo = null;
         mDragSourceInternal = null;
+        mAcceptedDropLayout = null;
     }
 
     /**
@@ -1834,11 +1843,13 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                     mDragViewVisualCenter[0], mDragViewVisualCenter[1], mTargetCell);
             if (mCreateUserFolderOnDrop && willCreateUserFolder(d.dragInfo,
                     dropTargetLayout, mTargetCell, distance, true)) {
+                mAcceptedDropLayout = dropTargetLayout;
                 return true;
             }
 
             if (mAddToExistingFolderOnDrop && willAddToExistingUserFolder(d.dragInfo,
                     dropTargetLayout, mTargetCell, distance)) {
+                mAcceptedDropLayout = dropTargetLayout;
                 return true;
             }
 
@@ -1860,6 +1871,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             commitExtraEmptyScreens();
         }
 
+        mAcceptedDropLayout = dropTargetLayout;
         return true;
     }
 
@@ -2184,7 +2196,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     @Override
     public void onDrop(final DragObject d, DragOptions options) {
         mDragViewVisualCenter = d.getVisualCenter(mDragViewVisualCenter);
-        CellLayout dropTargetLayout = mDropToLayout;
+        // Prefer the snapshot captured at acceptDrop time over the live field,
+        // which a stray onDragEnter could have nulled between accept and drop.
+        CellLayout dropTargetLayout = mAcceptedDropLayout != null
+                ? mAcceptedDropLayout : mDropToLayout;
 
         // We want the point to be mapped to the dragTarget.
         if (dropTargetLayout != null) {
