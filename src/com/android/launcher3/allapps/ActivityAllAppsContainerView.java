@@ -771,6 +771,25 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         if (exitSearch) {
             // Reset the search bar and search RV after transitioning home.
             MAIN_EXECUTOR.getHandler().post(mSearchUiManager::resetSearch);
+            // Reset the state machine so the next drawer-open starts from
+            // IDLE. Without this, an ACTIVE_EMPTY or SEARCHING state from
+            // before the drawer was dismissed survives across the
+            // Launcher state transition and causes the next open to show
+            // an empty search_results_list_view instead of the apps grid.
+            // mKeepKeyboardOnSearchExit is cleared along with the state —
+            // it would otherwise re-trigger ACTIVE_EMPTY on the next
+            // animation cycle.
+            if (mSearchTransitionController.isRunning()) {
+                // Mid-animation: let the existing onEnd runnable land
+                // the state naturally; don't fight it.
+            } else {
+                mSearchState = SearchState.IDLE;
+                mKeepKeyboardOnSearchExit = false;
+                if (mPendingSearchExitWork != null) {
+                    removeCallbacks(mPendingSearchExitWork);
+                    mPendingSearchExitWork = null;
+                }
+            }
         }
         if (isSearching()) {
             mWorkManager.reset();
