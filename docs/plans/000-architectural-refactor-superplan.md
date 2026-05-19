@@ -193,10 +193,12 @@ Branch: `refactor/t0.1-search-4param-override` — 9 commits ahead of `dev`.
 | T2.2 Phase 3 | convertResults moved to adapter provider | ✅ done | `docs/changes/065` |
 | T2.2 Phase 4 | DefaultAppSearchAlgorithm + DefaultSearchAdapterProvider deletion | ✅ done | `docs/changes/066` |
 | T2.3 Phase 1 | Prefs framework foundation (dormant) | ✅ done | `docs/changes/067` |
+| Cold-start drawer test | force-stop regression test + investigation | ✅ done | `docs/changes/068` |
+| T2.3 Phase 2 prep | Visuals baseline framework | ✅ done | `docs/changes/069` |
 
-**T2.1 + T2.2 complete. T2.3 Phase 1 (framework foundation) shipped.**
+**T2.1 + T2.2 complete. T2.3 Phase 1 + visuals-baseline prerequisites shipped.**
 
-T2.3 Phases 2 and 3 (drawer-color migration + IDP.onConfigChanged downgrade) intentionally deferred — they require dark/light × tablet/phone × transparency visual regression coverage that the current smoke suite doesn't provide. Pickup is T2.3 Phase 2 with the framework already in place; consumers can subscribe via `LauncherPrefs.get(context).prefChanges.subscribe(...)`.
+T2.3 Phases 2 and 3 (drawer-color migration + IDP.onConfigChanged downgrade) can now ship safely: the visuals tests at `tests-e2e/visuals/` will catch paint regressions, and `LauncherPrefs.get(context).prefChanges.subscribe(...)` is the framework consumers wire into.
 
 ### How to resume in a new session
 
@@ -222,7 +224,7 @@ cd tests-e2e
 .venv/bin/pytest smoke/ regression/ -v --tb=short   # expect 21/21 in ~60s
 ```
 
-**Pick up at:** **T2.3 Phase 2** (per `docs/plans/003-unified-prefs-framework-v2.md`). T2.1, T2.2, and T2.3 Phase 1 are fully shipped as of `docs/changes/057-067`. The dispatcher is live at `LauncherPrefs.get(context).prefChanges` but no production callers subscribe yet — framework is dormant.
+**Pick up at:** **T2.3 Phase 2** (per `docs/plans/003-unified-prefs-framework-v2.md`). T2.1, T2.2, T2.3 Phase 1, the visuals baseline framework, and the cold-start drawer regression test are all shipped as of `docs/changes/057-069`. The prefs dispatcher is live at `LauncherPrefs.get(context).prefChanges`; the visuals tests at `tests-e2e/visuals/` are ready to gate paint-affecting changes.
 
 **Remaining work (ordered):**
 
@@ -236,7 +238,7 @@ cd tests-e2e
 **Execution invariants** for any session:
 
 - Every plan execution **must** pass `tests-e2e/smoke/` and `tests-e2e/regression/` before commit (21+ tests, ~60s).
-- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **068**).
+- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **070**).
 - AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
 - `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
 - All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Guna Raya" -c user.email="gunaraya@microsoft.com" commit ...` (CLAUDE.md forbids permanent git config changes).
