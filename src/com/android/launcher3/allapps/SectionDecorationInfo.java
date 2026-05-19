@@ -20,6 +20,8 @@ import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 
+import java.util.Objects;
+
 public class SectionDecorationInfo {
 
     public static final int ROUND_NOTHING = 0;
@@ -33,6 +35,9 @@ public class SectionDecorationInfo {
     private SectionDecorationHandler mDecorationHandler;
     protected boolean mIsTopRound;
     protected boolean mIsBottomRound;
+    /** Canonical region mask retained for equality so DiffUtil can detect
+     *  decoration-only changes (see AdapterItem.isContentSame). */
+    private final int mRoundRegions;
 
     public SectionDecorationInfo(Context context, int roundRegions, boolean decorateTogether) {
         mDecorationHandler =
@@ -46,10 +51,13 @@ public class SectionDecorationInfo {
                 isFlagEnabled(roundRegions, ROUND_TOP_RIGHT);
         mIsBottomRound = isFlagEnabled(roundRegions, ROUND_BOTTOM_LEFT) &&
                 isFlagEnabled(roundRegions, ROUND_BOTTOM_RIGHT);
+        mRoundRegions = roundRegions;
     }
 
     public SectionDecorationInfo(Context context, @NonNull Bundle target,
-            String targetLayoutType, @NonNull Bundle prevTarget, @NonNull Bundle nextTarget) {}
+            String targetLayoutType, @NonNull Bundle prevTarget, @NonNull Bundle nextTarget) {
+        mRoundRegions = ROUND_NOTHING;
+    }
 
     public SectionDecorationHandler getDecorationHandler() {
         return mDecorationHandler;
@@ -73,5 +81,25 @@ public class SectionDecorationInfo {
 
     public boolean isBottomRound() {
         return mIsBottomRound;
+    }
+
+    /**
+     * Decoration content equality used by DiffUtil via AdapterItem.isContentSame.
+     * Only includes fields that affect what the user sees: round regions and
+     * whether the section groups its items together. The decoration handler is
+     * derived from these and so does not need to participate.
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof SectionDecorationInfo)) return false;
+        SectionDecorationInfo other = (SectionDecorationInfo) o;
+        return mRoundRegions == other.mRoundRegions
+                && mShouldDecorateItemsTogether == other.mShouldDecorateItemsTogether;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mRoundRegions, mShouldDecorateItemsTogether);
     }
 }

@@ -165,9 +165,18 @@ public abstract class BaseAllAppsAdapter<T extends Context & ActivityContext> ex
 
         /**
          * This is called only if {@link #isSameAs} returns true to check if the contents are same
-         * as well. Returning true will prevent redrawing of thee item.
+         * as well. Returning true will prevent redrawing of the item.
+         *
+         * A change in {@link #decorationInfo} is treated as a content change for ALL item
+         * types (icons, headers, dividers) so DiffUtil can detect decoration-only changes
+         * such as the round-region transitions that happen when private space locks /
+         * unlocks. Previously the method only compared itemInfo presence, which left
+         * headers and dividers blind to decoration changes — historically worked around
+         * by an explicit {@code notifyDataSetChanged()} in PrivateProfileManager (see
+         * AOSP TODO b/325455879). Removing that workaround is tracked in change 051.
          */
         public boolean isContentSame(AdapterItem other) {
+            if (!Objects.equals(decorationInfo, other.decorationInfo)) return false;
             return itemInfo == null && other.itemInfo == null;
         }
 
