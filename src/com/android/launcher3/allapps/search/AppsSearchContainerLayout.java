@@ -39,7 +39,9 @@ import android.view.ViewGroup.MarginLayoutParams;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.ExtendedEditText;
 import com.android.launcher3.Insettable;
+import com.android.launcher3.Item;
 import com.android.launcher3.LauncherPrefs;
+import com.android.launcher3.PrefSubscriber;
 import com.android.launcher3.R;
 import com.android.launcher3.allapps.AllAppsColorResolver;
 import com.android.launcher3.allapps.ActivityAllAppsContainerView;
@@ -72,6 +74,17 @@ public class AppsSearchContainerLayout extends ExtendedEditText
     private Drawable mOriginalBackground;
 
     private final int mContentOverlap;
+
+    private AutoCloseable mSearchPrefSubscription;
+    private final PrefSubscriber mSearchPrefSubscriber = new PrefSubscriber() {
+        @Override
+        public void onPrefsChanged(java.util.Set<? extends Item> changes) {
+            if (changes.contains(LauncherPrefs.DRAWER_SEARCH_BG_COLOR)
+                    || changes.contains(LauncherPrefs.DRAWER_SEARCH_BG_OPACITY)) {
+                refreshSearchBarColor();
+            }
+        }
+    };
 
     public AppsSearchContainerLayout(Context context) {
         this(context, null);
@@ -129,6 +142,10 @@ public class AppsSearchContainerLayout extends ExtendedEditText
             mOriginalBackground = getBackground();
         }
         refreshSearchBarColor();
+        mSearchPrefSubscription = LauncherPrefs.get(getContext()).getPrefChanges()
+                .subscribe(mSearchPrefSubscriber,
+                        LauncherPrefs.DRAWER_SEARCH_BG_COLOR,
+                        LauncherPrefs.DRAWER_SEARCH_BG_OPACITY);
     }
 
     /** Re-reads custom search bar background color and opacity from preferences. */
@@ -162,6 +179,14 @@ public class AppsSearchContainerLayout extends ExtendedEditText
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         mAppsView.getAppsStore().removeUpdateListener(this);
+        if (mSearchPrefSubscription != null) {
+            try {
+                mSearchPrefSubscription.close();
+            } catch (Exception ignored) {
+                // Best-effort unsubscribe; AutoCloseable contract requires it.
+            }
+            mSearchPrefSubscription = null;
+        }
     }
 
     @Override
