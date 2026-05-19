@@ -196,13 +196,23 @@ Branch: `refactor/t0.1-search-4param-override` — 9 commits ahead of `dev`.
 | Cold-start drawer test | force-stop regression test + investigation | ✅ done | `docs/changes/068` |
 | T2.3 Phase 2 prep | Visuals baseline framework | ✅ done | `docs/changes/069` |
 
+### Session 3
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| Bug fix | SearchState reset on home return + workspace scaffolding fixture | ✅ done | `docs/changes/070` |
+
+**Session 3 highlight:** identified and fixed the user-reported "empty drawer on first open, search-and-back fixes it" bug. Root cause was a SearchState regression from T2.2 Phase 2 — `clear_search()` transitions state to `ACTIVE_EMPTY`, but closing the drawer via Launcher state transition (NORMAL ← ALL_APPS) didn't reset `mSearchState` to `IDLE`. Next drawer open found `isSearching()` true for `ACTIVE_EMPTY`, so `updateSearchResultsVisibility()` rendered the empty `search_results_list_view` instead of the apps grid. Fix in `ActivityAllAppsContainerView.reset(animate, exitSearch=true)`.
+
+Same commit also added a workspace scaffolding fixture in `tests-e2e/conftest.py`: idempotent, reproducible, retried up to 3 times. Wired into `launcher` (session), `_wake_and_home` (autouse, every test), and `clean_launcher` (per-test). Tests now start from a guaranteed-populated workspace regardless of prior state, fixing the latent fragility where `default_workspace_5x5.xml` resolves zero workspace items on the Pixel 7 Pro AVD.
+
 **T2.1 + T2.2 complete. T2.3 Phase 1 + visuals-baseline prerequisites shipped.**
 
 T2.3 Phases 2 and 3 (drawer-color migration + IDP.onConfigChanged downgrade) can now ship safely: the visuals tests at `tests-e2e/visuals/` will catch paint regressions, and `LauncherPrefs.get(context).prefChanges.subscribe(...)` is the framework consumers wire into.
 
 ### How to resume in a new session
 
-**Quick start (5 min):**
+**Quick start (~6 min):**
 
 ```bash
 cd /mnt/data/src/DefaultLauncher
@@ -219,12 +229,12 @@ adb devices                                  # expect: emulator-5554 device
   org.gradle.wrapper.GradleWrapperMain assembleDebug
 adb install -r -d -g build/outputs/apk/debug/DefaultLauncher-debug.apk
 
-# Confirm baseline still green
+# Confirm baseline still green (25 tests: 19 smoke + 3 regression + 3 visuals)
 cd tests-e2e
-.venv/bin/pytest smoke/ regression/ -v --tb=short   # expect 21/21 in ~60s
+.venv/bin/pytest smoke/ regression/ visuals/ -v --tb=short   # expect 25/25 in ~5min
 ```
 
-**Pick up at:** **T2.3 Phase 2** (per `docs/plans/003-unified-prefs-framework-v2.md`). T2.1, T2.2, T2.3 Phase 1, the visuals baseline framework, and the cold-start drawer regression test are all shipped as of `docs/changes/057-069`. The prefs dispatcher is live at `LauncherPrefs.get(context).prefChanges`; the visuals tests at `tests-e2e/visuals/` are ready to gate paint-affecting changes.
+**Pick up at:** **T2.3 Phase 2** (per `docs/plans/003-unified-prefs-framework-v2.md`). T2.1, T2.2, T2.3 Phase 1, visuals baseline, cold-start regression test, and the empty-drawer-on-first-open bug fix are all shipped as of `docs/changes/057-070`. The prefs dispatcher is live at `LauncherPrefs.get(context).prefChanges`; the visuals tests at `tests-e2e/visuals/` are ready to gate paint-affecting changes; conftest's `_ensure_workspace_has_icon` guarantees every test starts from a populated workspace.
 
 **Remaining work (ordered):**
 
@@ -237,19 +247,21 @@ cd tests-e2e
 
 **Execution invariants** for any session:
 
-- Every plan execution **must** pass `tests-e2e/smoke/` and `tests-e2e/regression/` before commit (21+ tests, ~60s).
-- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **070**).
+- Every plan execution **must** pass `tests-e2e/smoke/` + `tests-e2e/regression/` + `tests-e2e/visuals/` before commit (25+ tests, ~5 min full).
+- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **071**).
 - AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
 - `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
 - All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Guna Raya" -c user.email="gunaraya@microsoft.com" commit ...` (CLAUDE.md forbids permanent git config changes).
+- Test scaffolding: `tests-e2e/conftest.py::_ensure_workspace_has_icon` runs in `launcher` (session), `_wake_and_home` (autouse), and `clean_launcher` fixtures — every test starts from a populated workspace, including after `pm clear`. Do not bypass this when writing new tests.
 
 **Known good baselines:**
 - AVD: `emulator-5554`, Pixel 7 Pro (sdk_gphone16k_x86_64), Android 17 (SDK 37), 1440×3120 @ 560dpi.
 - DefaultLauncher set as default home activity.
-- 21/21 tests green at branch HEAD.
-- Full smoke suite runtime: ~60s. Full + regression: ~60s.
+- 25/25 tests green at branch HEAD (verified across two consecutive runs + from fully-wiped device).
+- Full suite runtime: ~5 min (smoke ~80s, regression ~120s, visuals ~30s, plus scaffolding overhead on cold path).
 
 **Risk flags carried forward:**
 - T2.1 Item 4 resolved Session 2: delegate is non-idempotent but Folder's `mDestroyed` flag is set synchronously before any re-entrant caller, so the simple `if (mDestroyed) return;` guard is sufficient — no token machinery needed. See `docs/changes/060`.
-- T2.3 Phase 3 drawer-color migrations are the highest-perf-win but most touchy — each pref needs its own commit + smoke + manual visual check on the AVD.
-- T3.1 Phase 2 (HeaderCoordinator + FloatingHeaderView state machine) is the riskiest single phase — preserve `mSuppressSetupHeader` + `mPendingSearchExitWork` + `mKeepKeyboardOnSearchExit` invariants explicitly.
+- T2.3 Phase 3 drawer-color migrations are the highest-perf-win but most touchy — each pref needs its own commit + smoke + visuals + manual visual check on the AVD.
+- T3.1 Phase 2 (HeaderCoordinator + FloatingHeaderView state machine) is the riskiest single phase — preserve `mSuppressSetupHeader` + `mPendingSearchExitWork` + `mKeepKeyboardOnSearchExit` invariants explicitly. Session 3's `docs/changes/070` shows how easily a missed state-reset hook can produce a user-visible regression.
+- Cold-start gesture-routing race (drawer fails to fully open with sub-1s warmup + fast swipe) is documented in `docs/changes/068` but **not fixed** — outside the launcher process, in SystemUI gesture dispatch. Not user-reachable in normal flow; tests use 2s warmup to bypass.
