@@ -83,6 +83,11 @@ public class FolderResizeFrame extends AbstractFloatingView
     private int mRunningSpanInc;
     private ObjectAnimator mSnapAnimator;
 
+    // Set true once onTouchUp persists; handleClose then skips the redundant write.
+    // Paths that bypass onTouchUp (outside-touch dismiss, ESC/back, drag-start) leave
+    // this false so handleClose still persists.
+    private boolean mPersistedOnTouchUp;
+
     private int mXDown, mYDown;
 
     private final Rect mTmpRect = new Rect();
@@ -536,6 +541,7 @@ public class FolderResizeFrame extends AbstractFloatingView
 
         // Persist to database
         mLauncher.getModelWriter().updateItemInDatabase(mFolderIcon.mInfo);
+        mPersistedOnTouchUp = true;
 
         // Reset handles
         for (View handle : mDragHandles) {
@@ -559,8 +565,11 @@ public class FolderResizeFrame extends AbstractFloatingView
             mSnapAnimator.cancel();
             mSnapAnimator = null;
         }
-        // Persist final state
-        mLauncher.getModelWriter().updateItemInDatabase(mFolderIcon.mInfo);
+        // Persist final state only if onTouchUp didn't already (close-without-resize
+        // paths: outside-touch dismiss, ESC/back, drag-start cancel).
+        if (!mPersistedOnTouchUp) {
+            mLauncher.getModelWriter().updateItemInDatabase(mFolderIcon.mInfo);
+        }
 
         // Also close any open popup
         PopupContainerWithArrow<?> popup = PopupContainerWithArrow.getOpen(mLauncher);
