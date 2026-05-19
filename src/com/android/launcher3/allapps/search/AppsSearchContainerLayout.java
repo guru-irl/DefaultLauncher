@@ -242,6 +242,15 @@ public class AppsSearchContainerLayout extends ExtendedEditText
 
     @Override
     public void onSearchResult(String query, ArrayList<AdapterItem> items) {
+        // Fallback path. Callers should use the 4-param overload so that
+        // INTERMEDIATE vs FINAL delivery is preserved; this routes to it
+        // with UNKNOWN so existing single-shot deliveries still work.
+        onSearchResult(query, items, SearchCallback.UNKNOWN);
+    }
+
+    @Override
+    public void onSearchResult(String query, ArrayList<AdapterItem> items,
+            int searchResultCode) {
         if (query != null && query.isEmpty()) {
             // Empty query — show A-Z apps while keeping search bar active
             mAppsView.showAppsWhileSearchActive();
@@ -249,7 +258,7 @@ public class AppsSearchContainerLayout extends ExtendedEditText
             return;
         }
         if (items != null) {
-            mAppsView.setSearchResults(items);
+            mAppsView.setSearchResults(items, searchResultCode);
         }
         mAppsView.updateSearchFabs(query);
     }

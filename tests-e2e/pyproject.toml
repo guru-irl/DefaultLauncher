@@ -1,0 +1,30 @@
+[project]
+name = "defaultlauncher-e2e"
+version = "0.1.0"
+description = "End-to-end test suite for DefaultLauncher"
+requires-python = ">=3.10"
+dependencies = [
+    "uiautomator2>=3.5",
+    "pytest>=8",
+    "pytest-html>=4",
+    "pytest-xdist>=3",
+    "Pillow>=10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["smoke", "regression", "stress"]
+markers = [
+    "smoke: golden-path tests run on every PR (<5min total)",
+    "regression: full coverage; nightly or per-tier",
+    "stress: long-running soak tests; opt-in only",
+    "workspace: workspace + folder + hotseat",
+    "drawer: app drawer",
+    "search: search subsystem",
+    "settings: settings UI",
+    "grid: grid configuration",
+    "prefs: preference propagation",
+    "model: model load + deletion",
+]
+addopts = "-ra --strict-markers --tb=short"
+log_cli = false
+log_cli_level = "INFO"
