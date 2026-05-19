@@ -94,6 +94,44 @@ public abstract class BaseAllAppsAdapter<T extends Context & ActivityContext> ex
     public static final int VIEW_TYPE_MASK_PRIVATE_SPACE_SYS_APPS_DIVIDER =
             VIEW_TYPE_PRIVATE_SPACE_SYS_APPS_DIVIDER;
 
+    /**
+     * Compile-time check (runs at class load) that no two view-type constants
+     * share the same value. The bit-shift scheme (1 &lt;&lt; N) is collision-free
+     * by construction so long as N stays distinct, but the safety is currently
+     * maintained by a manual {@code NEXT_ID} comment. This block fails fast
+     * if a developer reuses a value when adding a new type.
+     */
+    static {
+        int[] allTypes = {
+                VIEW_TYPE_ICON,
+                VIEW_TYPE_EMPTY_SEARCH,
+                VIEW_TYPE_ALL_APPS_DIVIDER,
+                VIEW_TYPE_WORK_EDU_CARD,
+                VIEW_TYPE_WORK_DISABLED_CARD,
+                VIEW_TYPE_PRIVATE_SPACE_HEADER,
+                VIEW_TYPE_PRIVATE_SPACE_SYS_APPS_DIVIDER,
+                VIEW_TYPE_BOTTOM_VIEW_TO_SCROLL_TO,
+                VIEW_TYPE_SEARCH_FILTER_BAR,
+                VIEW_TYPE_SEARCH_SECTION_HEADER,
+                VIEW_TYPE_SEARCH_SHORTCUT,
+                VIEW_TYPE_SEARCH_CONTACT,
+                VIEW_TYPE_SEARCH_CALENDAR,
+                VIEW_TYPE_SEARCH_FILE,
+                VIEW_TYPE_SEARCH_QUICK_ACTION,
+                VIEW_TYPE_SEARCH_CALCULATOR,
+                VIEW_TYPE_SEARCH_UNIT_CONVERTER,
+                VIEW_TYPE_SEARCH_TIMEZONE,
+                VIEW_TYPE_SEARCH_LOADING,
+        };
+        java.util.HashSet<Integer> uniq = new java.util.HashSet<>();
+        for (int t : allTypes) {
+            if (!uniq.add(t)) {
+                throw new IllegalStateException("Duplicate VIEW_TYPE_* value: " + t
+                        + ". Update NEXT_ID and pick the next bit position.");
+            }
+        }
+    }
+
     protected final SearchAdapterProvider<?> mAdapterProvider;
 
     /**
