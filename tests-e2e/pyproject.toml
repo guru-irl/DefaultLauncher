@@ -12,11 +12,12 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["smoke", "regression", "stress"]
+testpaths = ["smoke", "regression", "stress", "visuals"]
 markers = [
     "smoke: golden-path tests run on every PR (<5min total)",
     "regression: full coverage; nightly or per-tier",
     "stress: long-running soak tests; opt-in only",
+    "visuals: pixel-sampled paint regression checks",
     "workspace: workspace + folder + hotseat",
     "drawer: app drawer",
     "search: search subsystem",
