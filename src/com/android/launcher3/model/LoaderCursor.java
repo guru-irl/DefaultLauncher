@@ -466,10 +466,19 @@ public class LoaderCursor extends CursorWrapper {
         }
     }
 
-    /** Absolute floor for the mass-deletion circuit breaker. */
-    private static final int MASS_DELETE_FLOOR = 3;
-    /** Fractional threshold (deletions / total cursor rows) for the breaker. */
-    private static final int MASS_DELETE_RATIO_DIVISOR = 4;  // 1/4 = 25%
+    /**
+     * Absolute floor for the mass-deletion circuit breaker.
+     * Raised from 3 to 5 so that a small number of legitimate uninstalls
+     * (e.g. user removing three apps in one session) do not trip the
+     * breaker. The ratio still catches mass anomalies regardless.
+     */
+    private static final int MASS_DELETE_FLOOR = 5;
+    /**
+     * Fractional threshold (deletions / total cursor rows) for the breaker.
+     * Tightened from 25% (divisor 4) to 20% (divisor 5) to be more
+     * conservative on large databases.
+     */
+    private static final int MASS_DELETE_RATIO_DIVISOR = 5;  // 1/5 = 20%
 
     /**
      * Removes any items marked for removal.
