@@ -1,11 +1,22 @@
-# 047: SysUiScrim Color-Hint Race & Deletion-Guard Polish
+# 047: SysUiScrim Color-Hint Race, Status-Bar Shadow Toggle & Deletion-Guard Polish
 
 ## Summary
 
-Fixes a long-standing visual bug where the dark gradient behind the status bar
-(`SysUiScrim`'s top mask) would appear randomly on light wallpapers for the first
-frame(s) after launcher startup. Also applies follow-up review feedback from change
-046 — drops the unused `UserHandle` parameter from `ServiceReadiness` and adds a
+Fixes two visual bugs around the launcher's status-bar gradient (`SysUiScrim`'s
+top mask) and exposes a Desktop setting to turn it off entirely.
+
+1. **Cold-start race**: on launcher startup right after device unlock, the dark
+   scrim could flash over a light wallpaper for a frame or two because the theme
+   attribute (`isWorkspaceDarkText`) was cached at construction time and
+   lagged the wallpaper color hints.
+2. **State-transition fade noise**: on dark wallpapers the scrim fades back in
+   every time the user returns to the home screen from the app drawer or other
+   launcher states, which reads as a random shadow "appearing." A new user
+   setting under **Home screen → Wallpaper → Status bar shadow** lets the user
+   turn the scrim off entirely.
+
+Also applies follow-up review feedback from change 046 — drops the unused
+`UserHandle` parameter from `ServiceReadiness` and adds a
 `targetComponent.packageName` fallback to the widget deletion guard.
 
 ## The Scrim Race
@@ -53,11 +64,29 @@ Two findings from the self-review of change 046:
   provider package from `item.providerName ?: item.targetComponent`. If `providerName`
   is null but `targetComponent` is set (rare), the guard still runs.
 
+## Status-Bar Shadow Toggle
+
+A new boolean preference, `pref_show_top_shadow` (default `true`), gates whether
+`SysUiScrim` draws its masks. The wallpaper-hint signal is OR'd with the user's
+preference: scrim is hidden if either the wallpaper supports dark text **or** the
+user has disabled it. `SysUiScrim` registers a `LauncherPrefChangeListener` in
+`onViewAttachedToWindow` so the toggle updates take effect immediately without
+needing to reopen the launcher.
+
+## Settings Added
+
+| Setting | Key | Type | Default |
+|---------|-----|------|---------|
+| Status bar shadow | `pref_show_top_shadow` | Boolean | `true` |
+
 ## Modified Files
 
 | File | Change |
 |------|--------|
-| `src/com/android/launcher3/graphics/SysUiScrim.java` | Hint-driven visibility + listener; mutable bitmaps; lazy `refreshFromColorHints` |
+| `src/com/android/launcher3/graphics/SysUiScrim.java` | Hint-driven visibility + listener; mutable bitmaps; lazy `refreshFromColorHints`; honors `SHOW_TOP_SHADOW` preference via `LauncherPrefChangeListener` |
+| `src/com/android/launcher3/LauncherPrefs.kt` | Add `SHOW_TOP_SHADOW` preference item |
+| `res/xml/home_screen_preferences.xml` | Add `pref_show_top_shadow` switch under Wallpaper category |
+| `res/values/strings.xml` | Add `top_shadow_title` and `top_shadow_summary` strings |
 | `src/com/android/launcher3/util/ServiceReadiness.java` | Drop `UserHandle` param; add cross-user limitation kdoc |
 | `src/com/android/launcher3/widget/WidgetInflater.kt` | Provider-pkg fallback to `targetComponent` at both guard sites |
 | `src/com/android/launcher3/model/WorkspaceItemProcessor.kt` | Update calls to drop `c.user` arg |

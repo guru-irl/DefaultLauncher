@@ -36,6 +36,8 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.content.ContextCompat;
 
 import com.android.launcher3.DeviceProfile;
+import com.android.launcher3.LauncherPrefChangeListener;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.anim.AnimatedFloat;
 import com.android.launcher3.statemanager.StatefulContainer;
@@ -93,6 +95,8 @@ public class SysUiScrim implements View.OnAttachStateChangeListener, OnColorHint
     private boolean mHideSysUiScrim;
     private boolean mSkipScrimAnimationForTest = false;
 
+    private final LauncherPrefChangeListener mPrefListener;
+
     private boolean mAnimateScrimOnNextDraw = false;
     private final AnimatedFloat mSysUiAnimMultiplier = new AnimatedFloat(this::reapplySysUiAlpha);
     private final AnimatedFloat mSysUiProgress = new AnimatedFloat(this::reapplySysUiAlpha);
@@ -100,6 +104,12 @@ public class SysUiScrim implements View.OnAttachStateChangeListener, OnColorHint
     public SysUiScrim(View view) {
         mRoot = view;
         mContainer = ActivityContext.lookupContext(view.getContext());
+        mPrefListener = key -> {
+            if (LauncherPrefs.SHOW_TOP_SHADOW.getSharedPrefKey().equals(key)) {
+                refreshFromColorHints(
+                        WallpaperColorHints.get(mContainer.asContext()).getHints());
+            }
+        };
         DisplayMetrics dm = mContainer.asContext().getResources().getDisplayMetrics();
 
         mTopMaskHeight = ResourceUtils.pxFromDp(TOP_MASK_HEIGHT_DP, dm);
@@ -120,7 +130,11 @@ public class SysUiScrim implements View.OnAttachStateChangeListener, OnColorHint
     }
 
     private void refreshFromColorHints(int hints) {
-        boolean shouldHide = (hints & WallpaperColors.HINT_SUPPORTS_DARK_TEXT) != 0;
+        boolean userDisabled = !LauncherPrefs.get(mContainer.asContext())
+                .get(LauncherPrefs.SHOW_TOP_SHADOW);
+        boolean wallpaperSupportsDarkText =
+                (hints & WallpaperColors.HINT_SUPPORTS_DARK_TEXT) != 0;
+        boolean shouldHide = userDisabled || wallpaperSupportsDarkText;
         boolean unchanged = shouldHide == mHideSysUiScrim
                 && (shouldHide || mTopMaskBitmap != null);
         if (unchanged) {
@@ -208,7 +222,9 @@ public class SysUiScrim implements View.OnAttachStateChangeListener, OnColorHint
         ScreenOnTracker.INSTANCE.get(mContainer.asContext()).addListener(mScreenOnListener);
         WallpaperColorHints colorHints = WallpaperColorHints.get(mContainer.asContext());
         colorHints.registerOnColorHintsChangedListener(this);
-        // Catch hint updates that arrived while we were detached.
+        LauncherPrefs.get(mContainer.asContext()).addListener(
+                mPrefListener, LauncherPrefs.SHOW_TOP_SHADOW);
+        // Catch hint or pref updates that arrived while we were detached.
         refreshFromColorHints(colorHints.getHints());
     }
 
@@ -217,6 +233,8 @@ public class SysUiScrim implements View.OnAttachStateChangeListener, OnColorHint
         ScreenOnTracker.INSTANCE.get(mContainer.asContext()).removeListener(mScreenOnListener);
         WallpaperColorHints.get(mContainer.asContext())
                 .unregisterOnColorsChangedListener(this);
+        LauncherPrefs.get(mContainer.asContext()).removeListener(
+                mPrefListener, LauncherPrefs.SHOW_TOP_SHADOW);
     }
 
     /**

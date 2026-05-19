@@ -73,6 +73,13 @@
             android:defaultValue="true"
             launcher:iconSpaceReserved="false" />
 
+        <androidx.preference.SwitchPreferenceCompat
+            android:key="pref_show_top_shadow"
+            android:title="@string/top_shadow_title"
+            android:summary="@string/top_shadow_summary"
+            android:defaultValue="true"
+            launcher:iconSpaceReserved="false" />
+
     </PreferenceCategory>
 
 </androidx.preference.PreferenceScreen>
