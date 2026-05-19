@@ -61,6 +61,19 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
             else encryptedContext.getSharedPreferences(sharedPrefFile, MODE_PRIVATE)
         }
 
+    /**
+     * Internal hook exposing [getSharedPrefs] to [PrefChangeDispatcher].
+     * Subclasses (e.g., [ProxyPrefs]) still control which file backs each item.
+     */
+    internal fun getSharedPrefsForListening(item: Item): SharedPreferences = getSharedPrefs(item)
+
+    /**
+     * Lazy preference-change dispatcher. See [PrefChangeDispatcher] for the
+     * subscribe-by-item and subscribe-by-impact APIs. Phase 1 of the unified
+     * prefs framework — no production callers yet.
+     */
+    val prefChanges: PrefChangeDispatcher by lazy { PrefChangeDispatcher(this) }
+
     /** Returns the value with type [T] for [item]. */
     fun <T> get(item: ContextualItem<T>): T =
         getInner(item, item.defaultValueFromContext(encryptedContext))
@@ -469,6 +482,14 @@ abstract class Item {
     abstract val isBackedUp: Boolean
     abstract val type: Class<*>
     abstract val encryptionType: EncryptionType
+
+    /**
+     * Cascade classification for [PrefChangeDispatcher]. Defaults to the most
+     * conservative level so a misclassified pref still receives a notification;
+     * explicit downgrades land via `docs/plans/003-unified-prefs-framework-v2.md`.
+     */
+    open val impact: SettingImpact = SettingImpact.VIEW_INVALIDATE
+
     val sharedPrefFile: String
         get() = if (isBackedUp) SHARED_PREFERENCES_KEY else DEVICE_PREFERENCES_KEY
 
@@ -482,7 +503,9 @@ data class ConstantItem<T>(
     override val encryptionType: EncryptionType,
     // The default value can be null. If so, the type needs to be explicitly stated, or else NPE
     override val type: Class<out T> = defaultValue!!::class.java,
+    override val impact: SettingImpact = SettingImpact.VIEW_INVALIDATE,
 ) : Item() {
+    init { ItemRegistry.register(this) }
 
     fun get(c: Context): T = LauncherPrefs.get(c).get(this)
 }
@@ -493,7 +516,10 @@ data class ContextualItem<T>(
     private val defaultSupplier: (c: Context) -> T,
     override val encryptionType: EncryptionType,
     override val type: Class<out T>,
+    override val impact: SettingImpact = SettingImpact.VIEW_INVALIDATE,
 ) : Item() {
+    init { ItemRegistry.register(this) }
+
     private var default: T? = null
 
     fun defaultValueFromContext(context: Context): T {
