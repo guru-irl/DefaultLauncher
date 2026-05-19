@@ -154,3 +154,80 @@ Each change generates a numbered file in `docs/changes/048-…` onwards. Each me
 ## Living document
 
 This file evolves as the work progresses. After each tier completes, add a "Lessons learned" subsection capturing what the audits missed and what we learned during implementation. Future architecture work uses this as a reference.
+
+## Execution log
+
+### Session 1 (handoff point)
+
+Branch: `refactor/t0.1-search-4param-override` — 9 commits ahead of `dev`.
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| P0 | Test harness + 19 smoke + 2 regression tests | ✅ done | — |
+| T0.1 | Search 4-param onSearchResult override | ✅ done | `docs/changes/048` |
+| T0.2 | Orphan-pref triage (verified no real orphans) | ✅ done | `docs/changes/049` |
+| T0.3 | Mass-delete circuit breaker floor 3→5, ratio 25%→20% | ✅ done | `docs/changes/050` |
+| T0.4 | Drawer invariants reference doc | ✅ done | `docs/architecture/drawer-invariants.md` |
+| T1.1 | DiffUtil decoration equality | ✅ done | `docs/changes/051` |
+| T1.2 | Grid init guard + nav-mode invalidation key | ✅ done | `docs/changes/052` |
+| T1.3 | AllAppsStore volatile + snapshot | ✅ done | `docs/changes/053` |
+| T1.4 | View-type duplicate guard + misuse fix | ✅ done | `docs/changes/054` |
+| T2.0a | Workspace reliability v2 plan | ✅ drafted | `docs/plans/001-…` |
+| T2.0b | Search reliability v2 plan | ✅ drafted | `docs/plans/002-…` |
+| T2.0c | Prefs framework v2 plan | ✅ drafted | `docs/plans/003-…` |
+| T2.1 Item 1 | FLAG_EXPANDED cleared at SquareGridReflow clamp | ✅ done | `docs/changes/055` |
+| T2.1 Item 6 | strip-empty-screens drag guard | ✅ done | `docs/changes/056` |
+
+### How to resume in a new session
+
+**Quick start (5 min):**
+
+```bash
+cd /mnt/data/src/DefaultLauncher
+git checkout refactor/t0.1-search-4param-override
+# AVD should already be running; verify:
+export ANDROID_HOME=$HOME/Android/Sdk
+export PATH=$ANDROID_HOME/platform-tools:$PATH
+adb devices                                  # expect: emulator-5554 device
+
+# Rebuild + reinstall the in-tree state
+/opt/android-studio/jbr/bin/java -Xmx2g -Xms256m \
+  -Dorg.gradle.appname=gradlew \
+  -classpath gradle/wrapper/gradle-wrapper.jar \
+  org.gradle.wrapper.GradleWrapperMain assembleDebug
+adb install -r -d -g build/outputs/apk/debug/DefaultLauncher-debug.apk
+
+# Confirm baseline still green
+cd tests-e2e
+.venv/bin/pytest smoke/ regression/ -v --tb=short   # expect 21/21 in ~60s
+```
+
+**Pick up at:** **T2.1 Item 3** (folder span call-site consolidation, per `docs/plans/001-workspace-reliability-v2.md`).
+
+**Remaining work (ordered):**
+
+1. **T2.1 finish.** Items 3, 4, 5, 7, 8 from `docs/plans/001-workspace-reliability-v2.md`. Items 4 and 5 (Folder onDropCompleted race + open-folder-during-rebuild) are the highest-risk — read `Folder.java` carefully before touching.
+2. **T2.2 search v2.** Execute `docs/plans/002-search-reliability-v2.md` in phase order: Phase 1 (SearchSession + provider snapshotting + ProviderCategory enum) → Phase 2 (state machine, preserving `mKeepKeyboardOnSearchExit` + `mPendingSearchExitWork`) → Phase 3 (conversion abstraction) → Phase 4 (dead-code removal).
+3. **T2.3 prefs framework v2.** Execute `docs/plans/003-unified-prefs-framework-v2.md` in phase order: Phase 1 (framework + dispatcher, no behavior change) → Phase 2 (migrate audit-flagged on-demand readers) → Phase 3 (per-pref impact downgrades — drawer colors land the big perf win) → Phase 4 deferred.
+4. **T3.0a + T3.0b** redrafts. Dispatch Plan agents for drawer decomposition v2 (incorporate the 14-invariant table from `docs/architecture/drawer-invariants.md`) and deletion safety v2 (drop `isLauncherAppsHealthy`, use double-IPC verification, keep WidgetInflater guards). Inputs: the secondary + tertiary audit findings preserved in this superplan.
+5. **T3.1** drawer decomposition (5 phases, smoke gate per phase).
+6. **T3.2** deletion safety v2.
+
+**Execution invariants** for any session:
+
+- Every plan execution **must** pass `tests-e2e/smoke/` and `tests-e2e/regression/` before commit (21+ tests, ~60s).
+- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **057**).
+- AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
+- `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
+- All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Guna Raya" -c user.email="gunaraya@microsoft.com" commit ...` (CLAUDE.md forbids permanent git config changes).
+
+**Known good baselines:**
+- AVD: `emulator-5554`, Pixel 7 Pro (sdk_gphone16k_x86_64), Android 17 (SDK 37), 1440×3120 @ 560dpi.
+- DefaultLauncher set as default home activity.
+- 21/21 tests green at branch HEAD.
+- Full smoke suite runtime: ~60s. Full + regression: ~60s.
+
+**Risk flags carried forward:**
+- T2.1 Item 4 requires verifying `replaceFolderWithFinalItem` idempotency at the LauncherDelegate before deciding token-guard vs `if (mDestroyed) return;`.
+- T2.3 Phase 3 drawer-color migrations are the highest-perf-win but most touchy — each pref needs its own commit + smoke + manual visual check on the AVD.
+- T3.1 Phase 2 (HeaderCoordinator + FloatingHeaderView state machine) is the riskiest single phase — preserve `mSuppressSetupHeader` + `mPendingSearchExitWork` + `mKeepKeyboardOnSearchExit` invariants explicitly.
