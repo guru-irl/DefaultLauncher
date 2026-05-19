@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Searches installed apps by title. Extracted from DefaultAppSearchAlgorithm.
+ * Searches installed apps by title. Universal-search apps provider.
  */
 public class AppSearchProvider implements SearchProvider<AppInfo> {
 
