@@ -52,8 +52,8 @@ public class AppSearchProvider implements SearchProvider<AppInfo> {
     }
 
     @Override
-    public String category() {
-        return "apps";
+    public ProviderCategory category() {
+        return ProviderCategory.APPS;
     }
 
     private static List<AppInfo> getTitleMatchResult(List<AppInfo> apps, String query) {

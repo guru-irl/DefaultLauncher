@@ -36,6 +36,7 @@ import com.android.launcher3.search.providers.CalendarSearchProvider;
 import com.android.launcher3.search.providers.CalculatorProvider;
 import com.android.launcher3.search.providers.ContactSearchProvider;
 import com.android.launcher3.search.providers.FileSearchProvider;
+import com.android.launcher3.search.providers.ProviderCategory;
 import com.android.launcher3.search.providers.QuickActionProvider;
 import com.android.launcher3.search.providers.SearchProvider;
 import com.android.launcher3.search.providers.ShortcutSearchProvider;
@@ -113,14 +114,15 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
     private boolean isProviderEnabled(SearchProvider<?> provider) {
         LauncherPrefs prefs = LauncherPrefs.get(mContext);
         switch (provider.category()) {
-            case "shortcuts": return prefs.get(LauncherPrefs.SEARCH_SHORTCUTS);
-            case "contacts": return prefs.get(LauncherPrefs.SEARCH_CONTACTS);
-            case "calendar": return prefs.get(LauncherPrefs.SEARCH_CALENDAR);
-            case "files": return prefs.get(LauncherPrefs.SEARCH_FILES);
-            case "calculator": return prefs.get(LauncherPrefs.SEARCH_CALCULATOR);
-            case "unit_converter": return prefs.get(LauncherPrefs.SEARCH_UNIT_CONVERTER);
-            case "timezone": return prefs.get(LauncherPrefs.SEARCH_TIMEZONE);
-            case "quick_actions": return true; // Always enabled
+            case SHORTCUTS: return prefs.get(LauncherPrefs.SEARCH_SHORTCUTS);
+            case CONTACTS: return prefs.get(LauncherPrefs.SEARCH_CONTACTS);
+            case CALENDAR: return prefs.get(LauncherPrefs.SEARCH_CALENDAR);
+            case FILES: return prefs.get(LauncherPrefs.SEARCH_FILES);
+            case CALCULATOR: return prefs.get(LauncherPrefs.SEARCH_CALCULATOR);
+            case UNIT_CONVERTER: return prefs.get(LauncherPrefs.SEARCH_UNIT_CONVERTER);
+            case TIMEZONE: return prefs.get(LauncherPrefs.SEARCH_TIMEZONE);
+            case QUICK_ACTIONS: return true; // Always enabled
+            case APPS:
             default: return true;
         }
     }
@@ -181,45 +183,50 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
 
     @SuppressWarnings("unchecked")
     private void dispatchProvider(SearchProvider<?> provider, String query) {
-        String cat = provider.category();
+        ProviderCategory cat = provider.category();
         provider.search(query, results -> {
             synchronized (mCurrentResult) {
                 switch (cat) {
-                    case "shortcuts":
+                    case SHORTCUTS:
                         mCurrentResult.shortcuts.clear();
                         mCurrentResult.shortcuts.addAll((List<ShortcutResult>) (List<?>) results);
                         break;
-                    case "contacts":
+                    case CONTACTS:
                         mCurrentResult.contacts.clear();
                         mCurrentResult.contacts.addAll((List<ContactResult>) (List<?>) results);
                         break;
-                    case "calendar":
+                    case CALENDAR:
                         mCurrentResult.calendarEvents.clear();
                         mCurrentResult.calendarEvents.addAll(
                                 (List<CalendarResult>) (List<?>) results);
                         break;
-                    case "files":
+                    case FILES:
                         mCurrentResult.files.clear();
                         mCurrentResult.files.addAll((List<FileResult>) (List<?>) results);
                         break;
-                    case "quick_actions":
+                    case QUICK_ACTIONS:
                         mCurrentResult.quickActions.clear();
                         mCurrentResult.quickActions.addAll((List<QuickAction>) (List<?>) results);
                         break;
-                    case "calculator":
+                    case CALCULATOR:
                         if (!results.isEmpty()) {
                             mCurrentResult.calculator = (CalculatorResult) results.get(0);
                         }
                         break;
-                    case "unit_converter":
+                    case UNIT_CONVERTER:
                         if (!results.isEmpty()) {
                             mCurrentResult.unitConversion = (UnitConversion) results.get(0);
                         }
                         break;
-                    case "timezone":
+                    case TIMEZONE:
                         if (!results.isEmpty()) {
                             mCurrentResult.timezone = (TimezoneResult) results.get(0);
                         }
+                        break;
+                    case APPS:
+                        // AppSearchProvider has its own dedicated dispatch path in
+                        // doSearch() with progressive INTERMEDIATE delivery — never
+                        // routed here.
                         break;
                 }
             }

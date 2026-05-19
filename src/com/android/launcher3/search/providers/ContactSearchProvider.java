@@ -72,8 +72,8 @@ public class ContactSearchProvider implements SearchProvider<ContactResult> {
     }
 
     @Override
-    public String category() {
-        return "contacts";
+    public ProviderCategory category() {
+        return ProviderCategory.CONTACTS;
     }
 
     @Override
