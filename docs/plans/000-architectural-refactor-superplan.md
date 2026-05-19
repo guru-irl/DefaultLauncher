@@ -178,6 +178,18 @@ Branch: `refactor/t0.1-search-4param-override` — 9 commits ahead of `dev`.
 | T2.1 Item 1 | FLAG_EXPANDED cleared at SquareGridReflow clamp | ✅ done | `docs/changes/055` |
 | T2.1 Item 6 | strip-empty-screens drag guard | ✅ done | `docs/changes/056` |
 
+### Session 2
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| T2.1 Item 3 | Folder span persist call-site consolidation | ✅ done | `docs/changes/057` |
+| T2.1 Item 5 | Close folder on DP change | ✅ done | `docs/changes/058` |
+| T2.1 Item 7 | Workspace acceptDrop async drop-layout snapshot | ✅ done | `docs/changes/059` |
+| T2.1 Item 4 | Folder.replaceFolderWithFinalItem re-entry guard | ✅ done | `docs/changes/060` |
+| T2.1 Item 8 | CellLayout.resetCellSize occupancy doc note | ✅ done | `docs/changes/061` |
+
+**T2.1 (Workspace reliability v2) complete.** Next checkpoint: T2.2 search v2.
+
 ### How to resume in a new session
 
 **Quick start (5 min):**
@@ -202,21 +214,20 @@ cd tests-e2e
 .venv/bin/pytest smoke/ regression/ -v --tb=short   # expect 21/21 in ~60s
 ```
 
-**Pick up at:** **T2.1 Item 3** (folder span call-site consolidation, per `docs/plans/001-workspace-reliability-v2.md`).
+**Pick up at:** **T2.2 search reliability v2** (per `docs/plans/002-search-reliability-v2.md`). T2.1 (Workspace reliability v2) is fully shipped as of `docs/changes/057-061`.
 
 **Remaining work (ordered):**
 
-1. **T2.1 finish.** Items 3, 4, 5, 7, 8 from `docs/plans/001-workspace-reliability-v2.md`. Items 4 and 5 (Folder onDropCompleted race + open-folder-during-rebuild) are the highest-risk — read `Folder.java` carefully before touching.
-2. **T2.2 search v2.** Execute `docs/plans/002-search-reliability-v2.md` in phase order: Phase 1 (SearchSession + provider snapshotting + ProviderCategory enum) → Phase 2 (state machine, preserving `mKeepKeyboardOnSearchExit` + `mPendingSearchExitWork`) → Phase 3 (conversion abstraction) → Phase 4 (dead-code removal).
-3. **T2.3 prefs framework v2.** Execute `docs/plans/003-unified-prefs-framework-v2.md` in phase order: Phase 1 (framework + dispatcher, no behavior change) → Phase 2 (migrate audit-flagged on-demand readers) → Phase 3 (per-pref impact downgrades — drawer colors land the big perf win) → Phase 4 deferred.
-4. **T3.0a + T3.0b** redrafts. Dispatch Plan agents for drawer decomposition v2 (incorporate the 14-invariant table from `docs/architecture/drawer-invariants.md`) and deletion safety v2 (drop `isLauncherAppsHealthy`, use double-IPC verification, keep WidgetInflater guards). Inputs: the secondary + tertiary audit findings preserved in this superplan.
-5. **T3.1** drawer decomposition (5 phases, smoke gate per phase).
-6. **T3.2** deletion safety v2.
+1. **T2.2 search v2.** Execute `docs/plans/002-search-reliability-v2.md` in phase order: Phase 1 (SearchSession + provider snapshotting + ProviderCategory enum) → Phase 2 (state machine, preserving `mKeepKeyboardOnSearchExit` + `mPendingSearchExitWork`) → Phase 3 (conversion abstraction) → Phase 4 (dead-code removal).
+2. **T2.3 prefs framework v2.** Execute `docs/plans/003-unified-prefs-framework-v2.md` in phase order: Phase 1 (framework + dispatcher, no behavior change) → Phase 2 (migrate audit-flagged on-demand readers) → Phase 3 (per-pref impact downgrades — drawer colors land the big perf win) → Phase 4 deferred.
+3. **T3.0a + T3.0b** redrafts. Dispatch Plan agents for drawer decomposition v2 (incorporate the 14-invariant table from `docs/architecture/drawer-invariants.md`) and deletion safety v2 (drop `isLauncherAppsHealthy`, use double-IPC verification, keep WidgetInflater guards). Inputs: the secondary + tertiary audit findings preserved in this superplan.
+4. **T3.1** drawer decomposition (5 phases, smoke gate per phase).
+5. **T3.2** deletion safety v2.
 
 **Execution invariants** for any session:
 
 - Every plan execution **must** pass `tests-e2e/smoke/` and `tests-e2e/regression/` before commit (21+ tests, ~60s).
-- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **057**).
+- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **062**).
 - AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
 - `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
 - All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Guna Raya" -c user.email="gunaraya@microsoft.com" commit ...` (CLAUDE.md forbids permanent git config changes).
@@ -228,6 +239,6 @@ cd tests-e2e
 - Full smoke suite runtime: ~60s. Full + regression: ~60s.
 
 **Risk flags carried forward:**
-- T2.1 Item 4 requires verifying `replaceFolderWithFinalItem` idempotency at the LauncherDelegate before deciding token-guard vs `if (mDestroyed) return;`.
+- T2.1 Item 4 resolved Session 2: delegate is non-idempotent but Folder's `mDestroyed` flag is set synchronously before any re-entrant caller, so the simple `if (mDestroyed) return;` guard is sufficient — no token machinery needed. See `docs/changes/060`.
 - T2.3 Phase 3 drawer-color migrations are the highest-perf-win but most touchy — each pref needs its own commit + smoke + manual visual check on the AVD.
 - T3.1 Phase 2 (HeaderCoordinator + FloatingHeaderView state machine) is the riskiest single phase — preserve `mSuppressSetupHeader` + `mPendingSearchExitWork` + `mKeepKeyboardOnSearchExit` invariants explicitly.
