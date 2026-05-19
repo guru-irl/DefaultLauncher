@@ -1338,6 +1338,13 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
     }
 
     void replaceFolderWithFinalItem() {
+        // Re-entry guard: the delegate's path is not idempotent (it would remove
+        // the folder twice and double-add the surviving item). The flag is set on
+        // first success — see closeComplete() and onDropCompleted() for the two
+        // call paths that can race when mDeleteFolderOnDropCompleted is true.
+        if (mDestroyed) {
+            return;
+        }
         // Clean up per-folder prefs when folder is being deleted
         FolderCoverManager mgr = FolderCoverManager.getInstance(getContext());
         mgr.removeCover(mInfo.id);
