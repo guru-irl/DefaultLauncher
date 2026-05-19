@@ -10,27 +10,13 @@
  */
 package com.android.launcher3.search;
 
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_EMPTY_SEARCH;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_ICON;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_CALCULATOR;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_CALENDAR;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_CONTACT;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_FILE;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_FILTER_BAR;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_QUICK_ACTION;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_SECTION_HEADER;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_SHORTCUT;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_TIMEZONE;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_UNIT_CONVERTER;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 
 import android.content.Context;
 import android.os.Handler;
 
 import com.android.launcher3.LauncherPrefs;
-import com.android.launcher3.R;
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
-import com.android.launcher3.model.data.AppInfo;
 import com.android.launcher3.search.providers.AppSearchProvider;
 import com.android.launcher3.search.providers.CalendarSearchProvider;
 import com.android.launcher3.search.providers.CalculatorProvider;
@@ -257,113 +243,11 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
         });
     }
 
-    /** Converts the session's SearchResult into adapter items respecting filters. */
+    /** Converts the session's SearchResult into adapter items and dispatches via the callback. */
     private void deliverResults(SearchSession s, int resultCode) {
         if (s.abandoned || s != mActiveSession) return;
-
-        ArrayList<AdapterItem> items = new ArrayList<>();
-
-        // Filter bar is always first
-        items.add(SearchResultAdapterItem.asFilterBar(VIEW_TYPE_SEARCH_FILTER_BAR, mFilters));
-
-        synchronized (s.accumulator) {
-            // Quick actions (always shown regardless of filter).
-            // Skip WEB_SEARCH type — replaced by the floating "Search online" FAB.
-            for (QuickAction action : s.accumulator.quickActions) {
-                if (action.type == QuickAction.Type.WEB_SEARCH) continue;
-                items.add(SearchResultAdapterItem.asQuickAction(
-                        VIEW_TYPE_SEARCH_QUICK_ACTION, action));
-            }
-
-            // Calculator
-            if (s.accumulator.calculator != null
-                    && mFilters.isCategorySelected(SearchFilters.Category.TOOLS)) {
-                items.add(SearchResultAdapterItem.asResult(
-                        VIEW_TYPE_SEARCH_CALCULATOR, s.accumulator.calculator));
-            }
-
-            // Unit converter
-            if (s.accumulator.unitConversion != null
-                    && mFilters.isCategorySelected(SearchFilters.Category.TOOLS)) {
-                items.add(SearchResultAdapterItem.asResult(
-                        VIEW_TYPE_SEARCH_UNIT_CONVERTER, s.accumulator.unitConversion));
-            }
-
-            // Timezone
-            if (s.accumulator.timezone != null
-                    && mFilters.isCategorySelected(SearchFilters.Category.TOOLS)) {
-                items.add(SearchResultAdapterItem.asResult(
-                        VIEW_TYPE_SEARCH_TIMEZONE, s.accumulator.timezone));
-            }
-
-            // Apps
-            if (!s.accumulator.apps.isEmpty()
-                    && mFilters.isCategorySelected(SearchFilters.Category.APPS)) {
-                items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER,
-                        mContext.getString(R.string.search_section_apps)));
-                for (AppInfo app : s.accumulator.apps) {
-                    items.add(AdapterItem.asApp(app));
-                }
-            }
-
-            // Shortcuts
-            if (!s.accumulator.shortcuts.isEmpty()
-                    && mFilters.isCategorySelected(SearchFilters.Category.SHORTCUTS)) {
-                items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER,
-                        mContext.getString(R.string.search_section_shortcuts)));
-                for (ShortcutResult shortcut : s.accumulator.shortcuts) {
-                    items.add(SearchResultAdapterItem.asResult(
-                            VIEW_TYPE_SEARCH_SHORTCUT, shortcut));
-                }
-            }
-
-            // Contacts
-            if (!s.accumulator.contacts.isEmpty()
-                    && mFilters.isCategorySelected(SearchFilters.Category.CONTACTS)) {
-                items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER,
-                        mContext.getString(R.string.search_section_contacts)));
-                for (ContactResult contact : s.accumulator.contacts) {
-                    items.add(SearchResultAdapterItem.asResult(
-                            VIEW_TYPE_SEARCH_CONTACT, contact));
-                }
-            }
-
-            // Calendar
-            if (!s.accumulator.calendarEvents.isEmpty()
-                    && mFilters.isCategorySelected(SearchFilters.Category.CALENDAR)) {
-                items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER,
-                        mContext.getString(R.string.search_section_calendar)));
-                for (CalendarResult event : s.accumulator.calendarEvents) {
-                    items.add(SearchResultAdapterItem.asResult(
-                            VIEW_TYPE_SEARCH_CALENDAR, event));
-                }
-            }
-
-            // Files
-            if (!s.accumulator.files.isEmpty()
-                    && mFilters.isCategorySelected(SearchFilters.Category.FILES)) {
-                items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER,
-                        mContext.getString(R.string.search_section_files)));
-                for (FileResult file : s.accumulator.files) {
-                    items.add(SearchResultAdapterItem.asResult(VIEW_TYPE_SEARCH_FILE, file));
-                }
-            }
-        }
-
-        if (resultCode == SearchCallback.FINAL && items.size() <= 1) {
-            // All providers finished with no results — show empty state
-            AdapterItem emptyItem = new AdapterItem(VIEW_TYPE_EMPTY_SEARCH);
-            AppInfo placeholder = new AppInfo();
-            placeholder.title = s.query;
-            emptyItem.itemInfo = placeholder;
-            items.add(emptyItem);
-        }
-
+        ArrayList<AdapterItem> items = UniversalSearchAdapterProvider.convertResults(
+                mContext, s.accumulator, mFilters, s.query, resultCode);
         s.callback.onSearchResult(s.query, items, resultCode);
     }
 

@@ -10,6 +10,7 @@
  */
 package com.android.launcher3.search;
 
+import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_EMPTY_SEARCH;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_ICON;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_CALCULATOR;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_CALENDAR;
@@ -40,6 +41,7 @@ import com.android.launcher3.allapps.AllAppsGridAdapter;
 import com.android.launcher3.allapps.AlphabeticalAppsList;
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
 import com.android.launcher3.allapps.search.SearchAdapterProvider;
+import com.android.launcher3.model.data.AppInfo;
 import com.android.launcher3.search.result.CalendarResult;
 import com.android.launcher3.search.result.CalculatorResult;
 import com.android.launcher3.search.result.ContactResult;
@@ -55,6 +57,7 @@ import com.google.android.material.chip.Chip;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.color.MaterialColors;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -76,6 +79,125 @@ public class UniversalSearchAdapterProvider extends SearchAdapterProvider<Activi
     /** Sets the apps list reference so we can access adapter items during onBindView. */
     public void setAppsList(AlphabeticalAppsList<?> appsList) {
         mAppsList = appsList;
+    }
+
+    /**
+     * Converts a {@link SearchResult} into the ordered list of adapter items the
+     * RecyclerView will render. Owns the filter-bar / section-header / category
+     * sequencing for every supported provider type — the algorithm has no
+     * view-type knowledge of its own.
+     *
+     * <p>Synchronizes on {@code result} for the duration of the read, mirroring
+     * the lock that producer-side providers take when mutating the same object.
+     *
+     * <p>If {@code resultCode == SearchCallback.FINAL} and the only adapter
+     * item produced is the filter bar, appends an empty-state placeholder
+     * carrying {@code query} as its title.
+     */
+    public static ArrayList<AdapterItem> convertResults(Context context, SearchResult result,
+            SearchFilters filters, String query, int resultCode) {
+        ArrayList<AdapterItem> items = new ArrayList<>();
+        // Filter bar is always first.
+        items.add(SearchResultAdapterItem.asFilterBar(VIEW_TYPE_SEARCH_FILTER_BAR, filters));
+
+        synchronized (result) {
+            // Quick actions (always shown regardless of filter).
+            // Skip WEB_SEARCH type — replaced by the floating "Search online" FAB.
+            for (QuickAction action : result.quickActions) {
+                if (action.type == QuickAction.Type.WEB_SEARCH) continue;
+                items.add(SearchResultAdapterItem.asQuickAction(
+                        VIEW_TYPE_SEARCH_QUICK_ACTION, action));
+            }
+
+            // Calculator
+            if (result.calculator != null
+                    && filters.isCategorySelected(SearchFilters.Category.TOOLS)) {
+                items.add(SearchResultAdapterItem.asResult(
+                        VIEW_TYPE_SEARCH_CALCULATOR, result.calculator));
+            }
+
+            // Unit converter
+            if (result.unitConversion != null
+                    && filters.isCategorySelected(SearchFilters.Category.TOOLS)) {
+                items.add(SearchResultAdapterItem.asResult(
+                        VIEW_TYPE_SEARCH_UNIT_CONVERTER, result.unitConversion));
+            }
+
+            // Timezone
+            if (result.timezone != null
+                    && filters.isCategorySelected(SearchFilters.Category.TOOLS)) {
+                items.add(SearchResultAdapterItem.asResult(
+                        VIEW_TYPE_SEARCH_TIMEZONE, result.timezone));
+            }
+
+            // Apps
+            if (!result.apps.isEmpty()
+                    && filters.isCategorySelected(SearchFilters.Category.APPS)) {
+                items.add(SearchResultAdapterItem.asSectionHeader(
+                        VIEW_TYPE_SEARCH_SECTION_HEADER,
+                        context.getString(R.string.search_section_apps)));
+                for (AppInfo app : result.apps) {
+                    items.add(AdapterItem.asApp(app));
+                }
+            }
+
+            // Shortcuts
+            if (!result.shortcuts.isEmpty()
+                    && filters.isCategorySelected(SearchFilters.Category.SHORTCUTS)) {
+                items.add(SearchResultAdapterItem.asSectionHeader(
+                        VIEW_TYPE_SEARCH_SECTION_HEADER,
+                        context.getString(R.string.search_section_shortcuts)));
+                for (ShortcutResult shortcut : result.shortcuts) {
+                    items.add(SearchResultAdapterItem.asResult(
+                            VIEW_TYPE_SEARCH_SHORTCUT, shortcut));
+                }
+            }
+
+            // Contacts
+            if (!result.contacts.isEmpty()
+                    && filters.isCategorySelected(SearchFilters.Category.CONTACTS)) {
+                items.add(SearchResultAdapterItem.asSectionHeader(
+                        VIEW_TYPE_SEARCH_SECTION_HEADER,
+                        context.getString(R.string.search_section_contacts)));
+                for (ContactResult contact : result.contacts) {
+                    items.add(SearchResultAdapterItem.asResult(
+                            VIEW_TYPE_SEARCH_CONTACT, contact));
+                }
+            }
+
+            // Calendar
+            if (!result.calendarEvents.isEmpty()
+                    && filters.isCategorySelected(SearchFilters.Category.CALENDAR)) {
+                items.add(SearchResultAdapterItem.asSectionHeader(
+                        VIEW_TYPE_SEARCH_SECTION_HEADER,
+                        context.getString(R.string.search_section_calendar)));
+                for (CalendarResult event : result.calendarEvents) {
+                    items.add(SearchResultAdapterItem.asResult(
+                            VIEW_TYPE_SEARCH_CALENDAR, event));
+                }
+            }
+
+            // Files
+            if (!result.files.isEmpty()
+                    && filters.isCategorySelected(SearchFilters.Category.FILES)) {
+                items.add(SearchResultAdapterItem.asSectionHeader(
+                        VIEW_TYPE_SEARCH_SECTION_HEADER,
+                        context.getString(R.string.search_section_files)));
+                for (FileResult file : result.files) {
+                    items.add(SearchResultAdapterItem.asResult(VIEW_TYPE_SEARCH_FILE, file));
+                }
+            }
+        }
+
+        if (resultCode == SearchCallback.FINAL && items.size() <= 1) {
+            // All providers finished with no results — show empty state.
+            AdapterItem emptyItem = new AdapterItem(VIEW_TYPE_EMPTY_SEARCH);
+            AppInfo placeholder = new AppInfo();
+            placeholder.title = query;
+            emptyItem.itemInfo = placeholder;
+            items.add(emptyItem);
+        }
+        return items;
     }
 
     @Override
