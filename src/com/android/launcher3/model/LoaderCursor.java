@@ -72,6 +72,7 @@ import com.android.launcher3.util.GridOccupancy;
 import com.android.launcher3.util.IntArray;
 import com.android.launcher3.util.IntSparseArrayMap;
 import com.android.launcher3.util.PackageManagerHelper;
+import com.android.launcher3.util.ServiceReadiness;
 import com.android.launcher3.util.UserIconInfo;
 
 import dagger.assisted.Assisted;
@@ -465,18 +466,43 @@ public class LoaderCursor extends CursorWrapper {
         }
     }
 
+    /** Absolute floor for the mass-deletion circuit breaker. */
+    private static final int MASS_DELETE_FLOOR = 3;
+    /** Fractional threshold (deletions / total cursor rows) for the breaker. */
+    private static final int MASS_DELETE_RATIO_DIVISOR = 4;  // 1/4 = 25%
+
     /**
      * Removes any items marked for removal.
-     * @return true is any item was removed.
+     *
+     * Includes a circuit breaker: if a single load pass would delete more than
+     * {@link #MASS_DELETE_FLOOR} items AND those represent more than
+     * 1/{@link #MASS_DELETE_RATIO_DIVISOR} of the total cursor rows, the deletes
+     * are aborted under the assumption that an unhealthy system service
+     * (PackageManager, AppWidgetManager) returned spurious null/false for many
+     * legitimate items. Items remain in the DB and the loader retries on the
+     * next bind.
+     *
+     * @return true if any item was actually removed from the DB.
      */
     public boolean commitDeleted() {
-        if (mItemsToRemove.size() > 0) {
-            // Remove dead items
-            mModel.getModelDbController().delete(
-                    Utilities.createDbSelectionQuery(Favorites._ID, mItemsToRemove), null);
-            return true;
+        int toDelete = mItemsToRemove.size();
+        if (toDelete <= 0) {
+            return false;
         }
-        return false;
+        int total = getCount();
+        if (toDelete >= MASS_DELETE_FLOOR
+                && (long) toDelete * MASS_DELETE_RATIO_DIVISOR >= total) {
+            FileLog.e(TAG, "commitDeleted: refusing to delete " + toDelete
+                    + " of " + total + " items in one pass; suspected service"
+                    + " failure. Items kept; will retry next bind. "
+                    + ServiceReadiness.snapshot(mContext));
+            mItemsToRemove.clear();
+            return false;
+        }
+        // Remove dead items
+        mModel.getModelDbController().delete(
+                Utilities.createDbSelectionQuery(Favorites._ID, mItemsToRemove), null);
+        return true;
     }
 
     /**

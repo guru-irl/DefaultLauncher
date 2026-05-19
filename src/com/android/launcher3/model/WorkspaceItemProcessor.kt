@@ -53,6 +53,7 @@ import com.android.launcher3.util.ApplicationInfoWrapper
 import com.android.launcher3.util.ComponentKey
 import com.android.launcher3.util.PackageManagerHelper
 import com.android.launcher3.util.PackageUserKey
+import com.android.launcher3.util.ServiceReadiness
 import com.android.launcher3.widget.LauncherAppWidgetProviderInfo
 import com.android.launcher3.widget.WidgetInflater
 import com.android.launcher3.widget.util.WidgetSizes
@@ -238,6 +239,22 @@ class WorkspaceItemProcessor(
                                 c.updater().put(Favorites.RESTORED, c.restoreFlag).commit()
                             }
                             else -> {
+                                // Double-check: a transient PackageManager failure
+                                // can return false from isPackageEnabled even when
+                                // the package is installed. Deleting in that case
+                                // would silently lose the shortcut after the next
+                                // memory-pressure event.
+                                if (ServiceReadiness.isPackageProbablyInstalled(
+                                        context, targetPkg, c.user)) {
+                                    FileLog.w(
+                                        TAG,
+                                        "Deferring delete of $targetPkg id=${c.id}:" +
+                                            " LauncherApps says not-installed but PM" +
+                                            " confirms package present. " +
+                                            ServiceReadiness.snapshot(context),
+                                    )
+                                    return
+                                }
                                 c.markDeleted(
                                     "removing app that is not restored and not installing. package: $targetPkg",
                                     RestoreError.APP_NOT_RESTORED_OR_INSTALLING,
@@ -262,6 +279,20 @@ class WorkspaceItemProcessor(
                         allowMissingTarget = true
                     }
                     else -> {
+                        // Final escape before deletion: confirm the package really
+                        // is gone via a distinct PM IPC path. If it still shows up,
+                        // the LauncherApps null was transient (LMK reclaim, service
+                        // rebind) and deletion would be data loss.
+                        if (ServiceReadiness.isPackageProbablyInstalled(
+                                context, targetPkg, c.user)) {
+                            FileLog.w(
+                                TAG,
+                                "Deferring delete of $targetPkg id=${c.id}: " +
+                                    "isInstalled=false but PM probe confirms present. " +
+                                    ServiceReadiness.snapshot(context),
+                            )
+                            return
+                        }
                         // Do not wait for external media load anymore.
                         c.markDeleted(
                             "Invalid package removed: $targetPkg",
