@@ -88,7 +88,9 @@ import com.android.launcher3.DropTarget.DragObject;
 import com.android.launcher3.Flags;
 import com.android.launcher3.Insettable;
 import com.android.launcher3.InsettableFrameLayout;
+import com.android.launcher3.Item;
 import com.android.launcher3.LauncherPrefs;
+import com.android.launcher3.PrefSubscriber;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
@@ -233,6 +235,32 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private int mBottomSheetBackgroundColor;
     private float mBottomSheetBackgroundAlpha = 1f;
     private int mTabsProtectionAlpha;
+    /**
+     * Cached value of {@link LauncherPrefs#DRAWER_HIDE_TABS}, refreshed via
+     * {@link #mDrawerPrefSubscriber}. Read by {@link #setupHeader()} and
+     * {@link #updateRVContainerRules()} — invariant #8 in
+     * docs/architecture/drawer-invariants.md: these two callers must observe
+     * the same value within one frame.
+     */
+    private boolean mDrawerHideTabs;
+    private AutoCloseable mDrawerPrefSubscription;
+    private final PrefSubscriber mDrawerPrefSubscriber = new PrefSubscriber() {
+        @Override
+        public void onPrefsChanged(java.util.Set<? extends Item> changes) {
+            boolean colorOrOpacityChanged = changes.contains(LauncherPrefs.DRAWER_BG_COLOR)
+                    || changes.contains(LauncherPrefs.DRAWER_BG_OPACITY);
+            boolean hideTabsChanged = changes.contains(LauncherPrefs.DRAWER_HIDE_TABS);
+            if (hideTabsChanged) {
+                mDrawerHideTabs = LauncherPrefs.get(getContext())
+                        .get(LauncherPrefs.DRAWER_HIDE_TABS);
+                updateRVContainerRules();
+                setupHeader();
+            }
+            if (colorOrOpacityChanged) {
+                refreshCustomColors();
+            }
+        }
+    };
     @Nullable private AllAppsTransitionController mAllAppsTransitionController;
     private LinearLayout mFabContainer;
     private FloatingActionButton mAiSearchFab;
@@ -256,6 +284,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mHeaderThreshold = getResources().getDimensionPixelSize(
                 R.dimen.dynamic_grid_cell_border_spacing);
         mHeaderProtectionColor = Themes.getAttrColor(context, R.attr.allappsHeaderProtectionColor);
+        // Cache DRAWER_HIDE_TABS before onFinishInflate's rebindAdapters() consults it.
+        mDrawerHideTabs = LauncherPrefs.get(context).get(LauncherPrefs.DRAWER_HIDE_TABS);
 
         mWorkManager = new WorkProfileManager(
                 mActivityContext.getSystemService(UserManager.class),
@@ -432,12 +462,25 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             mSearchUiDelegate.onInitializeSearchBar();
         }
         mActivityContext.addOnDeviceProfileChangeListener(this);
+        mDrawerPrefSubscription = LauncherPrefs.get(getContext()).getPrefChanges()
+                .subscribe(mDrawerPrefSubscriber,
+                        LauncherPrefs.DRAWER_BG_COLOR,
+                        LauncherPrefs.DRAWER_BG_OPACITY,
+                        LauncherPrefs.DRAWER_HIDE_TABS);
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         mActivityContext.removeOnDeviceProfileChangeListener(this);
+        if (mDrawerPrefSubscription != null) {
+            try {
+                mDrawerPrefSubscription.close();
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to close drawer pref subscription", e);
+            }
+            mDrawerPrefSubscription = null;
+        }
     }
 
     public SearchUiManager getSearchUiManager() {
@@ -1112,8 +1155,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         removeCustomRules(rvContainer);
         removeCustomRules(getSearchRecyclerView());
 
-        boolean tabsVisible = mViewPager != null
-                && !LauncherPrefs.get(getContext()).get(LauncherPrefs.DRAWER_HIDE_TABS);
+        boolean tabsVisible = mViewPager != null && !mDrawerHideTabs;
         if (isSearchBarFloating()) {
             alignParentTop(rvContainer, tabsVisible);
             alignParentTop(getSearchRecyclerView(), /* tabs= */ false);
@@ -1126,8 +1168,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     void setupHeader() {
         if (mSuppressSetupHeader) return;
         mHeader.setVisibility(View.VISIBLE);
-        boolean tabsHidden = !mUsingTabs
-                || LauncherPrefs.get(getContext()).get(LauncherPrefs.DRAWER_HIDE_TABS);
+        boolean tabsHidden = !mUsingTabs || mDrawerHideTabs;
         mHeader.setup(
                 mAH.get(AdapterHolder.MAIN).mRecyclerView,
                 mAH.get(AdapterHolder.WORK).mRecyclerView,
