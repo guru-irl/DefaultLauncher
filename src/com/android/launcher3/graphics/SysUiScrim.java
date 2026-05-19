@@ -19,6 +19,7 @@ import static android.graphics.Paint.DITHER_FLAG;
 import static android.graphics.Paint.FILTER_BITMAP_FLAG;
 
 import android.animation.ObjectAnimator;
+import android.app.WallpaperColors;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
@@ -30,23 +31,27 @@ import android.util.DisplayMetrics;
 import android.view.View;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.content.ContextCompat;
 
 import com.android.launcher3.DeviceProfile;
+import com.android.launcher3.LauncherPrefChangeListener;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.anim.AnimatedFloat;
 import com.android.launcher3.statemanager.StatefulContainer;
 import com.android.launcher3.testing.shared.ResourceUtils;
+import com.android.launcher3.util.OnColorHintListener;
 import com.android.launcher3.util.ScreenOnTracker;
 import com.android.launcher3.util.ScreenOnTracker.ScreenOnListener;
-import com.android.launcher3.util.Themes;
+import com.android.launcher3.util.WallpaperColorHints;
 import com.android.launcher3.views.ActivityContext;
 
 /**
  * View scrim which draws behind hotseat and workspace
  */
-public class SysUiScrim implements View.OnAttachStateChangeListener {
+public class SysUiScrim implements View.OnAttachStateChangeListener, OnColorHintListener {
 
     /**
      * Receiver used to get a signal that the user unlocked their device.
@@ -77,18 +82,20 @@ public class SysUiScrim implements View.OnAttachStateChangeListener {
 
     private final RectF mTopMaskRect = new RectF();
     private final Paint mTopMaskPaint = new Paint(FILTER_BITMAP_FLAG | DITHER_FLAG);
-    private final Bitmap mTopMaskBitmap;
+    @Nullable private Bitmap mTopMaskBitmap;
     private final int mTopMaskHeight;
 
     private final RectF mBottomMaskRect = new RectF();
     private final Paint mBottomMaskPaint = new Paint(FILTER_BITMAP_FLAG | DITHER_FLAG);
-    private final Bitmap mBottomMaskBitmap;
+    @Nullable private Bitmap mBottomMaskBitmap;
     private final int mBottomMaskHeight;
 
     private final View mRoot;
     private final StatefulContainer mContainer;
-    private final boolean mHideSysUiScrim;
+    private boolean mHideSysUiScrim;
     private boolean mSkipScrimAnimationForTest = false;
+
+    private final LauncherPrefChangeListener mPrefListener;
 
     private boolean mAnimateScrimOnNextDraw = false;
     private final AnimatedFloat mSysUiAnimMultiplier = new AnimatedFloat(this::reapplySysUiAlpha);
@@ -97,26 +104,60 @@ public class SysUiScrim implements View.OnAttachStateChangeListener {
     public SysUiScrim(View view) {
         mRoot = view;
         mContainer = ActivityContext.lookupContext(view.getContext());
+        mPrefListener = key -> {
+            if (LauncherPrefs.SHOW_TOP_SHADOW.getSharedPrefKey().equals(key)) {
+                refreshFromColorHints(
+                        WallpaperColorHints.get(mContainer.asContext()).getHints());
+            }
+        };
         DisplayMetrics dm = mContainer.asContext().getResources().getDisplayMetrics();
 
         mTopMaskHeight = ResourceUtils.pxFromDp(TOP_MASK_HEIGHT_DP, dm);
         mBottomMaskHeight = ResourceUtils.pxFromDp(BOTTOM_MASK_HEIGHT_DP, dm);
-        mHideSysUiScrim = Themes.getAttrBoolean(view.getContext(), R.attr.isWorkspaceDarkText);
 
-        mTopMaskBitmap = mHideSysUiScrim ? null : createDitheredAlphaMask(mTopMaskHeight,
-                new int[]{0x3DFFFFFF, 0x0AFFFFFF, 0x00FFFFFF},
-                new float[]{0f, 0.7f, 1f});
         int onSurfaceColor = ContextCompat.getColor(
                 view.getContext(), R.color.materialColorOnSurface);
         mTopMaskPaint.setColor(onSurfaceColor);
         mBottomMaskPaint.setColor(onSurfaceColor);
-        mBottomMaskBitmap = mHideSysUiScrim ? null : createDitheredAlphaMask(mBottomMaskHeight,
-                new int[]{0x00FFFFFF, 0x2FFFFFFF},
-                new float[]{0f, 1f});
 
-        if (!mHideSysUiScrim) {
-            view.addOnAttachStateChangeListener(this);
+        // Drive visibility directly from WallpaperColors hints rather than a cached
+        // theme attribute. The theme attribute lags wallpaper-hint delivery by one
+        // activity recreation; during that window the dark scrim would flash over
+        // a light wallpaper. Reading hints (and listening for hint changes once
+        // attached) closes the gap.
+        refreshFromColorHints(WallpaperColorHints.get(view.getContext()).getHints());
+        view.addOnAttachStateChangeListener(this);
+    }
+
+    private void refreshFromColorHints(int hints) {
+        boolean userDisabled = !LauncherPrefs.get(mContainer.asContext())
+                .get(LauncherPrefs.SHOW_TOP_SHADOW);
+        boolean wallpaperSupportsDarkText =
+                (hints & WallpaperColors.HINT_SUPPORTS_DARK_TEXT) != 0;
+        boolean shouldHide = userDisabled || wallpaperSupportsDarkText;
+        boolean unchanged = shouldHide == mHideSysUiScrim
+                && (shouldHide || mTopMaskBitmap != null);
+        if (unchanged) {
+            return;
         }
+        mHideSysUiScrim = shouldHide;
+        if (shouldHide) {
+            mTopMaskBitmap = null;
+            mBottomMaskBitmap = null;
+        } else {
+            mTopMaskBitmap = createDitheredAlphaMask(mTopMaskHeight,
+                    new int[]{0x3DFFFFFF, 0x0AFFFFFF, 0x00FFFFFF},
+                    new float[]{0f, 0.7f, 1f});
+            mBottomMaskBitmap = createDitheredAlphaMask(mBottomMaskHeight,
+                    new int[]{0x00FFFFFF, 0x2FFFFFFF},
+                    new float[]{0f, 1f});
+        }
+        mRoot.invalidate();
+    }
+
+    @Override
+    public void onColorHintsChanged(int colorHints) {
+        refreshFromColorHints(colorHints);
     }
 
     /**
@@ -179,11 +220,21 @@ public class SysUiScrim implements View.OnAttachStateChangeListener {
     @Override
     public void onViewAttachedToWindow(View view) {
         ScreenOnTracker.INSTANCE.get(mContainer.asContext()).addListener(mScreenOnListener);
+        WallpaperColorHints colorHints = WallpaperColorHints.get(mContainer.asContext());
+        colorHints.registerOnColorHintsChangedListener(this);
+        LauncherPrefs.get(mContainer.asContext()).addListener(
+                mPrefListener, LauncherPrefs.SHOW_TOP_SHADOW);
+        // Catch hint or pref updates that arrived while we were detached.
+        refreshFromColorHints(colorHints.getHints());
     }
 
     @Override
     public void onViewDetachedFromWindow(View view) {
         ScreenOnTracker.INSTANCE.get(mContainer.asContext()).removeListener(mScreenOnListener);
+        WallpaperColorHints.get(mContainer.asContext())
+                .unregisterOnColorsChangedListener(this);
+        LauncherPrefs.get(mContainer.asContext()).removeListener(
+                mPrefListener, LauncherPrefs.SHOW_TOP_SHADOW);
     }
 
     /**

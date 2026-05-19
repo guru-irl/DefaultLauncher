@@ -56,6 +56,13 @@ android {
     buildTypes {
         debug {
             minifyEnabled false
+            // Opt into the release signing config when a keystore is supplied,
+            // so debug builds can update an existing release-signed install on
+            // a primary device without first uninstalling (which would wipe
+            // launcher data — widgets, layout, settings).
+            if (project.hasProperty('KEYSTORE_FILE')) {
+                signingConfig signingConfigs.release
+            }
         }
         release {
             minifyEnabled true

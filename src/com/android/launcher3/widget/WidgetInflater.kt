@@ -24,6 +24,7 @@ import com.android.launcher3.dagger.ApplicationContext
 import com.android.launcher3.logging.FileLog
 import com.android.launcher3.model.data.LauncherAppWidgetInfo
 import com.android.launcher3.qsb.QsbContainerView
+import com.android.launcher3.util.ServiceReadiness
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -96,6 +97,20 @@ constructor(
                 item.restoreStatus != LauncherAppWidgetInfo.RESTORE_COMPLETED
         ) {
             if (appWidgetInfo == null) {
+                // Same transient-null guard as the RESTORE_COMPLETED branch below.
+                val providerPkg = item.providerName?.packageName
+                        ?: item.targetComponent?.packageName
+                if (providerPkg != null
+                        && ServiceReadiness.isPackageProbablyInstalled(
+                            context, providerPkg)) {
+                    FileLog.w(Launcher.TAG,
+                            "Deferring restored-widget delete: appWidgetInfo null but"
+                                    + " provider pkg=" + providerPkg + " still installed."
+                                    + " appWidgetId=" + item.appWidgetId
+                                    + " " + ServiceReadiness.snapshot(context))
+                    return InflationResult(TYPE_PENDING, isUpdate = update,
+                            widgetInfo = null)
+                }
                 return InflationResult(
                     type = TYPE_DELETE,
                     reason =
@@ -179,7 +194,25 @@ constructor(
         if (item.restoreStatus == LauncherAppWidgetInfo.RESTORE_COMPLETED) {
             // Verify that we own the widget
             if (appWidgetInfo == null) {
-                FileLog.e(Launcher.TAG, "Removing invalid widget: id=" + item.appWidgetId)
+                // Before deleting, confirm the provider package is actually gone.
+                // A transiently-null AppWidgetManager response (cold start after
+                // memory reclaim, host rebind race) must not cause permanent DB
+                // deletion. See ServiceReadiness for the double-check rationale.
+                val providerPkg = item.providerName?.packageName
+                        ?: item.targetComponent?.packageName
+                if (providerPkg != null
+                        && ServiceReadiness.isPackageProbablyInstalled(
+                            context, providerPkg)) {
+                    FileLog.w(Launcher.TAG,
+                            "Deferring widget delete: appWidgetInfo null but provider"
+                                    + " pkg=" + providerPkg + " still installed."
+                                    + " appWidgetId=" + item.appWidgetId
+                                    + " " + ServiceReadiness.snapshot(context))
+                    return InflationResult(TYPE_PENDING, isUpdate = update,
+                            widgetInfo = null)
+                }
+                FileLog.e(Launcher.TAG, "Removing invalid widget: id=" + item.appWidgetId
+                        + " " + ServiceReadiness.snapshot(context))
                 return InflationResult(TYPE_DELETE, reason = removalReason)
             }
             item.minSpanX = appWidgetInfo.minSpanX

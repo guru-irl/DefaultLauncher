@@ -354,6 +354,7 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField val ICON_WRAP_BG_OPACITY = backedUpItem("pref_icon_wrap_bg_opacity", 100)
         @JvmField val ICON_WRAP_BG_OPACITY_DRAWER = backedUpItem("pref_icon_wrap_bg_opacity_drawer", 100)
         @JvmField val WALLPAPER_SCROLL = backedUpItem("pref_wallpaper_scroll", true)
+        @JvmField val SHOW_TOP_SHADOW = backedUpItem("pref_show_top_shadow", true)
 
         // Folder appearance preferences (store color resource name or shape key; empty = default)
         // Pref key is "pref_folder_icon_color" for backward compat; stores cover background color

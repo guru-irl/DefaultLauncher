@@ -594,6 +594,9 @@
     <string name="wallpaper_scroll_title">Wallpaper scrolling</string>
     <string name="wallpaper_scroll_summary">Move wallpaper as you swipe between pages</string>
 
+    <string name="top_shadow_title">Status bar shadow</string>
+    <string name="top_shadow_summary">Faint shadow behind the status bar</string>
+
     <!-- Grids sub-page -->
     <string name="grids_title">Grids</string>
     <string name="grids_summary">Column count</string>
