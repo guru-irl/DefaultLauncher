@@ -192,8 +192,11 @@ Branch: `refactor/t0.1-search-4param-override` — 9 commits ahead of `dev`.
 | T2.2 Phase 2 | SearchState five-state machine | ✅ done | `docs/changes/064` |
 | T2.2 Phase 3 | convertResults moved to adapter provider | ✅ done | `docs/changes/065` |
 | T2.2 Phase 4 | DefaultAppSearchAlgorithm + DefaultSearchAdapterProvider deletion | ✅ done | `docs/changes/066` |
+| T2.3 Phase 1 | Prefs framework foundation (dormant) | ✅ done | `docs/changes/067` |
 
-**T2.1 + T2.2 complete.** Next checkpoint: T2.3 prefs framework v2.
+**T2.1 + T2.2 complete. T2.3 Phase 1 (framework foundation) shipped.**
+
+T2.3 Phases 2 and 3 (drawer-color migration + IDP.onConfigChanged downgrade) intentionally deferred — they require dark/light × tablet/phone × transparency visual regression coverage that the current smoke suite doesn't provide. Pickup is T2.3 Phase 2 with the framework already in place; consumers can subscribe via `LauncherPrefs.get(context).prefChanges.subscribe(...)`.
 
 ### How to resume in a new session
 
@@ -219,19 +222,21 @@ cd tests-e2e
 .venv/bin/pytest smoke/ regression/ -v --tb=short   # expect 21/21 in ~60s
 ```
 
-**Pick up at:** **T2.3 prefs framework v2** (per `docs/plans/003-unified-prefs-framework-v2.md`). T2.1 + T2.2 are fully shipped as of `docs/changes/057-066`.
+**Pick up at:** **T2.3 Phase 2** (per `docs/plans/003-unified-prefs-framework-v2.md`). T2.1, T2.2, and T2.3 Phase 1 are fully shipped as of `docs/changes/057-067`. The dispatcher is live at `LauncherPrefs.get(context).prefChanges` but no production callers subscribe yet — framework is dormant.
 
 **Remaining work (ordered):**
 
-1. **T2.3 prefs framework v2.** Execute `docs/plans/003-unified-prefs-framework-v2.md` in phase order: Phase 1 (framework + dispatcher, no behavior change) → Phase 2 (migrate audit-flagged on-demand readers) → Phase 3 (per-pref impact downgrades — drawer colors land the big perf win) → Phase 4 deferred.
-2. **T3.0a + T3.0b** redrafts. Dispatch Plan agents for drawer decomposition v2 (incorporate the 14-invariant table from `docs/architecture/drawer-invariants.md`) and deletion safety v2 (drop `isLauncherAppsHealthy`, use double-IPC verification, keep WidgetInflater guards). Inputs: the secondary + tertiary audit findings preserved in this superplan.
-3. **T3.1** drawer decomposition (5 phases, smoke gate per phase).
-4. **T3.2** deletion safety v2.
+1. **T2.3 Phase 2.** Migrate audit-flagged on-demand readers in `ActivityAllAppsContainerView` (drawer colors + DRAWER_HIDE_TABS), `AppsSearchContainerLayout` (search bg color + opacity), `AllAppsState` (drawer bg), `RecyclerViewFastScroller` (scrollbar color) to subscribe-and-cache. Add a `tests-e2e/visuals/` baseline at `docs/architecture/drawer-invariants.md`-defined checkpoints before changing color paths; the smoke suite covers structure but not paint.
+2. **T2.3 Phase 3.** Per-pref impact downgrades. Tag each drawer color / folder color pref with `SettingImpact.VIEW_INVALIDATE`; remove the `InvariantDeviceProfile.onConfigChanged` calls from `AppDrawerColorsFragment.java:72/81/90/121/135` (5 sites). The big perf win lands here.
+3. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations).
+4. **T3.0a + T3.0b** redrafts. Dispatch Plan agents for drawer decomposition v2 (incorporate the 14-invariant table from `docs/architecture/drawer-invariants.md`) and deletion safety v2 (drop `isLauncherAppsHealthy`, use double-IPC verification, keep WidgetInflater guards). Inputs: the secondary + tertiary audit findings preserved in this superplan.
+5. **T3.1** drawer decomposition (5 phases, smoke gate per phase).
+6. **T3.2** deletion safety v2.
 
 **Execution invariants** for any session:
 
 - Every plan execution **must** pass `tests-e2e/smoke/` and `tests-e2e/regression/` before commit (21+ tests, ~60s).
-- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **067**).
+- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **068**).
 - AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
 - `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
 - All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Guna Raya" -c user.email="gunaraya@microsoft.com" commit ...` (CLAUDE.md forbids permanent git config changes).
