@@ -244,6 +244,12 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
     @ViewDebug.ExportedProperty(category = "launcher")
     private boolean mDestroyed;
 
+    // Close the open folder if the device profile changes mid-open (rotation,
+    // window-size change, grid reconfig). The view's coordinates would otherwise
+    // become stale; FolderInfo lives on the model so user data is unaffected.
+    private final DeviceProfile.OnDeviceProfileChangeListener mDpChangeListener =
+            dp -> close(false);
+
     // Folder scrolling
     private int mScrollAreaOffset;
 
@@ -701,6 +707,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         if (getParent() == null) {
             dragLayer.addView(this);
             getDragController().addDropTarget(this);
+            mActivityContext.addOnDeviceProfileChangeListener(mDpChangeListener);
         } else {
             if (FeatureFlags.IS_STUDIO_BUILD) {
                 Log.e(TAG, "Opening folder (" + this + ") which already has a parent:"
@@ -938,6 +945,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
             parent.removeView(this);
         }
         getDragController().removeDropTarget(this);
+        mActivityContext.removeOnDeviceProfileChangeListener(mDpChangeListener);
         clearFocus();
         if (mFolderIcon != null) {
             mFolderIcon.setVisibility(View.VISIBLE);
