@@ -535,6 +535,7 @@ public class InvariantDeviceProfile {
         int savedGap = mPrefs.get(LauncherPrefs.GRID_GAP);
         int savedCols = mPrefs.get(LauncherPrefs.GRID_ROWS_COLUMNS);
         int savedNavHeight = mPrefs.get(LauncherPrefs.GRID_ROWS_NAV_HEIGHT);
+        int savedNavMode = mPrefs.get(LauncherPrefs.GRID_ROWS_NAV_MODE);
 
         // Get portrait bottom inset (navbar height) from display bounds
         int currentNavHeight = -1;
@@ -544,8 +545,14 @@ public class InvariantDeviceProfile {
                 break;
             }
         }
+        // Explicit nav-mode ordinal. nav_height alone is a proxy that can
+        // produce the same value across modes on some devices; the ordinal
+        // is the authoritative signal.
+        int currentNavMode = displayInfo.getNavigationMode().ordinal();
 
-        boolean match = savedCols == userColumns && savedNavHeight == currentNavHeight;
+        boolean match = savedCols == userColumns
+                && savedNavHeight == currentNavHeight
+                && savedNavMode == currentNavMode;
         persistedGridRows = (match && savedRows > 0) ? savedRows : -1;
         persistedGridGap = (match && savedGap >= 0) ? savedGap : -1;
 
@@ -586,7 +593,8 @@ public class InvariantDeviceProfile {
                             LauncherPrefs.GRID_ROWS.to(persistedGridRows),
                             LauncherPrefs.GRID_GAP.to(persistedGridGap),
                             LauncherPrefs.GRID_ROWS_COLUMNS.to(userColumns),
-                            LauncherPrefs.GRID_ROWS_NAV_HEIGHT.to(currentNavHeight));
+                            LauncherPrefs.GRID_ROWS_NAV_HEIGHT.to(currentNavHeight),
+                            LauncherPrefs.GRID_ROWS_NAV_MODE.to(currentNavMode));
                     break;
                 }
             }

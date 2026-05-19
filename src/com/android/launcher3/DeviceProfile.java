@@ -307,6 +307,14 @@ public class DeviceProfile {
     // Insets
     private final Rect mInsets = new Rect();
     public final Rect workspacePadding = new Rect();
+    /**
+     * Set true when {@link #updateWorkspacePadding()} has completed, false at
+     * the top of every {@link #updateAvailableDimensions(android.content.Context)}.
+     * Used by {@link #getCellSize()} in debug builds to flag callers that read
+     * cell size before workspacePadding is finalized — the documented
+     * initialization ordering hazard from CLAUDE.md.
+     */
+    private boolean mWorkspacePaddingReady;
     // Additional padding added to the widget inside its cellSpace. It is applied outside
     // the widgetView, such that the actual view size is same as the widget size.
     public final Rect widgetPadding = new Rect();
@@ -1336,6 +1344,10 @@ public class DeviceProfile {
      * Returns the amount of extra (or unused) vertical space.
      */
     private int updateAvailableDimensions(Context context) {
+        // The workspacePadding Rect is not finalized until updateWorkspacePadding()
+        // runs below. Reset the readiness flag so getCellSize() can warn about
+        // any reads that happen during this method's body.
+        mWorkspacePaddingReady = false;
         iconCenterVertically = (mIsScalableGrid || mIsResponsiveGrid) && isVerticalBarLayout();
 
         if (mIsResponsiveGrid) {
@@ -1987,6 +1999,18 @@ public class DeviceProfile {
             return result;
         }
 
+        // Init-ordering guard: in debug builds, log any call that reads cell
+        // size before updateWorkspacePadding() has finalized workspacePadding.
+        // The non-square branch below reads getCellLayoutHeight(), which in
+        // turn reads workspacePadding. CLAUDE.md documents this ordering
+        // hazard; the warning gives us bug-report evidence if a future
+        // change reintroduces it.
+        if (BuildConfig.DEBUG && !mWorkspacePaddingReady) {
+            Log.w(TAG, "getCellSize() called before workspacePadding is ready; "
+                    + "result may be incorrect. Caller stack:",
+                    new IllegalStateException("init-ordering"));
+        }
+
         int shortcutAndWidgetContainerWidth =
                 getCellLayoutWidth() - (cellLayoutPaddingPx.left + cellLayoutPaddingPx.right);
         result.x = calculateCellWidth(shortcutAndWidgetContainerWidth, cellLayoutBorderSpacePx.x,
@@ -2146,6 +2170,7 @@ public class DeviceProfile {
             padding.set(paddingLeft, paddingTop, paddingRight, paddingBottom);
             insetPadding(workspacePadding, cellLayoutPaddingPx);
         }
+        mWorkspacePaddingReady = true;
     }
 
     private void insetPadding(Rect paddings, Rect insets) {

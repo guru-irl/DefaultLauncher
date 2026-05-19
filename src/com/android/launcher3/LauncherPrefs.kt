@@ -320,6 +320,17 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         val GRID_ROWS_COLUMNS = nonRestorableItem("pref_grid_rows_columns", -1)
         @JvmField
         val GRID_ROWS_NAV_HEIGHT = nonRestorableItem("pref_grid_rows_nav_height", -1)
+
+        /**
+         * Ordinal of the active NavigationMode at the time GRID_ROWS / GRID_GAP
+         * were persisted. Part of the invalidation triple (cols, nav_height,
+         * nav_mode). nav_height alone is a proxy that can yield the same value
+         * for different modes on some devices; the explicit mode ordinal is the
+         * authoritative signal. Default -1 sentinel matches the other keys so
+         * a fresh install recomputes geometry on first launch.
+         */
+        @JvmField
+        val GRID_ROWS_NAV_MODE = nonRestorableItem("pref_grid_rows_nav_mode", -1)
         @JvmField
         val ALLAPPS_ROW_GAP = backedUpItem("pref_allapps_row_gap", 16)
         @JvmField
