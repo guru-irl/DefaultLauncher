@@ -266,13 +266,14 @@ export ANDROID_SERIAL=emulator-5554
 .venv/bin/pytest smoke/ regression/ visuals/ -v --tb=short   # expect 34/34 (or with skips for work-profile-only tests)
 ```
 
-**Pick up at:** **T3.1 Phase 2** (per `docs/plans/004-drawer-decomposition-v2.md`) — extract `DrawerInsetsController` from `ActivityAllAppsContainerView`. T2.1, T2.2, T2.3 (complete: drawer + folder scope), visuals baseline, cold-start regression test, the empty-drawer bug fix, both T3.0 plans, folder color migration, and T3.1 Phase 1 are shipped as of `docs/changes/057-075`. `DrawerColorController` and `SearchFabController` extracted; container at 1931 LOC (was 2168). `LauncherDriver.is_home()` fixed for Android 17 `app_current()` staleness.
+**Pick up at:** **T0.5 — Test fixture seed** (`docs/plans/006-test-infra-fixture-seed.md`) — replace drag-based workspace scaffolding with `pm clear` + content-provider seed. This eliminates the accumulated 15+ Chrome icons, Calendar widget, and `app_current()` slowdown that made Session 5 test runs take 15–27 minutes instead of ~5. After T0.5, resume at **T3.1 Phase 2** (DrawerInsetsController). All changes through `docs/changes/075` + test infra commits are shipped.
 
 **Remaining work (ordered):**
 
-1. **T3.1 Phases 2–5** — execute `docs/plans/004-drawer-decomposition-v2.md` phases 2-5 in order. Phase 2 (DrawerInsetsController): extract `mInsets`, `mNavBarScrimHeight`, inset methods. Phase 3 (ProfileCoordinator): work + private profile management. Phase 4 (SearchLifecycle): SearchState machine. Phase 5 (HeaderCoordinator): highest risk. Each phase: build → install → smoke + regression + visuals → change doc → commit.
-2. **T3.2** — execute `docs/plans/005-deletion-safety-v2.md`. **Pre-flight decision (made in Session 5):** Phase A will use e2e-only testing (no unit test harness re-introduction). `tests/` remains deleted per CLAUDE.md. Phase A adds `PackagePresenceVerifier.kt` with the e2e `test_deletion_safety.py` tests covering Phase B behavior. Phase A itself doesn't change behavior (feature flag defaults OFF).
-3. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority; ship after T3.x.
+1. **T0.5 — Test fixture seed** (NEXT) — execute `docs/plans/006-test-infra-fixture-seed.md`. Replaces drag-based workspace scaffolding with deterministic `pm clear` + content-provider seed. Eliminates accumulated-icon clutter, Calendar widget, and accessibility-tree bloat. Next change doc: **076**. No launcher source changes; pure test infra. Gate: full suite passes in < 8 min, two consecutive runs produce identical counts.
+2. **T3.1 Phases 2–5** — execute `docs/plans/004-drawer-decomposition-v2.md` phases 2-5 in order. Phase 2 (DrawerInsetsController): extract `mInsets`, `mNavBarScrimHeight`, inset methods. Phase 3 (ProfileCoordinator): work + private profile management. Phase 4 (SearchLifecycle): SearchState machine. Phase 5 (HeaderCoordinator): highest risk. Each phase: build → install → smoke + regression + visuals → change doc → commit.
+3. **T3.2** — execute `docs/plans/005-deletion-safety-v2.md`. **Pre-flight decision (made in Session 5):** Phase A will use e2e-only testing (no unit test harness re-introduction). `tests/` remains deleted per CLAUDE.md. Phase A adds `PackagePresenceVerifier.kt` with the e2e `test_deletion_safety.py` tests covering Phase B behavior. Phase A itself doesn't change behavior (feature flag defaults OFF).
+4. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority; ship after T3.x.
 
 **Execution invariants** for any session:
 
