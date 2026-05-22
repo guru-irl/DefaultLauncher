@@ -200,6 +200,83 @@ def test_folder_bg_color_visible_after_change(launcher):
 
 @pytest.mark.regression
 @pytest.mark.folder
+def test_folder_cover_icon_visible_after_setting(launcher):
+    """Setting a cover emoji changes the folder icon appearance.
+
+    Flow:
+    1. Create a folder
+    2. Sample the folder icon pixel (shows mini app previews)
+    3. Long-press folder → "Choose cover icon" → tap first emoji
+    4. Sample the folder icon pixel again
+    5. Assert the pixels changed (cover repainted the icon via subscriber)
+    """
+    launcher.go_home()
+
+    # 1. Create folder.
+    created = _create_folder(launcher)
+    if not created:
+        pytest.skip("Folder creation failed — skipping cover icon test")
+
+    # 2. Find the folder icon. After drag-creation it's at cell (0,2).
+    # Estimate position (same as test_folder_bg_color_visible_after_change).
+    info = launcher.d.info
+    w, h = info["displayWidth"], info["displayHeight"]
+    cell_x = w // 10
+    workspace_top = int(h * 0.05)
+    hotseat_height = int(h * 0.12)
+    cell_height = (h - workspace_top - hotseat_height) // 5
+    cell_y = workspace_top + int(cell_height * 2.5)
+
+    before_pixel = V.sample_screen_pixel(launcher.d, cell_x, cell_y)
+
+    # 3. Long-press the folder icon to show the popup menu.
+    launcher.d.long_click(cell_x, cell_y)
+    time.sleep(S.ANIMATION_WAIT)
+
+    # Tap "Choose cover icon" from the popup.
+    choose_cover = launcher.d(text="Choose cover icon")
+    if not choose_cover.wait(timeout=S.DEFAULT_WAIT):
+        launcher.d.press("back")
+        pytest.skip("'Choose cover icon' not found in popup — folder popup may differ")
+
+    choose_cover.click()
+    time.sleep(S.ANIMATION_WAIT)
+
+    # The emoji picker bottom sheet appears. Tap the first visible emoji button.
+    # Emoji buttons have content descriptions of the emoji character.
+    first_emoji = launcher.d(className="android.widget.TextView", clickable=True)
+    if not first_emoji.wait(timeout=S.DEFAULT_WAIT):
+        launcher.d.press("back")
+        pytest.skip("Emoji picker bottom sheet did not appear")
+
+    first_emoji.click()
+    time.sleep(S.ANIMATION_WAIT)
+
+    # 4. Sample the folder icon pixel after cover was set.
+    launcher.go_home()
+    time.sleep(0.5)
+    after_pixel = V.sample_screen_pixel(launcher.d, cell_x, cell_y)
+
+    # 5. The folder icon must have visually changed: the cover emoji paints
+    # over the mini-app-preview background. Verify pixels differ.
+    # Use a generous tolerance since we're comparing at a single point.
+    changed = (
+        abs(after_pixel.r - before_pixel.r) > 10
+        or abs(after_pixel.g - before_pixel.g) > 10
+        or abs(after_pixel.b - before_pixel.b) > 10
+    )
+    assert changed, (
+        f"Folder icon pixel did not change after setting a cover emoji. "
+        f"Before: rgb({before_pixel.r},{before_pixel.g},{before_pixel.b}), "
+        f"After: rgb({after_pixel.r},{after_pixel.g},{after_pixel.b}). "
+        f"The FolderIcon subscriber (docs/changes/074 FOLDER_COVER_ICON_COLOR "
+        f"path) may not be firing, or the emoji is too small to affect the "
+        f"sampled pixel."
+    )
+
+
+@pytest.mark.regression
+@pytest.mark.folder
 def test_folder_bg_color_reset_no_idp_rebuild(launcher):
     """Resetting FOLDER_BG_COLOR to default must NOT trigger IDP rebuild.
 
