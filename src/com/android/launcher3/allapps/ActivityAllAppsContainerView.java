@@ -32,12 +32,8 @@ import static com.android.window.flags.Flags.predictiveBackThreeButtonNav;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
-import android.app.SearchManager;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
@@ -72,12 +68,8 @@ import androidx.annotation.Nullable;
 import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.graphics.ColorUtils;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.color.MaterialColors;
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import com.android.app.animation.Interpolators;
 import com.android.launcher3.allapps.search.AppsSearchContainerLayout;
@@ -155,7 +147,6 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
     // Used to animate Search results out and A-Z apps in, or vice-versa.
     private final SearchTransitionController mSearchTransitionController;
-    private final Paint mHeaderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Rect mInsets = new Rect();
     private final AllAppsStore<T> mAllAppsStore;
     private final RecyclerView.OnScrollListener mScrollListener =
@@ -165,7 +156,6 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                     updateHeaderScroll(recyclerView.computeVerticalScrollOffset());
                 }
             };
-    private final Paint mNavBarScrimPaint;
     private final int mHeaderProtectionColor;
     private final int mPrivateSpaceBottomExtraSpace;
     private final Path mTmpPath = new Path();
@@ -231,10 +221,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private boolean mHasPrivateApps;
     private float[] mBottomSheetCornerRadii;
     private ScrimView mScrimView;
-    private int mHeaderColor;
-    private int mBottomSheetBackgroundColor;
-    private float mBottomSheetBackgroundAlpha = 1f;
-    private int mTabsProtectionAlpha;
+    private final DrawerColorController mDrawerColorController;
     /**
      * Cached value of {@link LauncherPrefs#DRAWER_HIDE_TABS}, refreshed via
      * {@link #mDrawerPrefSubscriber}. Read by {@link #setupHeader()} and
@@ -259,18 +246,17 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 setupHeader();
             }
             if (colorOrOpacityChanged) {
-                refreshCustomColors();
+                mDrawerColorController.refresh();
             }
             if (tabColorChanged) {
-                applyCustomTabColors();
+                View personalTab = findViewById(R.id.tab_personal);
+                View workTab = findViewById(R.id.tab_work);
+                mDrawerColorController.applyTabColors(personalTab, workTab);
             }
         }
     };
     @Nullable private AllAppsTransitionController mAllAppsTransitionController;
-    private LinearLayout mFabContainer;
-    private FloatingActionButton mAiSearchFab;
-    private ExtendedFloatingActionButton mSearchOnlineFab;
-    private String mCurrentSearchQuery;
+    private final SearchFabController mSearchFabController;
 
     public ActivityAllAppsContainerView(Context context) {
         this(context, null);
@@ -305,8 +291,12 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mPrivateSpaceBottomExtraSpace = context.getResources().getDimensionPixelSize(
                 R.dimen.ps_extra_bottom_padding);
         mAH = Arrays.asList(null, null, null);
-        mNavBarScrimPaint = new Paint();
-        mNavBarScrimPaint.setColor(Themes.getNavBarScrimColor(mActivityContext));
+        mDrawerColorController = new DrawerColorController(context, mActivityContext);
+        Context materialCtx = new android.view.ContextThemeWrapper(
+                context, R.style.HomeSettings_Theme);
+        materialCtx = com.google.android.material.color.DynamicColors
+                .wrapContextIfAvailable(materialCtx);
+        mSearchFabController = new SearchFabController(materialCtx);
 
         AllAppsStore.OnUpdateListener onAppsUpdated = this::onAppsUpdated;
         mAllAppsStore.addUpdateListener(onAppsUpdated);
@@ -382,44 +372,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         }
         mSearchUiManager = (SearchUiManager) mSearchContainer;
 
-        // Create FAB container — vertical stack: AI medium FAB above, web Extended FAB below
-        Context materialCtx = new android.view.ContextThemeWrapper(
-                getContext(), R.style.HomeSettings_Theme);
-        materialCtx = com.google.android.material.color.DynamicColors
-                .wrapContextIfAvailable(materialCtx);
+        // Add FAB container from SearchFabController to the view hierarchy
         float density = getResources().getDisplayMetrics().density;
 
-        mFabContainer = new LinearLayout(materialCtx);
-        mFabContainer.setOrientation(LinearLayout.VERTICAL);
-        mFabContainer.setGravity(android.view.Gravity.END | android.view.Gravity.BOTTOM);
-        mFabContainer.setVisibility(GONE);
-
-        int fabSpacing = (int) (16 * density);
-
-        // AI search medium FAB (56dp, icon-only) with M3 tertiary container colors
-        mAiSearchFab = new FloatingActionButton(materialCtx);
-        mAiSearchFab.setSize(FloatingActionButton.SIZE_NORMAL);
-        mAiSearchFab.setImageResource(R.drawable.ic_ai_search);
-        int tertiaryContainer = MaterialColors.getColor(
-                mAiSearchFab, com.google.android.material.R.attr.colorTertiaryContainer);
-        int onTertiaryContainer = MaterialColors.getColor(
-                mAiSearchFab, com.google.android.material.R.attr.colorOnTertiaryContainer);
-        mAiSearchFab.setBackgroundTintList(ColorStateList.valueOf(tertiaryContainer));
-        mAiSearchFab.setImageTintList(ColorStateList.valueOf(onTertiaryContainer));
-        mAiSearchFab.setOnClickListener(v -> launchAiSearch());
-        LinearLayout.LayoutParams aiLp = new LinearLayout.LayoutParams(
-                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-        aiLp.bottomMargin = fabSpacing;
-        mFabContainer.addView(mAiSearchFab, aiLp);
-
-        // Web search Extended FAB (56dp, text+icon) with default M3 rounded rectangle shape
-        mSearchOnlineFab = new ExtendedFloatingActionButton(materialCtx);
-        mSearchOnlineFab.setText(R.string.search_online);
-        mSearchOnlineFab.setIconResource(R.drawable.ic_web_search);
-        mSearchOnlineFab.setOnClickListener(v -> launchWebSearch());
-        mFabContainer.addView(mSearchOnlineFab, new LinearLayout.LayoutParams(
-                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
-
+        LinearLayout fabContainer = mSearchFabController.buildContainer();
         RelativeLayout.LayoutParams fabLp = new RelativeLayout.LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
         fabLp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
@@ -427,9 +383,9 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         int fabMargin = (int) (16 * density);
         fabLp.bottomMargin = fabMargin;
         fabLp.setMarginEnd(fabMargin);
-        addView(mFabContainer, fabLp);
+        addView(fabContainer, fabLp);
 
-        loadAiAppIcon();
+        mSearchFabController.refreshAiIcon();
     }
 
     @Override
@@ -451,7 +407,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 0,
                 0 // Bottom left
         };
-        refreshCustomColors();
+        mDrawerColorController.refresh();
         updateBackgroundVisibility(mActivityContext.getDeviceProfile());
         mSearchUiManager.initializeSearch(this);
     }
@@ -467,6 +423,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             mSearchUiDelegate.onInitializeSearchBar();
         }
         mActivityContext.addOnDeviceProfileChangeListener(this);
+        mDrawerColorController.onAttach(this, mScrimView);
         mDrawerPrefSubscription = LauncherPrefs.get(getContext()).getPrefChanges()
                 .subscribe(mDrawerPrefSubscriber,
                         LauncherPrefs.DRAWER_BG_COLOR,
@@ -480,6 +437,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         mActivityContext.removeOnDeviceProfileChangeListener(this);
+        mDrawerColorController.onDetach();
         if (mDrawerPrefSubscription != null) {
             try {
                 mDrawerPrefSubscription.close();
@@ -530,102 +488,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
      * Called from AppsSearchContainerLayout when search results change.
      */
     public void updateSearchFabs(@Nullable String query) {
-        mCurrentSearchQuery = query;
-        // Show when we have a non-empty query and are in or transitioning to search mode
         boolean inSearch = isSearching() || mSearchTransitionController.isRunning();
-        boolean show = query != null && !query.isEmpty() && inSearch;
-        if (show && mFabContainer.getVisibility() != VISIBLE) {
-            loadAiAppIcon();  // Re-evaluate AI app availability before showing
-            mFabContainer.setVisibility(VISIBLE);
-            mFabContainer.setScaleX(0f);
-            mFabContainer.setScaleY(0f);
-            mFabContainer.animate().scaleX(1f).scaleY(1f).setDuration(200)
-                    .setInterpolator(Interpolators.EMPHASIZED_DECELERATE).start();
-        } else if (!show && mFabContainer.getVisibility() == VISIBLE) {
-            mFabContainer.animate().scaleX(0f).scaleY(0f).setDuration(200)
-                    .setInterpolator(Interpolators.EMPHASIZED_ACCELERATE)
-                    .withEndAction(() -> mFabContainer.setVisibility(GONE)).start();
-        }
+        mSearchFabController.onQueryChanged(query, inSearch);
     }
 
-    private void launchWebSearch() {
-        if (mCurrentSearchQuery == null || mCurrentSearchQuery.isEmpty()) return;
-        String webApp = LauncherPrefs.get(getContext()).get(LauncherPrefs.SEARCH_WEB_APP);
-        Intent intent = new Intent(Intent.ACTION_WEB_SEARCH);
-        intent.putExtra(SearchManager.QUERY, mCurrentSearchQuery);
-        if (!"default".equals(webApp)) {
-            try {
-                ComponentName cn = ComponentName.unflattenFromString(webApp);
-                if (cn != null) {
-                    intent.setComponent(cn);
-                }
-            } catch (Exception ignored) {
-                // Fall through to system default
-            }
-        }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getContext().startActivity(intent);
-    }
-
-    /** Hides the AI FAB if no AI app is installed. The sparkle icon stays as-is. */
-    private void loadAiAppIcon() {
-        String pkg = resolveAiPackage();
-        mAiSearchFab.setVisibility(pkg != null ? VISIBLE : GONE);
-    }
-
-    /** Sends the current search query to the configured AI app. */
-    private void launchAiSearch() {
-        if (mCurrentSearchQuery == null || mCurrentSearchQuery.isEmpty()) return;
-        String pkg = resolveAiPackage();
-        if (pkg == null) return;
-
-        Intent sendIntent = new Intent(Intent.ACTION_SEND);
-        sendIntent.setType("text/plain");
-        sendIntent.putExtra(Intent.EXTRA_TEXT, mCurrentSearchQuery);
-        sendIntent.setPackage(pkg);
-        sendIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        try {
-            getContext().startActivity(sendIntent);
-        } catch (android.content.ActivityNotFoundException e) {
-            // Fallback: launch the app's main activity
-            PackageManager pm = getContext().getPackageManager();
-            Intent launchIntent = pm.getLaunchIntentForPackage(pkg);
-            if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getContext().startActivity(launchIntent);
-            }
-        }
-    }
-
-    /**
-     * Resolves the AI app package from prefs or auto-detection.
-     * Returns null if disabled or no AI app is installed.
-     */
-    @Nullable
-    private String resolveAiPackage() {
-        String pref = LauncherPrefs.get(getContext()).get(LauncherPrefs.SEARCH_AI_APP);
-        if ("none".equals(pref)) return null;
-
-        if (pref != null && !pref.isEmpty()) {
-            // Verify the app is still installed
-            if (isPackageInstalled(pref)) return pref;
-        }
-
-        // Auto-detect: return the first installed AI app
-        for (String pkg : LauncherPrefs.AI_APP_PACKAGES) {
-            if (isPackageInstalled(pkg)) return pkg;
-        }
-        return null;
-    }
-
-    private boolean isPackageInstalled(String pkg) {
-        try {
-            getContext().getPackageManager().getPackageInfo(pkg, 0);
-            return true;
-        } catch (PackageManager.NameNotFoundException e) {
-            return false;
-        }
-    }
 
     /**
      * Sets results list for search
@@ -1016,67 +882,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private void applyCustomTabColors() {
         View personalTab = findViewById(R.id.tab_personal);
         View workTab = findViewById(R.id.tab_work);
-        if (personalTab == null || workTab == null) return;
-
-        Context ctx = getContext();
-        String selectedName = LauncherPrefs.get(ctx).get(LauncherPrefs.DRAWER_TAB_SELECTED_COLOR);
-        String unselectedName = LauncherPrefs.get(ctx).get(LauncherPrefs.DRAWER_TAB_UNSELECTED_COLOR);
-
-        int selectedColor = AllAppsColorResolver.resolveColorByName(ctx, selectedName);
-        int unselectedColor = AllAppsColorResolver.resolveColorByName(ctx, unselectedName);
-
-        if (selectedColor == 0 && unselectedColor == 0) {
-            // Both default — restore original drawable backgrounds
-            android.graphics.drawable.Drawable original =
-                    ctx.getDrawable(R.drawable.all_apps_tabs_background);
-            personalTab.setBackground(original);
-            workTab.setBackground(original.getConstantState().newDrawable().mutate());
-            return;
-        }
-        applyTabBackground(personalTab, selectedColor, unselectedColor);
-        applyTabBackground(workTab, selectedColor, unselectedColor);
-    }
-
-    private void applyTabBackground(View tab, int selectedColor, int unselectedColor) {
-        Context ctx = getContext();
-        float density = getResources().getDisplayMetrics().density;
-        float cornerRadius = getResources().getDimension(R.dimen.all_apps_header_pill_corner_radius);
-        int hInset = getResources().getDimensionPixelSize(
-                R.dimen.all_apps_tabs_focus_horizontal_inset);
-        int vInset = getResources().getDimensionPixelSize(
-                R.dimen.all_apps_tabs_focus_vertical_inset);
-
-        int sel = selectedColor != 0 ? selectedColor
-                : ctx.getColor(R.color.materialColorPrimary);
-        int unsel = unselectedColor != 0 ? unselectedColor
-                : ctx.getColor(R.color.materialColorSurfaceBright);
-
-        // Selected pill
-        android.graphics.drawable.GradientDrawable selShape =
-                new android.graphics.drawable.GradientDrawable();
-        selShape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-        selShape.setCornerRadius(cornerRadius);
-        selShape.setColor(sel);
-        android.graphics.drawable.InsetDrawable selInset =
-                new android.graphics.drawable.InsetDrawable(selShape, hInset, vInset, hInset, vInset);
-
-        // Unselected pill
-        android.graphics.drawable.GradientDrawable unselShape =
-                new android.graphics.drawable.GradientDrawable();
-        unselShape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-        unselShape.setCornerRadius(cornerRadius);
-        unselShape.setColor(unsel);
-        unselShape.setStroke((int) (1 * density),
-                ctx.getColor(R.color.materialColorOutlineVariant));
-        android.graphics.drawable.InsetDrawable unselInset =
-                new android.graphics.drawable.InsetDrawable(unselShape, hInset, vInset, hInset, vInset);
-
-        // Build StateListDrawable
-        android.graphics.drawable.StateListDrawable stateList =
-                new android.graphics.drawable.StateListDrawable();
-        stateList.addState(new int[] { android.R.attr.state_selected }, selInset);
-        stateList.addState(new int[] {}, unselInset);
-        tab.setBackground(stateList);
+        mDrawerColorController.applyTabColors(personalTab, workTab);
     }
 
     /**
@@ -1232,9 +1038,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 : (int) (Utilities.boundToRange(
                         (scrolledOffset + mHeader.mSnappedScrolledY) / mHeaderThreshold, 0f, 1f)
                         * 255);
-        if (headerColor != mHeaderColor || mTabsProtectionAlpha != tabsAlpha) {
-            mHeaderColor = headerColor;
-            mTabsProtectionAlpha = tabsAlpha;
+        if (mDrawerColorController.updateHeaderColorState(headerColor, tabsAlpha)) {
             invalidateHeader();
         }
         if (mSearchUiManager.getEditText() == null) {
@@ -1252,9 +1056,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     protected int getHeaderColor(float blendRatio) {
-        return ColorUtils.setAlphaComponent(
-                ColorUtils.blendARGB(mScrimColor, mHeaderProtectionColor, blendRatio),
-                (int) (mSearchContainer.getAlpha() * 255));
+        return mDrawerColorController.getHeaderColor(blendRatio);
     }
 
     /**
@@ -1465,8 +1267,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         }
 
         int navBarScrimColor = Themes.getNavBarScrimColor(mActivityContext);
-        if (mNavBarScrimPaint.getColor() != navBarScrimColor) {
-            mNavBarScrimPaint.setColor(navBarScrimColor);
+        if (mDrawerColorController.getNavBarScrimPaint().getColor() != navBarScrimColor) {
+            mDrawerColorController.getNavBarScrimPaint().setColor(navBarScrimColor);
             invalidate();
         }
     }
@@ -1476,47 +1278,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
      * Called from both onFinishInflate() and onDeviceProfileChanged().
      */
     private void refreshCustomColors() {
-        Context ctx = getContext();
-        // Recompute default background color first
-        if (true/*Flags.allAppsBlur()*/) {
-            int resId = Utilities.isDarkTheme(ctx)
-                    ? android.R.color.system_accent1_800 : android.R.color.system_accent1_100;
-            int layerAbove = ColorUtils.setAlphaComponent(getResources().getColor(resId, null),
-                    (int) (0.4f * 255));
-            int layerBelow = ColorUtils.setAlphaComponent(Color.WHITE, (int) (0.1f * 255));
-            mBottomSheetBackgroundColor = ColorUtils.compositeColors(layerAbove, layerBelow);
-        } else {
-            mBottomSheetBackgroundColor = ctx.getColor(R.color.materialColorSurfaceDim);
-        }
-        // Override with custom color if set
-        String customBgColor = LauncherPrefs.get(ctx).get(LauncherPrefs.DRAWER_BG_COLOR);
-        int resolvedBg = AllAppsColorResolver.resolveColorByName(ctx, customBgColor);
-        if (resolvedBg != 0) {
-            mBottomSheetBackgroundColor = resolvedBg;
-        }
-        // Apply custom opacity
-        int opacity = LauncherPrefs.get(ctx).get(LauncherPrefs.DRAWER_BG_OPACITY);
-        if (opacity < 100) {
-            mBottomSheetBackgroundColor = ColorUtils.setAlphaComponent(
-                    mBottomSheetBackgroundColor, (int) (opacity / 100f * 255));
-        }
-        mBottomSheetBackgroundAlpha = Color.alpha(mBottomSheetBackgroundColor) / 255.0f;
-        // On phones, the background is drawn by ScrimView's background (not the bottom sheet).
-        // Update it directly so custom colors apply immediately.
-        if (mScrimView != null && !mActivityContext.getDeviceProfile().isTablet) {
-            int phoneColor;
-            if (resolvedBg != 0) {
-                phoneColor = resolvedBg;
-            } else {
-                phoneColor = Themes.getAttrColor(ctx, R.attr.allAppsScrimColor);
-            }
-            if (opacity < 100) {
-                phoneColor = ColorUtils.setAlphaComponent(
-                        phoneColor, (int) (opacity / 100f * 255));
-            }
-            mScrimView.setBackgroundColor(phoneColor);
-        }
-        invalidateHeader();
+        mDrawerColorController.refresh();
     }
 
     protected void updateBackgroundVisibility(DeviceProfile deviceProfile) {
@@ -1718,15 +1480,9 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         applyAdapterSideAndBottomPaddings(mActivityContext.getDeviceProfile());
 
         // Position the FAB container above the IME or nav bar
-        if (mFabContainer != null) {
-            int imeBottom = insets.getInsets(WindowInsets.Type.ime()).bottom;
-            int navBottom = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
-            int fabMargin = (int) (16 * getResources().getDisplayMetrics().density);
-            RelativeLayout.LayoutParams fabLp =
-                    (RelativeLayout.LayoutParams) mFabContainer.getLayoutParams();
-            fabLp.bottomMargin = Math.max(imeBottom, navBottom) + fabMargin;
-            mFabContainer.setLayoutParams(fabLp);
-        }
+        int imeBottom = insets.getInsets(WindowInsets.Type.ime()).bottom;
+        int navBottom = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
+        mSearchFabController.applyImeInsets(imeBottom, navBottom);
 
         return super.dispatchApplyWindowInsets(insets);
     }
@@ -1739,7 +1495,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             float left = (getWidth() - getWidth() / getScaleX()) / 2;
             float top = getHeight() / 2f + (getHeight() / 2f - mNavBarScrimHeight) / getScaleY();
             canvas.drawRect(left, top, getWidth() / getScaleX(),
-                    top + mNavBarScrimHeight / getScaleY(), mNavBarScrimPaint);
+                    top + mNavBarScrimHeight / getScaleY(), mDrawerColorController.getNavBarScrimPaint());
         }
     }
 
@@ -1930,7 +1686,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
     public void setScrimView(ScrimView scrimView) {
         mScrimView = scrimView;
-        refreshCustomColors();
+        mDrawerColorController.onScrimViewChanged(scrimView);
     }
 
     @Override
@@ -1948,10 +1704,16 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         final float leftWithScale = panel.getLeft() + horizontalScaleOffset;
         final float rightWithScale = panel.getRight() - horizontalScaleOffset;
         final float bottomWithOffset = panel.getBottom() + bottomOffsetPx;
+        final Paint headerPaint = mDrawerColorController.getHeaderPaint();
+        final int bottomSheetBgColor = mDrawerColorController.getBottomSheetBackgroundColor();
+        final float bottomSheetBgAlpha = mDrawerColorController.getBottomSheetBackgroundAlpha();
+        final int cachedHeaderColor = mDrawerColorController.getHeaderColor();
+        final int tabsProtectionAlpha = mDrawerColorController.getTabsProtectionAlpha();
+
         // Draw full background panel for tablets.
         if (hasBottomSheet) {
-            mHeaderPaint.setColor(mBottomSheetBackgroundColor);
-            mHeaderPaint.setAlpha((int) (mBottomSheetBackgroundAlpha * 255));
+            headerPaint.setColor(bottomSheetBgColor);
+            headerPaint.setAlpha((int) (bottomSheetBgAlpha * 255));
 
             mTmpRectF.set(
                     leftWithScale,
@@ -1960,7 +1722,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                     bottomWithOffset);
             mTmpPath.reset();
             mTmpPath.addRoundRect(mTmpRectF, mBottomSheetCornerRadii, Direction.CW);
-            canvas.drawPath(mTmpPath, mHeaderPaint);
+            canvas.drawPath(mTmpPath, headerPaint);
         }
 
         // On phones, the ScrimView background already covers the header area uniformly.
@@ -1971,17 +1733,18 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         }
 
         if (DEBUG_HEADER_PROTECTION) {
-            mHeaderPaint.setColor(Color.MAGENTA);
-            mHeaderPaint.setAlpha(255);
+            headerPaint.setColor(Color.MAGENTA);
+            headerPaint.setAlpha(255);
         } else {
-            mHeaderPaint.setColor(mHeaderColor);
-            mHeaderPaint.setAlpha((int) (getAlpha() * Color.alpha(mHeaderColor)));
+            headerPaint.setColor(cachedHeaderColor);
+            headerPaint.setAlpha((int) (getAlpha() * Color.alpha(cachedHeaderColor)));
         }
-        if (mHeaderPaint.getColor() == mScrimColor || mHeaderPaint.getColor() == 0) {
+        if (headerPaint.getColor() == mDrawerColorController.getScrimColor()
+                || headerPaint.getColor() == 0) {
             return;
         }
 
-        mHeaderPaint.setAlpha((int) (mHeaderPaint.getAlpha() * mBottomSheetBackgroundAlpha));
+        headerPaint.setAlpha((int) (headerPaint.getAlpha() * bottomSheetBgAlpha));
 
         // Draw header on background panel
         final float headerBottomNoScale =
@@ -1998,18 +1761,18 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                     headerBottomWithScaleOnTablet);
             mTmpPath.reset();
             mTmpPath.addRoundRect(mTmpRectF, mBottomSheetCornerRadii, Direction.CW);
-            canvas.drawPath(mTmpPath, mHeaderPaint);
+            canvas.drawPath(mTmpPath, headerPaint);
         }
 
         // If tab exist (such as work profile), extend header with tab height
         final int tabsHeight = headerView.getPeripheralProtectionHeight(/* expectedHeight */ false);
-        if (mTabsProtectionAlpha > 0 && tabsHeight != 0) {
+        if (tabsProtectionAlpha > 0 && tabsHeight != 0) {
             if (DEBUG_HEADER_PROTECTION) {
-                mHeaderPaint.setColor(Color.BLUE);
-                mHeaderPaint.setAlpha(255);
+                headerPaint.setColor(Color.BLUE);
+                headerPaint.setAlpha(255);
             } else {
-                float tabAlpha = getAlpha() * mTabsProtectionAlpha * mBottomSheetBackgroundAlpha;
-                mHeaderPaint.setAlpha((int) tabAlpha);
+                float tabAlpha = getAlpha() * tabsProtectionAlpha * bottomSheetBgAlpha;
+                headerPaint.setAlpha((int) tabAlpha);
             }
             float left = mBottomSheetBackground.getLeft() + horizontalScaleOffset;
             float right = mBottomSheetBackground.getRight() - horizontalScaleOffset;
@@ -2021,7 +1784,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                     headerBottomWithScaleOnTablet,
                     right,
                     tabBottomWithScale,
-                    mHeaderPaint);
+                    headerPaint);
         }
     }
 
