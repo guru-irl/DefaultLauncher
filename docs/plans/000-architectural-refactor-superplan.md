@@ -254,7 +254,7 @@ Plan-subagents drafted both T3.0 plans in parallel. Plan 005 maps the superplan'
 
 ### How to resume in a new session
 
-**Quick start (~6 min):**
+**Quick start (~10-15 min targeted, ~25-30 min full):**
 
 ```bash
 cd /mnt/data/src/DefaultLauncher
@@ -269,13 +269,16 @@ adb devices                                  # expect: emulator-5554 device
   -Dorg.gradle.appname=gradlew \
   -classpath gradle/wrapper/gradle-wrapper.jar \
   org.gradle.wrapper.GradleWrapperMain assembleDebug
-adb install -r -d -g build/outputs/apk/debug/DefaultLauncher-debug.apk
+adb -s emulator-5554 install -r -d -g build/outputs/apk/debug/DefaultLauncher-debug.apk
 
-# Confirm baseline still green (34 tests: 19 smoke + 9 regression + 3 visuals + 3 new regression)
-# NOTE: a physical phone may also be attached; pass -s emulator-5554 to target the AVD.
+# Run targeted suite (fast: 15 min) — smoke + all regression/visuals
+# NOTE: a physical phone may also be attached; ANDROID_SERIAL is required.
 cd tests-e2e
 export ANDROID_SERIAL=emulator-5554
-.venv/bin/pytest smoke/ regression/ visuals/ -v --tb=short   # expect 34/34 (or with skips for work-profile-only tests)
+.venv/bin/pytest smoke/ regression/ visuals/ -v --tb=short
+# expect: 0 failed, ~39 passed, 2 xfailed, 3 skipped
+# xfailed = test_drawer_intact_after_folder_color_change + test_folder_can_be_created_from_seed_icons
+# (emulator-load flakes, xfail(strict=False), pre-existing before changes)
 ```
 
 **Pick up at:** **T3.1 Phase 3** (ProfileCoordinator) — extract `mWorkManager`, `mPrivateProfileManager`, `mHasWorkApps`, `mHasPrivateApps`, `mPersonalMatcher`, `onAppsUpdated()` work/private branches, `resetAndScrollToPrivateSpaceHeader()`, `inflateWorkCardsIfNeeded()`. All changes through `docs/changes/079` shipped. Next change doc: **080**.
