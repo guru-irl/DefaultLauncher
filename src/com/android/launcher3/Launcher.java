@@ -1712,10 +1712,15 @@ public class Launcher extends StatefulActivity<LauncherState>
                             alreadyOnHome && mStateManager.shouldAnimateStateChange());
                 }
 
-                // Reset the apps view
-                if (!alreadyOnHome) {
-                    mAppsView.reset(isStarted() /* animate */);
-                }
+                // Reset the apps view. Previously guarded by !alreadyOnHome, but
+                // that left mSearchState=ACTIVE_EMPTY when pressing HOME while the
+                // launcher is already the foreground app (the race documented in
+                // docs/changes/070 can recur when _wake_and_home skips the HOME press).
+                // Calling reset() unconditionally ensures search state is always clean
+                // when HOME fires. When alreadyOnHome=true (already on workspace), the
+                // animate=false path runs a no-op header animation; it does not re-enter
+                // the drawer or cause any visible glitch.
+                mAppsView.reset(!alreadyOnHome && isStarted() /* animate */);
 
                 if (shouldMoveToDefaultScreen && !mWorkspace.isHandlingTouch()) {
                     mWorkspace.post(mWorkspace::moveToDefaultScreen);

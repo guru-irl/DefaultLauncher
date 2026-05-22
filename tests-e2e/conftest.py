@@ -206,10 +206,21 @@ def _wake_and_home(launcher: LauncherDriver) -> Iterator[None]:
     d = launcher.d
     if launcher.is_home() and d.info.get("screenOn", True):
         if _workspace_icon_count(d) >= 1:
+            # Always press HOME even when already home to fire onNewIntent() on
+            # the launcher. Launcher.onNewIntent() calls mAppsView.reset() which
+            # clears mSearchState. Without this, a prior test that left
+            # mSearchState=ACTIVE_EMPTY would cause the next drawer open to show
+            # an empty search_results_list_view instead of the apps grid
+            # (the race documented in docs/changes/070). The overhead is one
+            # keyevent + ~0.3s wait — negligible vs the 5+ min total suite.
+            d.press("home")
+            time.sleep(0.3)
             yield
             return
         # Home & awake but workspace empty — re-scaffold then continue.
         _ensure_workspace_has_icon(launcher)
+        d.press("home")
+        time.sleep(0.3)
         yield
         return
     try:
