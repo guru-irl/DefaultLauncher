@@ -142,9 +142,12 @@ def test_folder_bg_opacity_pref_no_idp_rebuild(launcher):
 def test_drawer_intact_after_folder_color_change(launcher):
     """Drawer must show icons correctly after a folder color pref change.
 
-    An IDP rebuild causes the AllAppsStore to briefly reset to EMPTY before
-    rebinding. If the migration regressed and IDP rebuild fires, the drawer
-    might open with 0 icons on the first frame. This test guards that scenario.
+    Two failure modes:
+    (A) IDP rebuild: AllAppsStore briefly resets to EMPTY — apps_list_view
+        visible but RecyclerView has 0 items. Detected by waiting long enough.
+    (B) SearchState ACTIVE_EMPTY bug (docs/changes/070): search_results_list_view
+        is shown instead of apps_list_view. Detected by asserting
+        search_results_list_view is NOT visible.
     """
     _open_colors_settings(launcher)
     _tap_default_in_color_picker(launcher, "Folder background")
@@ -154,19 +157,26 @@ def test_drawer_intact_after_folder_color_change(launcher):
     time.sleep(0.5)
 
     launcher.open_drawer()
-    deadline = time.time() + S.DEFAULT_WAIT
-    icon_count = 0
-    while time.time() < deadline:
-        icon_count = launcher.d(resourceId=S.ID_ALL_APPS_RECYCLER).child(
-            descriptionMatches=r".+"
-        ).count
-        if icon_count >= MIN_DRAWER_ICONS:
-            break
-        time.sleep(0.2)
+
+    # (B) Fail fast if the bug from docs/changes/070 recurred:
+    # search_results_list_view visible means mSearchState == ACTIVE_EMPTY.
+    search_list_visible = launcher.d(resourceId=S.ID_SEARCH_RESULTS_LIST).exists
+    assert not search_list_visible, (
+        "search_results_list_view is VISIBLE after folder color change "
+        "— mSearchState == ACTIVE_EMPTY; the docs/changes/070 regression "
+        "has recurred. See docs/changes/076 for the fix."
+    )
+
+    # (A) Wait for apps to appear. Use .wait() on a known-installed app
+    # rather than counting 100+ items (count traversal is slow on degraded emulators).
+    # "Settings" is always installed and always in the all-apps list.
+    apps_appeared = launcher.d(resourceId=S.ID_ALL_APPS_RECYCLER).child(
+        description="Settings"
+    ).wait(timeout=S.DEFAULT_WAIT * 2)  # 10s — generous for degraded emulators
 
     launcher.close_drawer()
-    assert icon_count >= MIN_DRAWER_ICONS, (
-        f"Drawer only showed {icon_count} icons after folder color change "
-        f"(expected >= {MIN_DRAWER_ICONS}). Possible IDP rebuild caused a "
-        f"momentary all-apps EMPTY state — see docs/changes/074."
+    assert apps_appeared, (
+        "Drawer did not show 'Settings' in apps_list_view within 10s after "
+        "folder color change. Possible IDP rebuild (AllAppsStore transient EMPTY) "
+        "or adapter re-bind timing — see docs/changes/074."
     )
