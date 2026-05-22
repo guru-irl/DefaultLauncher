@@ -53,26 +53,28 @@ fi
 exec claude "$(cat <<'PROMPT'
 Resume the DefaultLauncher architectural refactor.
 
-Branch `refactor/t0.1-search-4param-override` is checked out (29+ commits ahead of dev, working tree should be clean). Your handoff doc is `docs/plans/000-architectural-refactor-superplan.md` — read the "Execution log" (Sessions 1, 2, 3) and "How to resume in a new session" sections at the bottom first. Everything you need is there: branch state, AVD config, exact commands, what shipped, where to pick up, and the operational invariants.
+Branch `refactor/t0.1-search-4param-override` is checked out (33+ commits ahead of dev, working tree should be clean). Your handoff doc is `docs/plans/000-architectural-refactor-superplan.md` — read the "Execution log" (Sessions 1–4) and "How to resume in a new session" sections at the bottom first. Everything you need is there: branch state, AVD config, exact commands, what shipped, where to pick up, and the operational invariants.
 
 After reading the handoff:
 1. Run the quickstart verification block from the doc verbatim. Confirm 25/25 tests pass (smoke + regression + visuals) before touching code.
-2. Resume at the next outstanding task per the superplan's "Remaining work" section — currently **T2.3 Phase 2** (drawer-color migration to subscribe-and-cache per `docs/plans/003-unified-prefs-framework-v2.md`). Then continue through the remaining work in the listed order.
-3. Each change: build → install → run `tests-e2e/smoke + regression + visuals` → write `docs/changes/0NN-NAME.md` (next number is **071**, or whatever follows the highest already on disk) → commit.
-4. Use the per-command git identity: `git -c user.name="Guna Raya" -c user.email="gunaraya@microsoft.com" commit ...`. Never modify git config.
-5. Every commit ends with: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
-6. Work continuously. Checkpoint to the user after each completed plan (T2.3, then T3.x), not each item.
+2. Resume at the next outstanding task per the superplan's "Remaining work" section — currently the **folder color migration** (deferred from T2.3 Phase 2/3, see `docs/changes/073`). After that, execute **T3.1 Phase 1** per `docs/plans/004-drawer-decomposition-v2.md` — extract `DrawerColorController` + `SearchFabController` out of `ActivityAllAppsContainerView`. Continue through phases 2–5 in order.
+3. Pre-flight T3.2 (deletion safety) before opening Phase A: plan 005 specifies a unit-test path under `tests/src/...` but that directory was deleted per CLAUDE.md. Decide between re-introducing a minimal unit-test harness and rewriting Phase A's verification as an e2e-only test (`tests-e2e/regression/test_deletion_safety.py`). Resolve the gap, then proceed.
+4. Each change: build → install → run `tests-e2e/smoke + regression + visuals` → write `docs/changes/0NN-NAME.md` (next number is **074**, or whatever follows the highest already on disk) → commit.
+5. Use the per-command git identity: `git -c user.name="Guna Raya" -c user.email="gunaraya@microsoft.com" commit ...`. Never modify git config.
+6. Every commit ends with: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
+7. Work continuously. Checkpoint to the user after each completed plan (folder migration done, then T3.1 done, then T3.2 done) — not each item.
 
 AVD: `emulator-5554` (Pixel 7 Pro, Android 17). If it's not running, ask before starting it.
 
 Required reading before touching all-apps code:
-- `docs/architecture/drawer-invariants.md` (14-invariant table).
-- `docs/changes/064-search-state-machine.md` (SearchState five-state machine).
-- `docs/changes/070-search-state-reset-on-home-return.md` (most recent bug fix — shows why state-reset hooks matter, and documents the workspace scaffolding fixture every test depends on).
+- `docs/architecture/drawer-invariants.md` (14-invariant table). Note: line refs have drifted post-068/070; trust field/method names over line numbers.
+- `docs/plans/004-drawer-decomposition-v2.md` (5-phase decomposition you're about to execute).
+- `docs/changes/070-search-state-reset-on-home-return.md` (most recent bug fix — illustrates the cost of a missed state-reset hook).
+- `docs/changes/073-prefs-framework-drawer-impact-downgrade.md` (explains what's wired through the prefs framework and what's deferred — defines the folder migration scope).
 
-For T2.3 Phase 2 specifically:
-- Consumers wire into the framework via `LauncherPrefs.get(context).prefChanges.subscribe(subscriber, item1, item2, ...)` — see `docs/changes/067` for the dispatcher contract.
+For T3.1 Phase 1 specifically:
+- Subscribe via `LauncherPrefs.get(context).getPrefChanges().subscribe(subscriber, item1, item2, ...)` — see `ActivityAllAppsContainerView.mDrawerPrefSubscriber` for the canonical Java pattern (subscriber takes `Set<? extends Item>`). Subscribe in `onAttachedToWindow`, close the `AutoCloseable` in `onDetachedFromWindow`.
 - Visual changes must keep `tests-e2e/visuals/test_drawer_paint_baseline.py` green (open-close-reopen stability check is load-bearing).
-- The four migration targets are: `ActivityAllAppsContainerView` (drawer colors + DRAWER_HIDE_TABS), `AppsSearchContainerLayout` (search bg color + opacity), `AllAppsState` (drawer bg), `RecyclerViewFastScroller` (scrollbar color).
+- Plan 004 lists the exact files added/modified, public-API surface, invariants preserved, and the new regression tests to write per phase.
 PROMPT
 )"
