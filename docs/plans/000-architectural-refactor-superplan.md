@@ -266,19 +266,19 @@ export ANDROID_SERIAL=emulator-5554
 .venv/bin/pytest smoke/ regression/ visuals/ -v --tb=short   # expect 34/34 (or with skips for work-profile-only tests)
 ```
 
-**Pick up at:** **T0.5 — Test fixture seed** (`docs/plans/006-test-infra-fixture-seed.md`) — replace drag-based workspace scaffolding with `pm clear` + content-provider seed. This eliminates the accumulated 15+ Chrome icons, Calendar widget, and `app_current()` slowdown that made Session 5 test runs take 15–27 minutes instead of ~5. After T0.5, resume at **T3.1 Phase 2** (DrawerInsetsController). All changes through `docs/changes/075` + test infra commits are shipped.
+**Pick up at:** **T3.1 Phase 2** (DrawerInsetsController) (`docs/plans/006-test-infra-fixture-seed.md`) — replace drag-based workspace scaffolding with `pm clear` + content-provider seed. This eliminates the accumulated 15+ Chrome icons, Calendar widget, and `app_current()` slowdown that made Session 5 test runs take 15–27 minutes instead of ~5. After T0.5, resume at **T3.1 Phase 2** (DrawerInsetsController). All changes through `docs/changes/075` + test infra commits are shipped.
 
 **Remaining work (ordered):**
 
-1. **T0.5 — Test fixture seed** (NEXT) — execute `docs/plans/006-test-infra-fixture-seed.md`. Replaces drag-based workspace scaffolding with deterministic `pm clear` + content-provider seed. Eliminates accumulated-icon clutter, Calendar widget, and accessibility-tree bloat. Next change doc: **076**. No launcher source changes; pure test infra. Gate: full suite passes in < 8 min, two consecutive runs produce identical counts.
+1. **T0.5 — Test fixture seed** ✅ SHIPPED — `docs/changes/077`. WorkspaceSeedReceiver (DEBUG BroadcastReceiver) seeds exactly Settings+(0,2) + Chrome+(1,2) via ModelDbController on every session start. Drag helpers deleted. Folder visual tests added (`test_folder_visual.py`: 4 tests covering folder creation, bg color, cover icon, no-IDP-rebuild). Next change doc: **078**.
 2. **T3.1 Phases 2–5** — execute `docs/plans/004-drawer-decomposition-v2.md` phases 2-5 in order. Phase 2 (DrawerInsetsController): extract `mInsets`, `mNavBarScrimHeight`, inset methods. Phase 3 (ProfileCoordinator): work + private profile management. Phase 4 (SearchLifecycle): SearchState machine. Phase 5 (HeaderCoordinator): highest risk. Each phase: build → install → smoke + regression + visuals → change doc → commit.
 3. **T3.2** — execute `docs/plans/005-deletion-safety-v2.md`. **Pre-flight decision (made in Session 5):** Phase A will use e2e-only testing (no unit test harness re-introduction). `tests/` remains deleted per CLAUDE.md. Phase A adds `PackagePresenceVerifier.kt` with the e2e `test_deletion_safety.py` tests covering Phase B behavior. Phase A itself doesn't change behavior (feature flag defaults OFF).
 4. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority; ship after T3.x.
 
 **Execution invariants** for any session:
 
-- Every plan execution **must** pass `tests-e2e/smoke/` + `tests-e2e/regression/` + `tests-e2e/visuals/` before commit (34+ tests, ~5 min full with is_home() fix).
-- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **076**).
+- Every plan execution **must** pass `tests-e2e/smoke/` + `tests-e2e/regression/` + `tests-e2e/visuals/` before commit (34+ tests, ~6 min with T0.5 seed).
+- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **078**).
 - AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
 - `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
 - All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Gurupungav Narayanan" -c user.email="gurupungavn@gmail.com" commit ...` (CLAUDE.md forbids permanent git config changes).
