@@ -43,11 +43,16 @@ class LauncherDriver:
     # ----- lifecycle -----------------------------------------------------
 
     def is_home(self) -> bool:
+        # Primary check via app_current(). On Android 17 with a recent
+        # background task (e.g., Phone app launched by a test), app_current()
+        # can return a stale background activity instead of the foreground one.
+        # Secondary check via workspace visibility avoids fixture thrash.
         cur = self.d.app_current()
-        return (
-            cur.get("package") == S.PACKAGE
-            and cur.get("activity") == S.LAUNCH_ACTIVITY
-        )
+        if (cur.get("package") == S.PACKAGE
+                and cur.get("activity") == S.LAUNCH_ACTIVITY):
+            return True
+        # Fallback: workspace exists ↔ launcher is the foreground activity.
+        return self.d(resourceId=S.ID_WORKSPACE).exists
 
     def go_home(self) -> None:
         """Send HOME key. No-op if already home."""

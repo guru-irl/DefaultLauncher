@@ -255,6 +255,12 @@ public class PreviewBackground extends DelegatedCellDrawing {
         return mBgColor;
     }
 
+    /** Re-reads the folder background color pref and triggers a repaint. */
+    public void refreshBgColor(Context context) {
+        mBgColor = FolderSettingsHelper.getEffectiveFolderBgColor(context);
+        invalidate();
+    }
+
     public int getDotColor() {
         return mDotColor;
     }

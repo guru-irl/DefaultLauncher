@@ -25,6 +25,7 @@ markers = [
     "grid: grid configuration",
     "prefs: preference propagation",
     "model: model load + deletion",
+    "folder: folder icon + panel color behavior",
 ]
 addopts = "-ra --strict-markers --tb=short"
 log_cli = false

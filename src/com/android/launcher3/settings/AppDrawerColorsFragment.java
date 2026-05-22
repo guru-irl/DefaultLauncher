@@ -57,20 +57,20 @@ public class AppDrawerColorsFragment extends SettingsBaseFragment {
                 LauncherPrefs.DRAWER_TAB_UNSELECTED_COLOR,
                 R.color.materialColorOnSurfaceVariant, /* idpReconfigure= */ false);
 
-        // Folder color pickers — still on IDP.onConfigChanged until folder consumers are
-        // migrated (deferred to a later Phase 2 sub-commit).
+        // Folder color pickers — migrated to PrefChangeDispatcher (folder migration).
+        // FolderIcon/Folder subscribers handle repaints; no IDP rebuild needed.
         configureColorPickerWithDefault("pref_folder_icon_color",
                 LauncherPrefs.FOLDER_COVER_BG_COLOR,
                 FolderSettingsHelper.getDefaultCoverBgColor(getContext()),
-                /* idpReconfigure= */ true);
+                /* idpReconfigure= */ false);
         configureColorPickerWithDefault("pref_folder_cover_icon_color",
                 LauncherPrefs.FOLDER_COVER_ICON_COLOR,
                 FolderSettingsHelper.getDefaultCoverIconColor(getContext()),
-                /* idpReconfigure= */ true);
+                /* idpReconfigure= */ false);
         configureColorPickerWithDefault("pref_folder_bg_color",
                 LauncherPrefs.FOLDER_BG_COLOR,
                 FolderSettingsHelper.getDefaultFolderBgColor(getContext()),
-                /* idpReconfigure= */ true);
+                /* idpReconfigure= */ false);
 
         // Drawer opacity sliders — migrated; subscriber handles refresh.
         Preference opacityPref = findPreference("pref_drawer_bg_opacity");
@@ -83,15 +83,10 @@ public class AppDrawerColorsFragment extends SettingsBaseFragment {
         if (searchOpacityPref != null) {
             searchOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> true);
         }
-        // Folder opacity slider — not yet migrated.
+        // Folder opacity slider — migrated; subscriber handles refresh.
         Preference folderOpacityPref = findPreference("pref_folder_bg_opacity");
         if (folderOpacityPref != null) {
-            folderOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> {
-                getListView().post(() ->
-                        InvariantDeviceProfile.INSTANCE.get(getContext())
-                                .onConfigChanged(getContext()));
-                return true;
-            });
+            folderOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> true);
         }
 
         // Hide tabs category if no work profile exists
