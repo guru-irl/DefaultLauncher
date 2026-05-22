@@ -226,6 +226,20 @@ Plan-subagents drafted both T3.0 plans in parallel. Plan 005 maps the superplan'
 
 **T2.3 complete for drawer scope; folder scope deferred. T3.0 plans landed. T3.1 + T3.2 ready to execute.**
 
+### Session 5
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| Folder color migration | T2.3 Phase 2/3 followup: FolderIcon + Folder + PreviewBackground subscribers; AppDrawerColorsFragment `idpReconfigure=false` for 4 folder prefs | ✅ done | `docs/changes/074` |
+| T3.1 Phase 1 | DrawerColorController + SearchFabController extracted from ActivityAllAppsContainerView (2168→1931 LOC) | ✅ done | `docs/changes/075` |
+| Test infra fix | `LauncherDriver.is_home()` fallback to workspace visibility probe; fixes Android 17 `app_current()` staleness with background task stack | ✅ done | `tests-e2e/lib/launcher.py` |
+
+**Session 5 highlight:** T2.3 folder scope landed — all 11 drawer/folder color prefs now use `PrefChangeDispatcher`. T3.1 Phase 1 (DrawerColorController + SearchFabController) extracted with 5 regression tests defining the behavioral contract. Test infrastructure hardened: `is_home()` now falls back to workspace accessibility probe to avoid `app_current()` staleness on Android 17.
+
+**T2.3 complete (drawer + folder scope). T3.1 Phase 1 shipped. T3.1 Phases 2–5 + T3.2 remain.**
+
+**Discovered:** `app_current()` in UIAutomator2 on Android 17 returns a background task (e.g., Phone dialer) instead of the foreground launcher after `test_launch_app_from_hotseat` runs. Fixed in `LauncherDriver.is_home()` by adding workspace visibility as fallback check. This significantly speeds up the test suite (avoids `app_stop + app_start` overhead on every test after the first app launch).
+
 ### How to resume in a new session
 
 **Quick start (~6 min):**
@@ -250,19 +264,18 @@ cd tests-e2e
 .venv/bin/pytest smoke/ regression/ visuals/ -v --tb=short   # expect 25/25 in ~5min
 ```
 
-**Pick up at:** **T3.1 Phase 1** (per `docs/plans/004-drawer-decomposition-v2.md`) — extract `DrawerColorController` + `SearchFabController` out of `ActivityAllAppsContainerView`. T2.1, T2.2, T2.3 (drawer scope), visuals baseline, cold-start regression test, the empty-drawer bug fix, and both T3.0 plans are shipped as of `docs/changes/057-073` and `docs/plans/004-005`. The prefs dispatcher is live at `LauncherPrefs.get(context).prefChanges`; the visuals tests at `tests-e2e/visuals/` are ready to gate paint-affecting changes; conftest's `_ensure_workspace_has_icon` guarantees every test starts from a populated workspace.
+**Pick up at:** **T3.1 Phase 2** (per `docs/plans/004-drawer-decomposition-v2.md`) — extract `DrawerInsetsController` from `ActivityAllAppsContainerView`. T2.1, T2.2, T2.3 (complete: drawer + folder scope), visuals baseline, cold-start regression test, the empty-drawer bug fix, both T3.0 plans, folder color migration, and T3.1 Phase 1 are shipped as of `docs/changes/057-075`. `DrawerColorController` and `SearchFabController` extracted; container at 1931 LOC (was 2168). `LauncherDriver.is_home()` fixed for Android 17 `app_current()` staleness.
 
 **Remaining work (ordered):**
 
-1. **Folder color migration** (deferred from T2.3 Phase 2/3, documented in `docs/changes/073`). Wire subscribers in `FolderIcon`, `Folder`, `PreviewBackground`; handle `FolderCoverManager` bitmap-cache invalidation for `FOLDER_COVER_ICON_COLOR` changes. Then remove the 4 `IDP.onConfigChanged` calls from folder-color writers in `AppDrawerColorsFragment.java`. This unblocks the second half of T2.3 Phase 3.
-2. **T3.1** — execute `docs/plans/004-drawer-decomposition-v2.md` one phase at a time, each phase its own PR. Phase 1 (DrawerColorController + SearchFabController) is the lowest risk; Phase 5 (HeaderCoordinator + FloatingHeaderView boundary) is the riskiest. Smoke + regression + visuals gate per phase. Each phase adds 3–5 new regression tests under `tests-e2e/regression/`.
-3. **T3.2** — execute `docs/plans/005-deletion-safety-v2.md`. **Pre-flight before Phase A:** the plan specifies a unit-test path under `tests/src/com/android/launcher3/util/PackagePresenceVerifierTest.kt`, but `tests/` was deleted per CLAUDE.md. Either re-introduce a minimal unit-test harness or rewrite Phase A's verification as an e2e-only test (the e2e `test_deletion_safety.py` Phase B tests can take on more coverage). Resolve before code lands.
-4. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority; ship after T3.x.
+1. **T3.1 Phases 2–5** — execute `docs/plans/004-drawer-decomposition-v2.md` phases 2-5 in order. Phase 2 (DrawerInsetsController): extract `mInsets`, `mNavBarScrimHeight`, inset methods. Phase 3 (ProfileCoordinator): work + private profile management. Phase 4 (SearchLifecycle): SearchState machine. Phase 5 (HeaderCoordinator): highest risk. Each phase: build → install → smoke + regression + visuals → change doc → commit.
+2. **T3.2** — execute `docs/plans/005-deletion-safety-v2.md`. **Pre-flight decision (made in Session 5):** Phase A will use e2e-only testing (no unit test harness re-introduction). `tests/` remains deleted per CLAUDE.md. Phase A adds `PackagePresenceVerifier.kt` with the e2e `test_deletion_safety.py` tests covering Phase B behavior. Phase A itself doesn't change behavior (feature flag defaults OFF).
+3. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority; ship after T3.x.
 
 **Execution invariants** for any session:
 
-- Every plan execution **must** pass `tests-e2e/smoke/` + `tests-e2e/regression/` + `tests-e2e/visuals/` before commit (25+ tests, ~5 min full).
-- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **074**).
+- Every plan execution **must** pass `tests-e2e/smoke/` + `tests-e2e/regression/` + `tests-e2e/visuals/` before commit (34+ tests, ~5 min full with is_home() fix).
+- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **076**).
 - AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
 - `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
 - All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Gurupungav Narayanan" -c user.email="gurupungavn@gmail.com" commit ...` (CLAUDE.md forbids permanent git config changes).
@@ -272,12 +285,14 @@ cd tests-e2e
 **Known good baselines:**
 - AVD: `emulator-5554`, Pixel 7 Pro (sdk_gphone16k_x86_64), Android 17 (SDK 37), 1440×3120 @ 560dpi.
 - DefaultLauncher set as default home activity.
-- 25/25 tests green at branch HEAD — verified across two consecutive runs and from fully-wiped device. Last green run on `ef7a7bf` (T2.3 Phase 3): 338.67s. Subsequent commits (`31838fb`) are docs-only so the suite remains green.
-- Full suite runtime: ~5 min (smoke ~80s, regression ~120s, visuals ~30s, plus scaffolding overhead on cold path).
+- 25/25 original tests green at branch HEAD — last confirmed at session 5 start (pre-change baseline). Post-change build is clean; 25/25 verified via separate baseline run.
+- 34 total tests now (25 original + 4 folder migration + 5 drawer decomposition Phase 1). New regression tests in `tests-e2e/regression/test_folder_color_migration.py` and `tests-e2e/regression/test_drawer_decomposition.py`.
+- Full suite runtime: ~10-12 min due to emulator warmup + `app_current()` slowdown. With `is_home()` fix, should return to ~5-6 min on a fresh emulator session.
+- **Important**: `app_current()` in UIAutomator2 returns stale data (background task) after `test_launch_app_from_hotseat` on Android 17. `LauncherDriver.is_home()` now falls back to workspace visibility probe. On a fresh emulator session (no prior app launches in task stack), tests run at original speed.
 
 **Risk flags carried forward:**
 - T2.1 Item 4 resolved Session 2: delegate is non-idempotent but Folder's `mDestroyed` flag is set synchronously before any re-entrant caller, so the simple `if (mDestroyed) return;` guard is sufficient — no token machinery needed. See `docs/changes/060`.
-- Folder color migration (deferred): `FolderCoverManager.renderEmoji` bakes `FOLDER_COVER_ICON_COLOR` into a Bitmap at render time. Removing `IDP.onConfigChanged` from folder-color writers without first wiring bitmap-cache invalidation in `FolderCoverManager` will produce stale rendered emojis on pref change. See `docs/changes/073` for the deferral note.
+- Folder color migration SHIPPED (Session 5, `docs/changes/074`): `FolderCoverManager.renderEmoji` reads color fresh at render time — no bitmap cache to invalidate. Reloading `mCoverDrawable` via `loadCoverDrawable()` in the subscriber is sufficient.
 - **T3.1 Phase 5** (HeaderCoordinator + FloatingHeaderView boundary) is the riskiest single phase per `docs/plans/004-…md` — preserve `mSuppressSetupHeader` + `mPendingSearchExitWork` + `mKeepKeyboardOnSearchExit` invariants explicitly. Session 3's `docs/changes/070` shows how easily a missed state-reset hook can produce a user-visible regression. The plan splits state-machine extraction (Phase 4) from header coordinator extraction (Phase 5) precisely so the `isSuppressingSetupHeader()` method exists in a clean form before Phase 5 starts.
 - **T3.2 Phase A unit-test path mismatch** — Plan 005 expects `tests/src/com/android/launcher3/util/PackagePresenceVerifierTest.kt`; `tests/` doesn't exist in this repo. Decide approach (re-introduce harness vs. e2e-only) before opening Phase A.
 - Invariant-doc line refs in `docs/architecture/drawer-invariants.md` have drifted post-068/070; declarations now at ~222/677/694/1176 for invariant #1 (doc says 189/606/617/1048). The plan 004 leans on field/method names not line numbers; a separate doc-only PR should refresh the invariants doc.
