@@ -229,13 +229,25 @@ def test_search_fab_web_intent_launches_browser(launcher):
         f"'{FAB_WEB_SEARCH_TEXT}' FAB not visible after typing"
 
     web_fab.click()
-    # Wait briefly for the intent to fire and the app to appear.
+    # Wait briefly for the intent to fire and the app (or chooser) to appear.
+    # On Android 17 app_current() may be stale, so also probe the UI hierarchy
+    # for the intent-chooser dialog ("Complete action using" / "Open with")
+    # which proves the FAB fired the intent even if no default browser is set.
     deadline = time.time() + S.DEFAULT_WAIT
     left_launcher = False
     current_pkg = S.PACKAGE
     while time.time() < deadline:
         current_pkg = launcher.d.app_current().get("package", S.PACKAGE)
         if current_pkg != S.PACKAGE:
+            left_launcher = True
+            break
+        # Chooser dialog is a system overlay; app_current() returns the launcher
+        # package because the chooser runs in-process on Android 17. Detect by
+        # looking for the dialog header text that Android shows when multiple apps
+        # can handle the intent.
+        if (launcher.d(textContains="Complete action").exists
+                or launcher.d(textContains="Open with").exists
+                or launcher.d(textContains="Choose an app").exists):
             left_launcher = True
             break
         time.sleep(0.3)

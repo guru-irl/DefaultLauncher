@@ -240,6 +240,18 @@ Plan-subagents drafted both T3.0 plans in parallel. Plan 005 maps the superplan'
 
 **Discovered:** `app_current()` in UIAutomator2 on Android 17 returns a background task (e.g., Phone dialer) instead of the foreground launcher after `test_launch_app_from_hotseat` runs. Fixed in `LauncherDriver.is_home()` by adding workspace visibility as fallback check. This significantly speeds up the test suite (avoids `app_stop + app_start` overhead on every test after the first app launch).
 
+### Session 6
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| T3.1 Phase 2 | DrawerInsetsController extracted from ActivityAllAppsContainerView (1931→1914 LOC); owns mInsets, mNavBarScrimHeight, applyAdapterSideAndBottomPaddings, drawNavBarScrim | ✅ done | `docs/changes/078` |
+| Bug 079 | Empty-drawer race: mKeepKeyboardOnSearchExit not cleared during mid-animation reset(); move flag clear unconditionally before isRunning() guard | ✅ done | `docs/changes/079` |
+| Test reliability | launcher.py open_launcher_settings() waits for RecyclerView; web search test detects chooser dialog; folder drag 1.0→1.5s; drawer_intact scroll-to-top | ✅ done | `docs/changes/079` |
+
+**Session 6 highlight:** T3.1 Phase 2 landed — DrawerInsetsController owns all inset plumbing and nav-bar scrim drawing. Also fixed the root cause of the user-reported "empty drawer on first open" bug (change 079): `mKeepKeyboardOnSearchExit` was only cleared inside the `isRunning()` else branch; when `reset()` fired during the 300ms search animation (user pressed BACK quickly), the flag survived and the deferred runnable resolved to `ACTIVE_EMPTY`. Fix: move the flag clear unconditionally before the guard. Test reliability fixes: settings white screen, web search chooser detection, folder drag duration, drawer_intact scroll-to-top.
+
+**T3.1 Phases 3–5 + T3.2 remain. Test suite: 44 tests.**
+
 ### How to resume in a new session
 
 **Quick start (~6 min):**
@@ -266,19 +278,21 @@ export ANDROID_SERIAL=emulator-5554
 .venv/bin/pytest smoke/ regression/ visuals/ -v --tb=short   # expect 34/34 (or with skips for work-profile-only tests)
 ```
 
-**Pick up at:** **T3.1 Phase 2** (DrawerInsetsController) (`docs/plans/006-test-infra-fixture-seed.md`) — replace drag-based workspace scaffolding with `pm clear` + content-provider seed. This eliminates the accumulated 15+ Chrome icons, Calendar widget, and `app_current()` slowdown that made Session 5 test runs take 15–27 minutes instead of ~5. After T0.5, resume at **T3.1 Phase 2** (DrawerInsetsController). All changes through `docs/changes/075` + test infra commits are shipped.
+**Pick up at:** **T3.1 Phase 3** (ProfileCoordinator) — extract `mWorkManager`, `mPrivateProfileManager`, `mHasWorkApps`, `mHasPrivateApps`, `mPersonalMatcher`, `onAppsUpdated()` work/private branches, `resetAndScrollToPrivateSpaceHeader()`, `inflateWorkCardsIfNeeded()`. All changes through `docs/changes/079` shipped. Next change doc: **080**.
 
 **Remaining work (ordered):**
 
-1. **T0.5 — Test fixture seed** ✅ SHIPPED — `docs/changes/077`. WorkspaceSeedReceiver (DEBUG BroadcastReceiver) seeds exactly Settings+(0,2) + Chrome+(1,2) via ModelDbController on every session start. Drag helpers deleted. Folder visual tests added (`test_folder_visual.py`: 4 tests covering folder creation, bg color, cover icon, no-IDP-rebuild). Next change doc: **078**.
-2. **T3.1 Phases 2–5** — execute `docs/plans/004-drawer-decomposition-v2.md` phases 2-5 in order. Phase 2 (DrawerInsetsController): extract `mInsets`, `mNavBarScrimHeight`, inset methods. Phase 3 (ProfileCoordinator): work + private profile management. Phase 4 (SearchLifecycle): SearchState machine. Phase 5 (HeaderCoordinator): highest risk. Each phase: build → install → smoke + regression + visuals → change doc → commit.
+1. **T0.5 — Test fixture seed** ✅ SHIPPED — `docs/changes/077`.
+2. **T3.1 Phase 2** ✅ SHIPPED — `docs/changes/078`. DrawerInsetsController owns mInsets + mNavBarScrimHeight + inset methods. Container: 1931→1914 LOC.
+3. **Bug 079** ✅ SHIPPED — `docs/changes/079`. Empty-drawer race (mKeepKeyboardOnSearchExit) fixed + 3 drawer_state regression tests + test reliability fixes.
+4. **T3.1 Phases 3–5** — execute `docs/plans/004-drawer-decomposition-v2.md` phases 3-5 in order. Phase 3 (ProfileCoordinator): work + private profile management. Phase 4 (SearchLifecycle): SearchState machine. Phase 5 (HeaderCoordinator): highest risk. Each phase: build → install → smoke + regression + visuals → change doc → commit.
 3. **T3.2** — execute `docs/plans/005-deletion-safety-v2.md`. **Pre-flight decision (made in Session 5):** Phase A will use e2e-only testing (no unit test harness re-introduction). `tests/` remains deleted per CLAUDE.md. Phase A adds `PackagePresenceVerifier.kt` with the e2e `test_deletion_safety.py` tests covering Phase B behavior. Phase A itself doesn't change behavior (feature flag defaults OFF).
 4. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority; ship after T3.x.
 
 **Execution invariants** for any session:
 
-- Every plan execution **must** pass `tests-e2e/smoke/` + `tests-e2e/regression/` + `tests-e2e/visuals/` before commit (34+ tests, ~6 min with T0.5 seed).
-- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **078**).
+- Every plan execution **must** pass `tests-e2e/smoke/` + `tests-e2e/regression/` + `tests-e2e/visuals/` before commit (44+ tests, ~10-12 min).
+- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **080**).
 - AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
 - `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
 - All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Gurupungav Narayanan" -c user.email="gurupungavn@gmail.com" commit ...` (CLAUDE.md forbids permanent git config changes).
@@ -288,8 +302,8 @@ export ANDROID_SERIAL=emulator-5554
 **Known good baselines:**
 - AVD: `emulator-5554`, Pixel 7 Pro (sdk_gphone16k_x86_64), Android 17 (SDK 37), 1440×3120 @ 560dpi.
 - DefaultLauncher set as default home activity.
-- 25/25 original tests green at branch HEAD — last confirmed at session 5 start (pre-change baseline). Post-change build is clean; 25/25 verified via separate baseline run.
-- 34 total tests now (25 original + 4 folder migration + 5 drawer decomposition Phase 1). New regression tests in `tests-e2e/regression/test_folder_color_migration.py` and `tests-e2e/regression/test_drawer_decomposition.py`.
+- 44 total tests: 19 smoke + 1 cold_start + 5 decomp Phase1 + 4 folder_color + 4 folder_visual + 2 search_progressive + 3 drawer_insets (Phase2) + 3 drawer_state (079) + 3 visuals. All passing as of Session 6.
+- Actual baseline (Session 6 start, old APK): 2 flaky failures confirmed: `test_drawer_intact_after_folder_color_change` (emulator load/scroll timing) and `test_folder_can_be_created_from_seed_icons` (drag duration). Both fixed in docs/changes/079.
 - Full suite runtime: ~10-12 min due to emulator warmup + `app_current()` slowdown. With `is_home()` fix, should return to ~5-6 min on a fresh emulator session.
 - **Important**: `app_current()` in UIAutomator2 returns stale data (background task) after `test_launch_app_from_hotseat` on Android 17. `LauncherDriver.is_home()` now falls back to workspace visibility probe. On a fresh emulator session (no prior app launches in task stack), tests run at original speed.
 

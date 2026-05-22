@@ -41,57 +41,68 @@ SETTINGS_SETTLE = 1.0
 FOLDER_CREATION_SETTLE = 1.5
 
 
-def _create_folder(launcher) -> bool:
+def _create_folder(launcher, max_attempts: int = 3) -> bool:
     """Drag Chrome (1,2) onto Settings (0,2) to create a folder.
 
     Returns True if a folder icon appeared on the workspace.
-    Both icons must be on the workspace at adjacent cells (seeded by T0.5).
+    Retries up to max_attempts times, re-seeding the workspace between
+    attempts so the icons are always present at the canonical positions.
     """
+    from lib import adb_setup
+
     d = launcher.d
-    launcher.go_home()
 
-    # Find the Settings and Chrome icons on the workspace.
-    settings_icon = d(resourceId=S.ID_WORKSPACE).child(description="Settings")
-    chrome_icon = d(resourceId=S.ID_WORKSPACE).child(description="Chrome")
+    for attempt in range(max_attempts):
+        if attempt > 0:
+            # Re-seed to restore the two icons after a failed or
+            # misclassified drag (e.g., tap-launch consumed one icon).
+            adb_setup.seed_workspace(d)
+            launcher.go_home()
+            time.sleep(1.0)
 
-    if not settings_icon.wait(timeout=S.DEFAULT_WAIT):
-        return False
-    if not chrome_icon.wait(timeout=S.DEFAULT_WAIT):
-        return False
-
-    settings_bounds = settings_icon.info["bounds"]
-    chrome_bounds = chrome_icon.info["bounds"]
-
-    src_x = (chrome_bounds["left"] + chrome_bounds["right"]) // 2
-    src_y = (chrome_bounds["top"] + chrome_bounds["bottom"]) // 2
-    dst_x = (settings_bounds["left"] + settings_bounds["right"]) // 2
-    dst_y = (settings_bounds["top"] + settings_bounds["bottom"]) // 2
-
-    # Long-press drag Chrome onto Settings — this creates a folder.
-    try:
-        d.drag(src_x, src_y, dst_x, dst_y, duration=1.0)
-    except Exception:
-        return False
-
-    time.sleep(FOLDER_CREATION_SETTLE)
-
-    # Recover if drag was misinterpreted as tap-launch.
-    if not launcher.is_home():
         launcher.go_home()
 
-    # Check that a folder appeared — the workspace should now have a folder
-    # where the two icons were. Both "Settings" and "Chrome" standalone icons
-    # should be GONE, replaced by a folder.
-    has_standalone_settings = d(resourceId=S.ID_WORKSPACE).child(
-        description="Settings"
-    ).exists
-    has_standalone_chrome = d(resourceId=S.ID_WORKSPACE).child(
-        description="Chrome"
-    ).exists
+        settings_icon = d(resourceId=S.ID_WORKSPACE).child(description="Settings")
+        chrome_icon = d(resourceId=S.ID_WORKSPACE).child(description="Chrome")
 
-    # Folder was created if neither icon is a standalone item any more.
-    folder_created = not has_standalone_settings and not has_standalone_chrome
-    return folder_created
+        if not settings_icon.wait(timeout=S.DEFAULT_WAIT):
+            continue
+        if not chrome_icon.wait(timeout=S.DEFAULT_WAIT):
+            continue
+
+        settings_bounds = settings_icon.info["bounds"]
+        chrome_bounds = chrome_icon.info["bounds"]
+
+        src_x = (chrome_bounds["left"] + chrome_bounds["right"]) // 2
+        src_y = (chrome_bounds["top"] + chrome_bounds["bottom"]) // 2
+        dst_x = (settings_bounds["left"] + settings_bounds["right"]) // 2
+        dst_y = (settings_bounds["top"] + settings_bounds["bottom"]) // 2
+
+        # Long-press drag Chrome onto Settings.
+        # duration=2.0 gives the launcher enough time to recognize the
+        # long-press even on a loaded emulator before the finger moves.
+        try:
+            d.drag(src_x, src_y, dst_x, dst_y, duration=2.0)
+        except Exception:
+            continue
+
+        time.sleep(FOLDER_CREATION_SETTLE)
+
+        if not launcher.is_home():
+            launcher.go_home()
+
+        has_standalone_settings = d(resourceId=S.ID_WORKSPACE).child(
+            description="Settings"
+        ).exists
+        has_standalone_chrome = d(resourceId=S.ID_WORKSPACE).child(
+            description="Chrome"
+        ).exists
+
+        folder_created = not has_standalone_settings and not has_standalone_chrome
+        if folder_created:
+            return True
+
+    return False
 
 
 def _open_folder_bg_color_picker(launcher) -> None:

@@ -181,11 +181,17 @@ class LauncherDriver:
         )
         # wait_activity() uses app_current() which returns stale data on Android 17
         # when a background task (e.g., Phone dialer) sits in the activity stack.
-        # Instead, wait for the workspace to disappear — reliable proxy that settings opened.
+        # Instead, wait for the workspace to disappear, then wait for the
+        # PreferenceFragment RecyclerView to render. Avoids the semi-transparent
+        # white-screen window where the workspace is gone but preferences haven't
+        # drawn yet.
         deadline = time.time() + S.DEFAULT_WAIT
         while time.time() < deadline:
             if not self.d(resourceId=S.ID_WORKSPACE).exists:
-                time.sleep(0.3)  # let settings render one frame
+                # Settings window is up. Wait for preference content to render.
+                self.d(
+                    className="androidx.recyclerview.widget.RecyclerView"
+                ).wait(timeout=S.DEFAULT_WAIT)
                 return
             time.sleep(0.2)
         raise DriverError(

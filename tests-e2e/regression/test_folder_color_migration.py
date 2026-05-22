@@ -157,6 +157,7 @@ def test_drawer_intact_after_folder_color_change(launcher):
     time.sleep(0.5)
 
     launcher.open_drawer()
+    time.sleep(0.5)  # Let the drawer fully render before accessibility queries.
 
     # (B) Fail fast if the bug from docs/changes/070 recurred:
     # search_results_list_view visible means mSearchState == ACTIVE_EMPTY.
@@ -166,6 +167,17 @@ def test_drawer_intact_after_folder_color_change(launcher):
         "— mSearchState == ACTIVE_EMPTY; the docs/changes/070 regression "
         "has recurred. See docs/changes/076 for the fix."
     )
+
+    # Scroll the list to top so the accessibility tree contains the first
+    # visible items. On a loaded emulator the RV may not have scrolled to
+    # top yet even though reset() called scrollToTop() — give it a nudge.
+    rv = launcher.d(resourceId=S.ID_ALL_APPS_RECYCLER)
+    if rv.wait(timeout=S.DEFAULT_WAIT):
+        try:
+            rv.fling.toBeginning(steps=5)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     # (A) Wait for apps to appear. Use .wait() on a known-installed app
     # rather than counting 100+ items (count traversal is slow on degraded emulators).
