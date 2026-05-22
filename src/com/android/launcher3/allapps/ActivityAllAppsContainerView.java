@@ -147,7 +147,6 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
     // Used to animate Search results out and A-Z apps in, or vice-versa.
     private final SearchTransitionController mSearchTransitionController;
-    private final Rect mInsets = new Rect();
     private final AllAppsStore<T> mAllAppsStore;
     private final RecyclerView.OnScrollListener mScrollListener =
             new RecyclerView.OnScrollListener() {
@@ -213,7 +212,6 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private boolean mRebindAdaptersAfterSearchAnimation;
     private boolean mKeepKeyboardOnSearchExit;
     private Runnable mPendingSearchExitWork;
-    private int mNavBarScrimHeight = 0;
     private SearchRecyclerView mSearchRecyclerView;
     protected SearchAdapterProvider<?> mMainAdapterProvider;
     private View mBottomSheetHandleArea;
@@ -257,6 +255,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     };
     @Nullable private AllAppsTransitionController mAllAppsTransitionController;
     private final SearchFabController mSearchFabController;
+    private final DrawerInsetsController mInsetsController;
 
     public ActivityAllAppsContainerView(Context context) {
         this(context, null);
@@ -297,6 +296,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         materialCtx = com.google.android.material.color.DynamicColors
                 .wrapContextIfAvailable(materialCtx);
         mSearchFabController = new SearchFabController(materialCtx);
+        mInsetsController = new DrawerInsetsController(this, mDrawerColorController);
 
         AllAppsStore.OnUpdateListener onAppsUpdated = this::onAppsUpdated;
         mAllAppsStore.addUpdateListener(onAppsUpdated);
@@ -1434,10 +1434,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
     @Override
     public void setInsets(Rect insets) {
-        mInsets.set(insets);
         DeviceProfile grid = mActivityContext.getDeviceProfile();
-
-        applyAdapterSideAndBottomPaddings(grid);
+        mInsetsController.applyInsets(insets, grid);
 
         MarginLayoutParams mlp = (MarginLayoutParams) getLayoutParams();
         // Ignore left/right insets on bottom sheet because we are already centered in-screen.
@@ -1471,13 +1469,12 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
      * Returns the current height of nav bar scrim
      */
     public int getNavBarScrimHeight() {
-        return mNavBarScrimHeight;
+        return mInsetsController.getNavBarScrimHeight();
     }
 
     @Override
     public WindowInsets dispatchApplyWindowInsets(WindowInsets insets) {
-        mNavBarScrimHeight = computeNavBarScrimHeight(insets);
-        applyAdapterSideAndBottomPaddings(mActivityContext.getDeviceProfile());
+        mInsetsController.onDispatchApplyWindowInsets(insets);
 
         // Position the FAB container above the IME or nav bar
         int imeBottom = insets.getInsets(WindowInsets.Type.ime()).bottom;
@@ -1490,13 +1487,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     @Override
     protected void dispatchDraw(Canvas canvas) {
         super.dispatchDraw(canvas);
-
-        if (mNavBarScrimHeight > 0) {
-            float left = (getWidth() - getWidth() / getScaleX()) / 2;
-            float top = getHeight() / 2f + (getHeight() / 2f - mNavBarScrimHeight) / getScaleY();
-            canvas.drawRect(left, top, getWidth() / getScaleX(),
-                    top + mNavBarScrimHeight / getScaleY(), mDrawerColorController.getNavBarScrimPaint());
-        }
+        mInsetsController.drawNavBarScrim(canvas, getScaleX(), getScaleY(), getWidth(), getHeight());
     }
 
     protected void updateSearchResultsVisibility() {
@@ -1512,16 +1503,6 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         if (mHeader.isSetUp()) {
             mHeader.setActiveRV(getCurrentPage());
         }
-    }
-
-    private void applyAdapterSideAndBottomPaddings(DeviceProfile grid) {
-        int bottomPadding = Math.max(mInsets.bottom, mNavBarScrimHeight);
-        mAH.forEach(adapterHolder -> {
-            adapterHolder.mPadding.bottom = bottomPadding;
-            adapterHolder.mPadding.left = grid.allAppsPadding.left;
-            adapterHolder.mPadding.right = grid.allAppsPadding.right;
-            adapterHolder.applyPadding();
-        });
     }
 
     private void setDeviceManagementResources() {
@@ -1664,11 +1645,12 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     @Override
     public void setScaleY(float scaleY) {
         super.setScaleY(scaleY);
-        if (predictiveBackThreeButtonNav() && mNavBarScrimHeight > 0) {
+        int navBarScrimHeight = mInsetsController.getNavBarScrimHeight();
+        if (predictiveBackThreeButtonNav() && navBarScrimHeight > 0) {
             // Call invalidate to prevent navbar scrim from scaling. The navbar scrim is drawn
             // directly onto the canvas. To prevent it from being scaled with the canvas, there's a
             // counter scale applied in dispatchDraw.
-            invalidate(20, getHeight() - mNavBarScrimHeight, getWidth(), getHeight());
+            invalidate(20, getHeight() - navBarScrimHeight, getWidth(), getHeight());
         }
     }
 
@@ -1898,7 +1880,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             if (mRecyclerView != null) {
                 int bottomOffset = 0;
                 if ((isWork() || !mUsingTabs) && mWorkManager.getWorkUtilityView() != null) {
-                    bottomOffset = mInsets.bottom + mWorkManager.getWorkUtilityView().getHeight();
+                    bottomOffset = mInsetsController.getInsets().bottom
+                            + mWorkManager.getWorkUtilityView().getHeight();
                 } else if (isMain() && mPrivateProfileManager != null) {
                     Optional<AdapterItem> privateSpaceHeaderItem = mAppsList.getAdapterItems()
                             .stream()
