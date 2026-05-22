@@ -60,7 +60,7 @@ After reading the handoff:
 2. Resume at the next outstanding task per the superplan's "Remaining work" section — currently the **folder color migration** (deferred from T2.3 Phase 2/3, see `docs/changes/073`). After that, execute **T3.1 Phase 1** per `docs/plans/004-drawer-decomposition-v2.md` — extract `DrawerColorController` + `SearchFabController` out of `ActivityAllAppsContainerView`. Continue through phases 2–5 in order.
 3. Pre-flight T3.2 (deletion safety) before opening Phase A: plan 005 specifies a unit-test path under `tests/src/...` but that directory was deleted per CLAUDE.md. Decide between re-introducing a minimal unit-test harness and rewriting Phase A's verification as an e2e-only test (`tests-e2e/regression/test_deletion_safety.py`). Resolve the gap, then proceed.
 4. Each change: build → install → run `tests-e2e/smoke + regression + visuals` → write `docs/changes/0NN-NAME.md` (next number is **074**, or whatever follows the highest already on disk) → commit.
-5. Use the per-command git identity: `git -c user.name="Guna Raya" -c user.email="gunaraya@microsoft.com" commit ...`. Never modify git config.
+5. Use the per-command git identity: `git -c user.name="Gurupungav Narayanan" -c user.email="gurupungavn@gmail.com" commit ...`. Never modify git config.
 6. Every commit ends with: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
 7. Work continuously. Checkpoint to the user after each completed plan (folder migration done, then T3.1 done, then T3.2 done) — not each item.
 

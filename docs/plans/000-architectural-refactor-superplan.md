@@ -265,7 +265,7 @@ cd tests-e2e
 - Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **074**).
 - AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
 - `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
-- All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Guna Raya" -c user.email="gunaraya@microsoft.com" commit ...` (CLAUDE.md forbids permanent git config changes).
+- All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Gurupungav Narayanan" -c user.email="gurupungavn@gmail.com" commit ...` (CLAUDE.md forbids permanent git config changes).
 - Test scaffolding: `tests-e2e/conftest.py::_ensure_workspace_has_icon` runs in `launcher` (session), `_wake_and_home` (autouse), and `clean_launcher` fixtures — every test starts from a populated workspace, including after `pm clear`. Do not bypass this when writing new tests.
 - **Java callers of the prefs framework** use the pattern `LauncherPrefs.get(context).getPrefChanges().subscribe(subscriber, item1, item2, ...)`. The subscriber's `onPrefsChanged` signature must take `Set<? extends Item>` (Kotlin variance) — see `ActivityAllAppsContainerView.mDrawerPrefSubscriber` for the canonical pattern. Subscribe in `onAttachedToWindow`, close the returned `AutoCloseable` in `onDetachedFromWindow`. For singletons without view lifecycle (see `AllAppsState`), lazy-init the subscription on first access and never close.
 
