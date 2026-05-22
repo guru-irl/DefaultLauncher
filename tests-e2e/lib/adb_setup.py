@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -13,11 +14,15 @@ from . import selectors as S
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_APK = REPO_ROOT / "build" / "outputs" / "apk" / "debug" / "DefaultLauncher-debug.apk"
 
+# Default serial from environment (set by run.sh or caller when multiple devices attached).
+_DEFAULT_SERIAL: Optional[str] = os.environ.get("ANDROID_SERIAL")
+
 
 def adb(*args: str, serial: Optional[str] = None, check: bool = True) -> str:
     cmd = ["adb"]
-    if serial:
-        cmd += ["-s", serial]
+    effective_serial = serial or _DEFAULT_SERIAL
+    if effective_serial:
+        cmd += ["-s", effective_serial]
     cmd += list(args)
     result = subprocess.run(cmd, capture_output=True, text=True, check=check)
     return result.stdout

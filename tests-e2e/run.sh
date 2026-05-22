@@ -12,6 +12,13 @@ REPO_DIR="$(cd "$(dirname "$0")"/.. && pwd)"
 TESTS_DIR="$REPO_DIR/tests-e2e"
 ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
 export PATH="$ANDROID_HOME/platform-tools:$PATH"
+# If multiple devices are attached, default to the emulator unless overridden.
+if [ -z "${ANDROID_SERIAL:-}" ]; then
+  EMULATOR=$(adb devices | grep "emulator" | awk '{print $1}' | head -1)
+  if [ -n "$EMULATOR" ]; then
+    export ANDROID_SERIAL="$EMULATOR"
+  fi
+fi
 
 cd "$TESTS_DIR"
 

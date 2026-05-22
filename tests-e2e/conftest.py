@@ -23,8 +23,13 @@ def pytest_configure(config: pytest.Config) -> None:
 
 @pytest.fixture(scope="session")
 def device() -> Iterator[u2.Device]:
-    """One shared uiautomator2 device per test session."""
-    d = u2.connect()
+    """One shared uiautomator2 device per test session.
+
+    Uses ANDROID_SERIAL env var if set (required when multiple devices are
+    attached — e.g., physical phone + emulator simultaneously).
+    """
+    serial = os.environ.get("ANDROID_SERIAL")
+    d = u2.connect(serial) if serial else u2.connect()
     adb_setup.ensure_device_ready(d)
     yield d
 
