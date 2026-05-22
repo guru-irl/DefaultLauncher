@@ -111,4 +111,4 @@ is irrelevant. Clearing early is correct.
 ## Verification
 
 - `assembleDebug`: clean.
-- Full test suite (44 tests): all passed.
+- Full test suite (44 tests): 39 passed, 0 failed, 2 xfailed, 3 skipped. Exit 0.

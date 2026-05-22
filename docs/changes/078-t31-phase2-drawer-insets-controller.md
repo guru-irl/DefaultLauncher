@@ -83,4 +83,4 @@ New file `tests-e2e/regression/test_drawer_insets.py` (3 tests):
 ## Verification
 
 - `assembleDebug`: clean.
-- Full test suite (38 existing + 3 new Phase 2 = 41 tests): all passed.
+- Full test suite (44 tests): 39 passed, 0 failed, 2 xfailed, 3 skipped. Exit 0.
