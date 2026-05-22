@@ -38,22 +38,24 @@ Target state after this plan:
 
 ### Seed state
 
-One shortcut pinned to workspace cell (0, 2) — row 2, column 0 — with:
+Two shortcuts pinned to workspace cells (0, 2) and (1, 2) — row 2, columns 0-1:
 
-| Field    | Value                                  |
-|----------|----------------------------------------|
-| title    | "Settings"                             |
-| package  | `com.android.settings`                 |
-| cellX    | 0                                      |
-| cellY    | 2                                      |
-| container | CONTAINER_DESKTOP (= -100)            |
-| screen   | 0                                      |
-| itemType | ITEM_TYPE_APPLICATION (= 0)            |
+| Field    | Icon 1 (anchor)        | Icon 2 (folder target)       |
+|----------|------------------------|------------------------------|
+| title    | "Settings"             | "Chrome"                     |
+| package  | `com.android.settings` | `com.android.chrome`         |
+| cellX    | 0                      | 1                            |
+| cellY    | 2                      | 2                            |
+| container | CONTAINER_DESKTOP     | CONTAINER_DESKTOP            |
+| screen   | 0                      | 0                            |
+| itemType | ITEM_TYPE_APPLICATION  | ITEM_TYPE_APPLICATION        |
 
-"Settings" is always installed on the AVD, never changes package name, never
-appears in the hotseat (so it doesn't conflict with the default hotseat layout
-the launcher seeds), and its accessibility description is exactly "Settings" — easy
-to probe with `d(description="Settings")` without a regex.
+Two icons are seeded so that folder-creation tests can drag one onto the other
+(cells (0,2) and (1,2) are adjacent) without needing additional setup. Tests
+that don't need folders use `d(description="Settings")` as the workspace probe.
+
+"Settings" is the primary anchor: always installed, description is exactly the
+string "Settings", never in the hotseat.
 
 Cell (0, 2) is the third row, leftmost column: visible on the workspace without
 scrolling and clear of the hotseat, search bar, and first two rows where some
