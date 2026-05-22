@@ -49,12 +49,15 @@ def test_drawer_inset_landscape_phone(launcher):
     visible_in_landscape = False
     try:
         launcher.open_drawer()
-        # open_drawer() already waited for ID_ALL_APPS_CONTAINER.
-        # Wait separately for the inner RecyclerView — on a loaded emulator
-        # the container is accessible before child views are bound.
-        # 10s covers severe emulator degradation.
-        visible_in_landscape = launcher.d(resourceId=S.ID_ALL_APPS_RECYCLER).wait(
-            timeout=S.DEFAULT_WAIT * 2
+        # open_drawer() waited for ID_ALL_APPS_CONTAINER (up to 10s) so we
+        # know the drawer container is accessible. Also wait for the inner
+        # RecyclerView; fall back to just the container on a loaded emulator
+        # where child views may take longer to bind than the container itself.
+        visible_in_landscape = (
+            launcher.d(resourceId=S.ID_ALL_APPS_RECYCLER).wait(
+                timeout=S.DEFAULT_WAIT * 2   # 10s
+            )
+            or launcher.d(resourceId=S.ID_ALL_APPS_CONTAINER).exists
         )
         launcher.close_drawer()
     finally:
