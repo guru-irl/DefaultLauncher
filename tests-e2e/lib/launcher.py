@@ -59,7 +59,13 @@ class LauncherDriver:
         if self.is_home():
             return
         self.d.press("home")
-        self.d.wait_activity(S.LAUNCH_ACTIVITY, timeout=S.DEFAULT_WAIT)
+        # wait_activity uses app_current() which is stale on Android 17.
+        # Wait for workspace to appear instead.
+        deadline = time.time() + S.DEFAULT_WAIT
+        while time.time() < deadline:
+            if self.is_home():
+                return
+            time.sleep(0.2)
 
     def force_stop(self) -> None:
         """Hard-reset launcher process. Use sparingly (loses state)."""
@@ -173,11 +179,19 @@ class LauncherDriver:
         self.d.shell(
             f"am start -n {S.PACKAGE}/{S.SETTINGS_ACTIVITY} -f 0x14200000"
         )
-        if not self.d.wait_activity(S.SETTINGS_ACTIVITY, timeout=S.DEFAULT_WAIT):
-            raise DriverError(
-                f"Settings activity did not appear: current={self.d.app_current()}",
-                hierarchy_snippet=self.d.dump_hierarchy(),
-            )
+        # wait_activity() uses app_current() which returns stale data on Android 17
+        # when a background task (e.g., Phone dialer) sits in the activity stack.
+        # Instead, wait for the workspace to disappear — reliable proxy that settings opened.
+        deadline = time.time() + S.DEFAULT_WAIT
+        while time.time() < deadline:
+            if not self.d(resourceId=S.ID_WORKSPACE).exists:
+                time.sleep(0.3)  # let settings render one frame
+                return
+            time.sleep(0.2)
+        raise DriverError(
+            f"Settings activity did not appear: current={self.d.app_current()}",
+            hierarchy_snippet=self.d.dump_hierarchy(),
+        )
 
     # ----- diagnostics --------------------------------------------------
 
