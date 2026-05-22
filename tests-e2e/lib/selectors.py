@@ -46,6 +46,11 @@ KNOWN_APPS = {
     "clock": "World",  # AOSP clock app shows as 'World' in some images
 }
 
+# Workspace seed icons (set by T0.5 fixture via WorkspaceSeedReceiver).
+# These must match WorkspaceSeedReceiver.SETTINGS_INTENT/CHROME_INTENT titles.
+SEED_ICON_DESC = "Settings"    # primary anchor: Settings at cell (0,2)
+SEED_ICON_2_DESC = "Chrome"    # folder target: Chrome at cell (1,2)
+
 # Timeouts (seconds). Centralized so we don't sprinkle sleeps everywhere.
 DEFAULT_WAIT = 5.0
 ANIMATION_WAIT = 1.0  # for transitions to settle
