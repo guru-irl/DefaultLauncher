@@ -259,9 +259,11 @@ adb devices                                  # expect: emulator-5554 device
   org.gradle.wrapper.GradleWrapperMain assembleDebug
 adb install -r -d -g build/outputs/apk/debug/DefaultLauncher-debug.apk
 
-# Confirm baseline still green (25 tests: 19 smoke + 3 regression + 3 visuals)
+# Confirm baseline still green (34 tests: 19 smoke + 9 regression + 3 visuals + 3 new regression)
+# NOTE: a physical phone may also be attached; pass -s emulator-5554 to target the AVD.
 cd tests-e2e
-.venv/bin/pytest smoke/ regression/ visuals/ -v --tb=short   # expect 25/25 in ~5min
+export ANDROID_SERIAL=emulator-5554
+.venv/bin/pytest smoke/ regression/ visuals/ -v --tb=short   # expect 34/34 (or with skips for work-profile-only tests)
 ```
 
 **Pick up at:** **T3.1 Phase 2** (per `docs/plans/004-drawer-decomposition-v2.md`) — extract `DrawerInsetsController` from `ActivityAllAppsContainerView`. T2.1, T2.2, T2.3 (complete: drawer + folder scope), visuals baseline, cold-start regression test, the empty-drawer bug fix, both T3.0 plans, folder color migration, and T3.1 Phase 1 are shipped as of `docs/changes/057-075`. `DrawerColorController` and `SearchFabController` extracted; container at 1931 LOC (was 2168). `LauncherDriver.is_home()` fixed for Android 17 `app_current()` staleness.
