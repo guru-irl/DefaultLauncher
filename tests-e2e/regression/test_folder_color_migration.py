@@ -46,6 +46,12 @@ def _open_colors_settings(launcher) -> None:
 
 def _tap_default_in_color_picker(launcher, pref_title: str) -> None:
     """Open a color-picker pref and tap the Default row to reset the value."""
+    # Scroll to the preference — it may be off-screen (e.g., Folder background
+    # is in the Folders section below the visible drawer prefs).
+    try:
+        launcher.d(scrollable=True).scroll.to(text=pref_title)
+    except Exception:
+        pass  # already visible or scroll failed; wait below will assert
     pref = launcher.d(text=pref_title)
     assert pref.wait(timeout=S.DEFAULT_WAIT), \
         f"Preference '{pref_title}' not found on Colors settings page"
