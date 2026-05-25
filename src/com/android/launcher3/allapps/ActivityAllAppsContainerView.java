@@ -19,8 +19,6 @@ import static com.android.launcher3.allapps.ActivityAllAppsContainerView.Adapter
 import static com.android.launcher3.allapps.ActivityAllAppsContainerView.AdapterHolder.SEARCH;
 import static com.android.launcher3.allapps.ActivityAllAppsContainerView.AdapterHolder.WORK;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_PRIVATE_SPACE_HEADER;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_WORK_DISABLED_CARD;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_WORK_EDU_CARD;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_ALLAPPS_COUNT;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_ALLAPPS_TAP_ON_PERSONAL_TAB;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_ALLAPPS_TAP_ON_WORK_TAB;
@@ -46,8 +44,6 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.os.Process;
-import android.os.UserManager;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.SparseArray;
@@ -94,9 +90,7 @@ import com.android.launcher3.keyboard.FocusedItemDecorator;
 import com.android.launcher3.keyboard.ViewGroupFocusHelper;
 import com.android.launcher3.model.StringCache;
 import com.android.launcher3.model.data.ItemInfo;
-import com.android.launcher3.pm.UserCache;
 import com.android.launcher3.recyclerview.AllAppsRecyclerViewPool;
-import com.android.launcher3.util.ItemInfoMatcher;
 import com.android.launcher3.util.Preconditions;
 import com.android.launcher3.util.Themes;
 import com.android.launcher3.views.ActivityContext;
@@ -112,7 +106,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 /**
  * All apps container view with search support for use in a dragging activity.
@@ -136,10 +129,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
     protected final T mActivityContext;
     protected final List<AdapterHolder> mAH;
-    protected final Predicate<ItemInfo> mPersonalMatcher = ItemInfoMatcher.ofUser(
-            Process.myUserHandle());
-    protected WorkProfileManager mWorkManager;
-    protected final PrivateProfileManager mPrivateProfileManager;
+    /** Profile coordinator owning work/private managers, has-apps flags, and related ops. */
+    private ProfileCoordinator<T> mProfileCoordinator;
     protected final Point mFastScrollerOffset = new Point();
     protected final int mScrimColor;
     protected final float mHeaderThreshold;
@@ -215,8 +206,6 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private SearchRecyclerView mSearchRecyclerView;
     protected SearchAdapterProvider<?> mMainAdapterProvider;
     private View mBottomSheetHandleArea;
-    private boolean mHasWorkApps;
-    private boolean mHasPrivateApps;
     private float[] mBottomSheetCornerRadii;
     private ScrimView mScrimView;
     private final DrawerColorController mDrawerColorController;
@@ -277,16 +266,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         // Cache DRAWER_HIDE_TABS before onFinishInflate's rebindAdapters() consults it.
         mDrawerHideTabs = LauncherPrefs.get(context).get(LauncherPrefs.DRAWER_HIDE_TABS);
 
-        mWorkManager = new WorkProfileManager(
-                mActivityContext.getSystemService(UserManager.class),
-                this,
-                mActivityContext.getStatsLogManager(),
-                UserCache.INSTANCE.get(mActivityContext));
-        mPrivateProfileManager = new PrivateProfileManager(
-                mActivityContext.getSystemService(UserManager.class),
-                this,
-                mActivityContext.getStatsLogManager(),
-                UserCache.INSTANCE.get(mActivityContext));
+        mProfileCoordinator = new ProfileCoordinator<>(mActivityContext, this);
         mPrivateSpaceBottomExtraSpace = context.getResources().getDimensionPixelSize(
                 R.dimen.ps_extra_bottom_padding);
         mAH = Arrays.asList(null, null, null);
@@ -338,9 +318,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 new AlphabeticalAppsList<>(mActivityContext,
                         mAllAppsStore,
                         null,
-                        mPrivateProfileManager)));
+                        mProfileCoordinator.getPrivateProfileManager())));
         mAH.set(AdapterHolder.WORK, new AdapterHolder(AdapterHolder.WORK,
-                new AlphabeticalAppsList<>(mActivityContext, mAllAppsStore, mWorkManager, null)));
+                new AlphabeticalAppsList<>(mActivityContext, mAllAppsStore,
+                        mProfileCoordinator.getWorkManager(), null)));
         mAH.set(SEARCH, new AdapterHolder(SEARCH,
                 new AlphabeticalAppsList<>(mActivityContext, null, null, null)));
 
@@ -563,7 +544,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mFastScroller.setVisibility(goingToSearch ? INVISIBLE : VISIBLE);
         if (goingToSearch) {
             // Fade out the button to pause work apps.
-            mWorkManager.onActivePageChanged(SEARCH);
+            mProfileCoordinator.getWorkManager().onActivePageChanged(SEARCH);
         } else if (mAllAppsTransitionController != null) {
             // If exiting search, revert predictive back scale on all apps
             mAllAppsTransitionController.animateAllAppsToNoScale();
@@ -706,35 +687,16 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             }
         }
         if (isSearching()) {
-            mWorkManager.reset();
+            mProfileCoordinator.getWorkManager().reset();
         }
     }
 
     /**
      * Exits search and returns to A-Z apps list. Scroll to the private space header.
+     * Delegated to {@link ProfileCoordinator} (Phase 3 drawer decomposition).
      */
     public void resetAndScrollToPrivateSpaceHeader() {
-        // Animate to A-Z with 0 time to reset the animation with proper state management.
-        // We can't rely on `animateToSearchState` with delay inside `resetSearch` because that will
-        // conflict with following scrolling to bottom, so we need it with 0 time here.
-        animateToSearchState(false, 0);
-
-        MAIN_EXECUTOR.getHandler().post(() -> {
-            // Reset the search bar after transitioning home.
-            // When `resetSearch` is called after `animateToSearchState` is finished, the inside
-            // `animateToSearchState` with delay is a just no-op and return early.
-            mSearchUiManager.resetSearch();
-            // Switch to the main tab
-            switchToTab(ActivityAllAppsContainerView.AdapterHolder.MAIN);
-            // Scroll to bottom
-            if (mPrivateProfileManager != null) {
-                mPrivateProfileManager.scrollForHeaderToBeVisibleInContainer(
-                        getActiveAppsRecyclerView(),
-                        getPersonalAppList().getAdapterItems(),
-                        mPrivateProfileManager.getPsHeaderHeight(),
-                        mActivityContext.getDeviceProfile().allAppsCellHeightPx);
-            }
-        });
+        mProfileCoordinator.resetAndScrollToPrivateSpaceHeader();
     }
 
     @Override
@@ -790,7 +752,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mHeader.setActiveRV(currentActivePage);
         reset(true /* animate */, !isSearching() /* exitSearch */);
 
-        mWorkManager.onActivePageChanged(currentActivePage);
+        mProfileCoordinator.getWorkManager().onActivePageChanged(currentActivePage);
     }
 
     protected void rebindAdapters() {
@@ -826,8 +788,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         if (mUsingTabs) {
             mainRecyclerView = (AllAppsRecyclerView) mViewPager.getChildAt(0);
             workRecyclerView = (AllAppsRecyclerView) mViewPager.getChildAt(1);
-            mAH.get(AdapterHolder.MAIN).setup(mainRecyclerView, mPersonalMatcher);
-            mAH.get(AdapterHolder.WORK).setup(workRecyclerView, mWorkManager.getItemInfoMatcher());
+            mAH.get(AdapterHolder.MAIN).setup(mainRecyclerView,
+                    mProfileCoordinator.personalMatcher());
+            mAH.get(AdapterHolder.WORK).setup(workRecyclerView,
+                    mProfileCoordinator.workMatcher());
             workRecyclerView.setId(R.id.apps_list_view_work);
             mViewPager.getPageIndicator().setActiveMarker(AdapterHolder.MAIN);
             findViewById(R.id.tab_personal)
@@ -854,7 +818,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         } else {
             mainRecyclerView = findViewById(R.id.apps_list_view);
             workRecyclerView = null;
-            mAH.get(AdapterHolder.MAIN).setup(mainRecyclerView, mPersonalMatcher);
+            mAH.get(AdapterHolder.MAIN).setup(mainRecyclerView,
+                    mProfileCoordinator.personalMatcher());
             mAH.get(AdapterHolder.WORK).mRecyclerView = null;
         }
         setUpCustomRecyclerViewPool(
@@ -941,11 +906,11 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 }
             });
 
-            mWorkManager.reset();
+            mProfileCoordinator.getWorkManager().reset();
             post(() -> mAH.get(AdapterHolder.WORK).applyPadding());
         } else {
             // Don't detach the work FAB — it stays visible even without tabs.
-            mWorkManager.reset();
+            mProfileCoordinator.getWorkManager().reset();
             mViewPager = null;
         }
 
@@ -1218,12 +1183,12 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     public WorkProfileManager getWorkManager() {
-        return mWorkManager;
+        return mProfileCoordinator.getWorkManager();
     }
 
     /** Returns whether Private Profile has been setup. */
     public boolean hasPrivateProfile() {
-        return mHasPrivateApps;
+        return mProfileCoordinator.hasPrivateApps();
     }
 
     @Override
@@ -1290,18 +1255,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     @VisibleForTesting
     public void onAppsUpdated() {
         Log.d(TAG, "onAppsUpdated; number of apps: " + mAllAppsStore.getApps().length);
-        mHasWorkApps = Stream.of(mAllAppsStore.getApps())
-                .anyMatch(mWorkManager.getItemInfoMatcher());
-        mHasPrivateApps = Stream.of(mAllAppsStore.getApps())
-                .anyMatch(mPrivateProfileManager.getItemInfoMatcher());
+        // Delegate work/private flag updates and manager resets to ProfileCoordinator.
+        mProfileCoordinator.onAppsUpdated(mAllAppsStore.getApps());
         if (!isSearching()) {
             rebindAdapters();
-        }
-        if (mHasWorkApps) {
-            mWorkManager.reset();
-        }
-        if (mHasPrivateApps) {
-            mPrivateProfileManager.reset();
         }
 
         mActivityContext.getStatsLogManager().logger()
@@ -1387,8 +1344,11 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         return mAH.get(AdapterHolder.SEARCH).mOnFocusChangeListener;
     }
 
-    /** The current apps recycler view in the container. */
-    private AllAppsRecyclerView getActiveAppsRecyclerView() {
+    /**
+     * The current apps recycler view in the container (main or work, depending on active tab).
+     * Package-private so ProfileCoordinator can pass it to PrivateProfileManager's scroll method.
+     */
+    AllAppsRecyclerView getActiveAppsRecyclerView() {
         if (!mUsingTabs || isPersonalTab()) {
             return mAH.get(AdapterHolder.MAIN).mRecyclerView;
         } else {
@@ -1517,10 +1477,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     /**
-     * Returns true if the container has work apps.
+     * Returns true if the container has work apps. Delegates to {@link ProfileCoordinator}.
      */
     public boolean shouldShowTabs() {
-        return mHasWorkApps;
+        return mProfileCoordinator.shouldShowTabs();
     }
 
     // Used by tests only
@@ -1536,27 +1496,12 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     /** Called in Launcher#bindStringCache() to update the UI when cache is updated. */
     public void updateWorkUI() {
         setDeviceManagementResources();
-        inflateWorkCardsIfNeeded();
-    }
-
-    private void inflateWorkCardsIfNeeded() {
-        AllAppsRecyclerView workRV = mAH.get(AdapterHolder.WORK).mRecyclerView;
-        if (workRV != null) {
-            for (int i = 0; i < workRV.getChildCount(); i++) {
-                View currentView  = workRV.getChildAt(i);
-                int currentItemViewType = workRV.getChildViewHolder(currentView).getItemViewType();
-                if (currentItemViewType == VIEW_TYPE_WORK_EDU_CARD) {
-                    ((WorkEduCard) currentView).updateStringFromCache();
-                } else if (currentItemViewType == VIEW_TYPE_WORK_DISABLED_CARD) {
-                    ((WorkPausedCard) currentView).updateStringFromCache();
-                }
-            }
-        }
+        mProfileCoordinator.inflateWorkCardsIfNeeded();
     }
 
     @VisibleForTesting
     public void setWorkManager(WorkProfileManager workManager) {
-        mWorkManager = workManager;
+        mProfileCoordinator.setWorkManager(workManager);
     }
 
     @VisibleForTesting
@@ -1598,7 +1543,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     public PrivateProfileManager getPrivateProfileManager() {
-        return mPrivateProfileManager;
+        return mProfileCoordinator.getPrivateProfileManager();
     }
 
     /**
@@ -1877,10 +1822,11 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         void applyPadding() {
             if (mRecyclerView != null) {
                 int bottomOffset = 0;
-                if ((isWork() || !mUsingTabs) && mWorkManager.getWorkUtilityView() != null) {
+                WorkProfileManager workMgr = mProfileCoordinator.getWorkManager();
+                if ((isWork() || !mUsingTabs) && workMgr.getWorkUtilityView() != null) {
                     bottomOffset = mInsetsController.getInsets().bottom
-                            + mWorkManager.getWorkUtilityView().getHeight();
-                } else if (isMain() && mPrivateProfileManager != null) {
+                            + workMgr.getWorkUtilityView().getHeight();
+                } else if (isMain()) {
                     Optional<AdapterItem> privateSpaceHeaderItem = mAppsList.getAdapterItems()
                             .stream()
                             .filter(item -> item.viewType == VIEW_TYPE_PRIVATE_SPACE_HEADER)
