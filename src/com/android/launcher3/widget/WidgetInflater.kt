@@ -74,8 +74,8 @@ constructor(
                 update = true
             }
         } else {
-            appWidgetInfo =
-                widgetHelper.getLauncherAppWidgetInfo(item.appWidgetId, item.targetComponent)
+            appWidgetInfo = if (BuildConfig.DEBUG && sSimulateNullProvider) null
+                else widgetHelper.getLauncherAppWidgetInfo(item.appWidgetId, item.targetComponent)
             if (appWidgetInfo == null) {
                 if (item.appWidgetId <= LauncherAppWidgetInfo.CUSTOM_WIDGET_ID) {
                     removalReason = "CustomWidgetManager cannot find provider from that widget id."
@@ -238,5 +238,25 @@ constructor(
         const val TYPE_PENDING = 1
 
         const val TYPE_REAL = 2
+
+        /**
+         * Provider package is confirmed absent. Keep widget in DB;
+         * caller creates an UnavailableWidgetView placeholder.
+         * The widget auto-recovers when the provider app is reinstalled.
+         * See docs/changes/080.
+         */
+        const val TYPE_MISSING = 3
+
+        /**
+         * Forces getLauncherAppWidgetInfo to return null for every widget,
+         * simulating a transiently-unavailable AppWidgetService.
+         *
+         * DEBUG BUILDS ONLY. Toggle via:
+         *   adb shell am broadcast -p com.guru.defaultlauncher \
+         *       -a com.guru.defaultlauncher.test.SIMULATE_NULL_PROVIDER
+         */
+        @JvmField
+        @androidx.annotation.VisibleForTesting
+        var sSimulateNullProvider: Boolean = false
     }
 }

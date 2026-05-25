@@ -39,6 +39,10 @@ public class WorkspaceSeedReceiver extends BroadcastReceiver {
     public static final String ACTION_SEED_WORKSPACE =
             "com.guru.defaultlauncher.test.SEED_WORKSPACE";
 
+    /** Toggles WidgetInflater.sSimulateNullProvider (debug builds only). */
+    public static final String ACTION_SIMULATE_NULL_PROVIDER =
+            "com.guru.defaultlauncher.test.SIMULATE_NULL_PROVIDER";
+
     private static final String SETTINGS_INTENT =
             "#Intent;action=android.intent.action.MAIN;"
             + "category=android.intent.category.LAUNCHER;"
@@ -58,6 +62,14 @@ public class WorkspaceSeedReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (!BuildConfig.DEBUG) return;
+
+        if (ACTION_SIMULATE_NULL_PROVIDER.equals(intent.getAction())) {
+            boolean enable = !intent.getBooleanExtra("disable", false);
+            com.android.launcher3.widget.WidgetInflater.sSimulateNullProvider = enable;
+            android.util.Log.d("WorkspaceSeedReceiver", "sSimulateNullProvider = " + enable);
+            return;
+        }
+
         if (!ACTION_SEED_WORKSPACE.equals(intent.getAction())) return;
 
         // Use MODEL_EXECUTOR + ModelDbController to bypass the ContentProvider
