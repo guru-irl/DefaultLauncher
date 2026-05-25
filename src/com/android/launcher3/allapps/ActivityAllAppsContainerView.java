@@ -122,7 +122,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     public static final float PULL_MULTIPLIER = .02f;
     public static final float FLING_VELOCITY_MULTIPLIER = 1200f;
     protected static final String BUNDLE_KEY_CURRENT_PAGE = "launcher.allapps.current_page";
-    private static final long DEFAULT_SEARCH_TRANSITION_DURATION_MS = 300;
+    /** Default search-enter/exit animation duration. Package-private so SearchLifecycle can use it. */
+    static final long DEFAULT_SEARCH_TRANSITION_DURATION_MS = 300;
     // Render the header protection at all times to debug clipping issues.
     private static final boolean DEBUG_HEADER_PROTECTION = false;
     /** Context of an activity or window that is inflating this container. */
@@ -130,14 +131,13 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     protected final T mActivityContext;
     protected final List<AdapterHolder> mAH;
     /** Profile coordinator owning work/private managers, has-apps flags, and related ops. */
-    private ProfileCoordinator<T> mProfileCoordinator;
+    /** Package-private so SearchLifecycle can access it for work-manager page-change calls. */
+    ProfileCoordinator<T> mProfileCoordinator;
     protected final Point mFastScrollerOffset = new Point();
     protected final int mScrimColor;
     protected final float mHeaderThreshold;
     protected final AllAppsSearchUiDelegate mSearchUiDelegate;
 
-    // Used to animate Search results out and A-Z apps in, or vice-versa.
-    private final SearchTransitionController mSearchTransitionController;
     private final AllAppsStore<T> mAllAppsStore;
     private final RecyclerView.OnScrollListener mScrollListener =
             new RecyclerView.OnScrollListener() {
@@ -166,43 +166,11 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     protected RecyclerViewFastScroller mTouchHandler;
 
     /**
-     * Lifecycle state for the search drawer. Transition table:
-     * <ul>
-     *  <li>IDLE → ENTERING: first non-empty query (setSearchResults non-null).
-     *  <li>ENTERING → SEARCHING: SearchTransitionController animation completes.
-     *  <li>SEARCHING → EXITING: animateToSearchState(false).
-     *  <li>EXITING → IDLE: deferred exit work runs with mKeepKeyboardOnSearchExit=false.
-     *  <li>EXITING → ACTIVE_EMPTY: deferred exit work runs with mKeepKeyboardOnSearchExit=true.
-     *  <li>ACTIVE_EMPTY → ENTERING (then SEARCHING): user types into the still-focused search bar.
-     *  <li>ACTIVE_EMPTY → EXITING (then IDLE): back/scroll/home dismissal.
-     * </ul>
-     * The boolean {@link #isSearching()} contract returns true for
-     * {@code SEARCHING}, {@code ACTIVE_EMPTY}, and {@code ENTERING} — the UI is
-     * showing or transitioning to a search-visible state. Callers reading the
-     * boolean don't need to know about the finer-grained machine.
+     * Search lifecycle — owns SearchState enum, state fields, and animation machinery.
+     * Extracted in T3.1 Phase 4 (docs/plans/004-drawer-decomposition-v2.md).
+     * Initialized in the constructor after {@link SearchTransitionController} is created.
      */
-    enum SearchState {
-        /** No search shown; A-Z apps list visible. */
-        IDLE,
-        /** Animation to search mode is running. */
-        ENTERING,
-        /** Search results visible, non-empty query. */
-        SEARCHING,
-        /**
-         * Search bar focused with keyboard up, but the query is empty so the
-         * A-Z apps list is rendered. New keystroke returns to SEARCHING.
-         */
-        ACTIVE_EMPTY,
-        /** Animation back to apps list is running. */
-        EXITING,
-    }
-    /** Current search lifecycle state. Written only on the main thread. */
-    private SearchState mSearchState = SearchState.IDLE;
-    /** Suppresses {@link #setupHeader()} during search animation to avoid redundant layout passes. */
-    private boolean mSuppressSetupHeader;
-    private boolean mRebindAdaptersAfterSearchAnimation;
-    private boolean mKeepKeyboardOnSearchExit;
-    private Runnable mPendingSearchExitWork;
+    private SearchLifecycle<T> mSearchLifecycle;
     private SearchRecyclerView mSearchRecyclerView;
     protected SearchAdapterProvider<?> mMainAdapterProvider;
     private View mBottomSheetHandleArea;
@@ -242,7 +210,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             }
         }
     };
-    @Nullable private AllAppsTransitionController mAllAppsTransitionController;
+    /** Package-private so SearchLifecycle can call animateAllAppsToNoScale() on exit. */
+    @Nullable AllAppsTransitionController mAllAppsTransitionController;
     private final SearchFabController mSearchFabController;
     private final DrawerInsetsController mInsetsController;
 
@@ -291,7 +260,32 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mSearchUiDelegate = createSearchUiDelegate();
         initContent();
 
-        mSearchTransitionController = new SearchTransitionController(this);
+        // SearchLifecycle owns the SearchTransitionController + all search-state fields.
+        // Construction order: SearchTransitionController first (it takes 'this'), then
+        // SearchLifecycle with both the host and the STC.
+        // HeaderCallbacks is an anonymous wrapper so the container methods don't need to
+        // be promoted to 'public' just to satisfy interface visibility rules.
+        mSearchLifecycle = new SearchLifecycle<>(
+                this,
+                new SearchLifecycle.HeaderCallbacks() {
+                    @Override
+                    public void setupHeader() {
+                        ActivityAllAppsContainerView.this.setupHeader();
+                    }
+                    @Override
+                    public int getCurrentPage() {
+                        return ActivityAllAppsContainerView.this.getCurrentPage();
+                    }
+                    @Override
+                    public void setCurrentPage(int page) {
+                        ActivityAllAppsContainerView.this.setCurrentPage(page);
+                    }
+                    @Override
+                    public void updateSearchResultsVisibility() {
+                        ActivityAllAppsContainerView.this.updateSearchResultsVisibility();
+                    }
+                },
+                new SearchTransitionController(this));
     }
 
     /** Creates the delegate for initializing search. */
@@ -449,19 +443,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
      * Shows the A-Z app list while keeping the search bar active (keyboard up, focused).
      * Called when the user backspaces to empty text — the apps list is displayed but
      * search mode is not fully exited (back key or scroll will dismiss).
+     * Delegated to {@link SearchLifecycle} (Phase 4 drawer decomposition).
      */
     public void showAppsWhileSearchActive() {
-        if (mSearchTransitionController.isRunning()) {
-            return;
-        }
-        // Only meaningful from the SEARCHING state. ACTIVE_EMPTY already shows
-        // apps; ENTERING/EXITING are caught above; IDLE has no search to soft-exit.
-        if (mSearchState != SearchState.SEARCHING) {
-            return;
-        }
-        // Keep keyboard and search bar focus — only play the visual transition.
-        mKeepKeyboardOnSearchExit = true;
-        animateToSearchState(false);
+        mSearchLifecycle.showAppsWhileSearchActive();
     }
 
     /**
@@ -469,7 +454,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
      * Called from AppsSearchContainerLayout when search results change.
      */
     public void updateSearchFabs(@Nullable String query) {
-        boolean inSearch = isSearching() || mSearchTransitionController.isRunning();
+        boolean inSearch = mSearchLifecycle.isSearching()
+                || mSearchLifecycle.isSearchTransitionRunning();
         mSearchFabController.onQueryChanged(query, inSearch);
     }
 
@@ -519,94 +505,13 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mAllAppsTransitionController = allAppsTransitionController;
     }
 
+    /**
+     * Animates the drawer between A-Z apps and search-results mode.
+     * Delegated to {@link SearchLifecycle} (Phase 4 drawer decomposition).
+     * See {@link SearchLifecycle#animateToSearch(boolean, long)} for full documentation.
+     */
     void animateToSearchState(boolean goingToSearch, long durationMs) {
-        // Reset suppression from any previously cancelled animation
-        mSuppressSetupHeader = false;
-        // Guard: redundant call from the same stable state. ACTIVE_EMPTY and
-        // EXITING both have isSearching() reads that would mask the need for a
-        // fresh transition, so the comparison is the precise SEARCHING vs.
-        // not-SEARCHING boolean rather than the broader isSearching().
-        if (!mSearchTransitionController.isRunning()
-                && goingToSearch == (mSearchState == SearchState.SEARCHING)) {
-            return;
-        }
-        // Cancel any pending deferred work from a previous exit so it doesn't
-        // collide with this animation's first frames and cause jank.
-        if (mPendingSearchExitWork != null) {
-            removeCallbacks(mPendingSearchExitWork);
-            mPendingSearchExitWork = null;
-        }
-        // Suppress setupHeader() during animation — setFloatingRowsCollapsed() triggers it
-        // 2x per call, causing 6+ layout passes on every animation start. Defer to completion.
-        mSuppressSetupHeader = true;
-        // Enter transient state for the duration of the animation.
-        setSearchState(goingToSearch ? SearchState.ENTERING : SearchState.EXITING);
-        mFastScroller.setVisibility(goingToSearch ? INVISIBLE : VISIBLE);
-        if (goingToSearch) {
-            // Fade out the button to pause work apps.
-            mProfileCoordinator.getWorkManager().onActivePageChanged(SEARCH);
-        } else if (mAllAppsTransitionController != null) {
-            // If exiting search, revert predictive back scale on all apps
-            mAllAppsTransitionController.animateAllAppsToNoScale();
-        }
-        mSearchTransitionController.animateToState(goingToSearch, durationMs,
-                /* onEndRunnable = */ () -> {
-                    mSuppressSetupHeader = false;
-                    if (goingToSearch) {
-                        setSearchState(SearchState.SEARCHING);
-                    }
-                    // For the exit case, stay in EXITING until the deferred
-                    // runnable resolves the final state (IDLE vs ACTIVE_EMPTY).
-                    updateSearchResultsVisibility();
-                    int previousPage = getCurrentPage();
-                    if (mRebindAdaptersAfterSearchAnimation) {
-                        rebindAdapters(false);
-                        mRebindAdaptersAfterSearchAnimation = false;
-                    }
-
-                    if (goingToSearch) {
-                        setupHeader();
-                        mSearchUiDelegate.onAnimateToSearchStateCompleted();
-                    } else {
-                        // Reset animation-applied transforms immediately so the
-                        // animation-end frame is clean.
-                        getAppsRecyclerViewContainer().setTranslationY(0);
-                        mHeader.setTranslationY(0);
-                        mHeader.setAlpha(1f);
-                        // Uncollapse floating rows + reset header position (matches AOSP)
-                        mHeader.setFloatingRowsCollapsed(false);
-                        mHeader.reset(false);
-
-                        // Defer heavy work to next frame so animation-end frame stays clean.
-                        // Track the runnable so it can be cancelled if a new animation starts
-                        // before it runs (rapid back-and-forth).
-                        mPendingSearchExitWork = () -> {
-                            mPendingSearchExitWork = null;
-                            // Re-entry guard: a fresher ENTERING/SEARCHING transition has
-                            // already moved us off EXITING — drop the stale cleanup.
-                            if (mSearchState != SearchState.EXITING) return;
-                            setupHeader();
-                            setSearchResults(null);
-                            if (mViewPager != null) {
-                                mViewPager.setCurrentPage(previousPage);
-                            }
-                            if (mKeepKeyboardOnSearchExit) {
-                                mKeepKeyboardOnSearchExit = false;
-                                setSearchState(SearchState.ACTIVE_EMPTY);
-                            } else {
-                                setSearchState(SearchState.IDLE);
-                                onActivePageChanged(previousPage);
-                            }
-                        };
-                        post(mPendingSearchExitWork);
-                    }
-                });
-    }
-
-    /** Main-thread-only state mutator with a debug guard for off-thread writes. */
-    private void setSearchState(SearchState newState) {
-        Preconditions.assertUIThread();
-        mSearchState = newState;
+        mSearchLifecycle.animateToSearch(goingToSearch, durationMs);
     }
 
     public boolean shouldContainerScroll(MotionEvent ev) {
@@ -668,25 +573,14 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         if (exitSearch) {
             // Reset the search bar and search RV after transitioning home.
             MAIN_EXECUTOR.getHandler().post(mSearchUiManager::resetSearch);
-            // Always clear the keyboard flag so the deferred exit runnable resolves to
-            // IDLE rather than ACTIVE_EMPTY. This covers the case where reset() fires
-            // while the search-exit animation is still in flight (e.g., user pressed
-            // BACK within 300ms of backspace-to-empty). Without this unconditional
-            // clear, the flag survives into the deferred runnable and re-triggers
-            // ACTIVE_EMPTY even after the drawer is closed. See docs/changes/079.
-            mKeepKeyboardOnSearchExit = false;
-            if (mSearchTransitionController.isRunning()) {
-                // Mid-animation: let the onEnd runnable land the state naturally.
-                // mKeepKeyboardOnSearchExit cleared above ensures it resolves to IDLE.
-            } else {
-                mSearchState = SearchState.IDLE;
-                if (mPendingSearchExitWork != null) {
-                    removeCallbacks(mPendingSearchExitWork);
-                    mPendingSearchExitWork = null;
-                }
-            }
+            // Delegate the search-state reset to SearchLifecycle (change-070 hook).
+            // The lifecycle clears mKeepKeyboardOnSearchExit unconditionally before
+            // checking isRunning(), so the deferred exit runnable resolves to IDLE
+            // even when reset() fires mid-animation (e.g. HOME within 300ms of
+            // backspace-to-empty). See docs/changes/079 and SearchLifecycle.onContainerReset().
         }
-        if (isSearching()) {
+        mSearchLifecycle.onContainerReset(exitSearch);
+        if (mSearchLifecycle.isSearching()) {
             mProfileCoordinator.getWorkManager().reset();
         }
     }
@@ -726,18 +620,14 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     public boolean isSearching() {
-        // True for any state where search UI is visible or transitioning in.
-        // EXITING returns false: by the time onEndRunnable sets EXITING, the
-        // search recycler has been hidden and apps view restored, matching the
-        // prior mIsSearching=false-at-animation-end behavior.
-        return mSearchState == SearchState.SEARCHING
-                || mSearchState == SearchState.ACTIVE_EMPTY
-                || mSearchState == SearchState.ENTERING;
+        // Delegated to SearchLifecycle (Phase 4 drawer decomposition).
+        // See SearchLifecycle.isSearching() for the SEARCHING/ACTIVE_EMPTY/ENTERING contract.
+        return mSearchLifecycle.isSearching();
     }
 
     @Override
     public void onActivePageChanged(int currentActivePage) {
-        if (mSearchTransitionController.isRunning()) {
+        if (mSearchLifecycle.isSearchTransitionRunning()) {
             // Will be called at the end of the animation.
             return;
         }
@@ -761,8 +651,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
     protected void rebindAdapters(boolean force) {
         Log.d(TAG, "rebindAdapters: force: " + force);
-        if (mSearchTransitionController.isRunning()) {
-            mRebindAdaptersAfterSearchAnimation = true;
+        if (mSearchLifecycle.markRebindPendingIfAnimating()) {
             return;
         }
         updateSearchResultsVisibility();
@@ -942,7 +831,9 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     void setupHeader() {
-        if (mSuppressSetupHeader) return;
+        // Invariant #1: check suppression flag before any layout work.
+        // mSuppressSetupHeader is owned by SearchLifecycle (Phase 4 decomposition).
+        if (mSearchLifecycle.isSuppressingSetupHeader()) return;
         mHeader.setVisibility(View.VISIBLE);
         boolean tabsHidden = !mUsingTabs || mDrawerHideTabs;
         mHeader.setup(
@@ -1542,6 +1433,16 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 : mViewPager == null ? AdapterHolder.MAIN : mViewPager.getNextPage();
     }
 
+    /**
+     * Called from {@link SearchLifecycle.HeaderCallbacks#setCurrentPage(int)} to restore
+     * the previous page after a search-exit animation completes.
+     */
+    void setCurrentPage(int page) {
+        if (mViewPager != null) {
+            mViewPager.setCurrentPage(page);
+        }
+    }
+
     public PrivateProfileManager getPrivateProfileManager() {
         return mProfileCoordinator.getPrivateProfileManager();
     }
@@ -1768,7 +1669,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
     /** Returns the instance of @{code SearchTransitionController}. */
     public SearchTransitionController getSearchTransitionController() {
-        return mSearchTransitionController;
+        return mSearchLifecycle.getSearchTransitionController();
     }
 
     /** Holds a {@link BaseAllAppsAdapter} and related fields. */

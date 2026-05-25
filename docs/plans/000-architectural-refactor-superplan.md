@@ -272,7 +272,17 @@ Plan-subagents drafted both T3.0 plans in parallel. Plan 005 maps the superplan'
 
 **Session 8 highlight:** T3.1 Phase 3 landed. ProfileCoordinator is a new class in the `allapps` package. The container retains the `!isSearching()` guard before `rebindAdapters()` — search state is not a profile concern. All 7 invariants (9–12) verified: PPM's three orthogonal booleans stay intra-PPM; mReadyToAnimate ordering untouched; MAIN_EXECUTOR.post guard in PPM.postUnlock() untouched; notifyDataSetChanged at PPM.java:704 preserved verbatim. Test suite: 51 tests (40 passed, 9 skipped, 2 xfailed). New `test_apps_updated_skips_rebind_when_searching` verifies the rebind-skip guard via SEED_WORKSPACE broadcast while in SEARCHING state.
 
-**T3.1 Phases 4–5 remain.**
+**T3.1 Phase 5 remains.**
+
+### Session 8 (continued)
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| T3.1 Phase 4 | SearchLifecycle extracted from ActivityAllAppsContainerView (1877→~1820 LOC); owns SearchState enum, mSearchState, mSuppressSetupHeader, mKeepKeyboardOnSearchExit, mPendingSearchExitWork, mRebindAdaptersAfterSearchAnimation, mSearchTransitionController, animateToSearch() | ✅ done | `docs/changes/082` |
+
+**Session 8 continued highlight:** T3.1 Phase 4 (SearchLifecycle) landed. This was the "HIGHER RISK" phase. The HeaderCallbacks interface is wired via anonymous inner class to avoid promoting container methods to public. The mSuppressSetupHeader invariant (#1) is now read via `mSearchLifecycle.isSuppressingSetupHeader()`. The change-070 reset hook is encapsulated in `onContainerReset(boolean)`. All 4 new regression tests pass. Test suite: 55 tests (44 passed, 9 skipped, 2 xfailed).
+
+**T3.1 Phase 5 remains.**
 
 ### How to resume in a new session
 
@@ -303,7 +313,7 @@ export ANDROID_SERIAL=emulator-5554
 # deletion_safety + work_profile + private_space tests skip on AVD
 ```
 
-**Pick up at:** **T3.1 Phase 4** (SearchLifecycle) — extract `mSearchState`, `mSuppressSetupHeader`, `mKeepKeyboardOnSearchExit`, `mPendingSearchExitWork`, `mRebindAdaptersAfterSearchAnimation`, `mSearchTransitionController` orchestration, `animateToSearchState()`, `isSearching()`, `setSearchResults()`, `onClearSearchResult()`, `showAppsWhileSearchActive()`, `reset(animate, exitSearch)` SearchState-reset block. All changes through `docs/changes/081` shipped. Next change doc: **082**.
+**Pick up at:** **T3.1 Phase 5** (HeaderCoordinator) — the riskiest single phase. Extracts `setupHeader()`, `updateRVContainerRules()`, `replaceAppsRVContainer()`, `mScrollListener`, `updateHeaderScroll()`, `mUsingTabs`, `mDrawerHideTabs`, tab-color wiring. Also adds `setHostCoordinator(HeaderCoordinator)` to FloatingHeaderView. All changes through `docs/changes/082` shipped. Next change doc: **083**.
 
 **Remaining work (ordered):**
 
@@ -312,13 +322,14 @@ export ANDROID_SERIAL=emulator-5554
 3. **Bug 079** ✅ SHIPPED — `docs/changes/079`. Empty-drawer race (mKeepKeyboardOnSearchExit) fixed + 3 drawer_state regression tests + test reliability fixes.
 4. **T3.2** ✅ SHIPPED — `docs/changes/080`. Widget deletion prevention: TYPE_MISSING, UnavailableWidgetView, NPE fix.
 5. **T3.1 Phase 3** ✅ SHIPPED — `docs/changes/081`. ProfileCoordinator extraction. Container: 1914→1877 LOC. Suite: 51 tests.
-6. **T3.1 Phases 4–5** — execute `docs/plans/004-drawer-decomposition-v2.md` phases 4-5. Phase 4 (SearchLifecycle): SearchState machine. Phase 5 (HeaderCoordinator): highest risk. Each phase: build → install → suite → change doc → commit.
-7. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority.
+6. **T3.1 Phase 4** ✅ SHIPPED — `docs/changes/082`. SearchLifecycle extraction. Container: 1877→~1820 LOC. Suite: 55 tests.
+7. **T3.1 Phase 5** — execute `docs/plans/004-drawer-decomposition-v2.md` Phase 5. HeaderCoordinator: highest risk. Must check `mSearchLifecycle.isSuppressingSetupHeader()` in all new setupHeader() call sites. See Phase 5 risk flags.
+8. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority.
 
 **Execution invariants** for any session:
 
-- Every plan execution **must** pass `tests-e2e/smoke/` + `tests-e2e/regression/` + `tests-e2e/visuals/` before commit (51 tests, ~25-30 min full / ~15 min targeted).
-- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **082**).
+- Every plan execution **must** pass `tests-e2e/smoke/` + `tests-e2e/regression/` + `tests-e2e/visuals/` before commit (55 tests, ~25-30 min full / ~15 min targeted).
+- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **083**).
 - AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
 - `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
 - All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Gurupungav Narayanan" -c user.email="gurupungavn@gmail.com" commit ...` (CLAUDE.md forbids permanent git config changes).
@@ -328,8 +339,8 @@ export ANDROID_SERIAL=emulator-5554
 **Known good baselines:**
 - AVD: `emulator-5554`, Pixel 7 Pro (sdk_gphone16k_x86_64), Android 17 (SDK 37), 1440×3120 @ 560dpi.
 - DefaultLauncher set as default home activity.
-- 51 total tests: 19 smoke + 1 cold_start + 5 decomp Phase1 + 4 folder_color + 4 folder_visual + 2 search_progressive + 3 drawer_insets (Phase2) + 3 drawer_state (079) + 3 deletion_safety (080) + 4 profile_coordinator (081) + 3 visuals.
-- Verified result (Session 8, 8 min run): 40 passed, 0 failed, 2 xfailed, 9 skipped. Exit 0.
+- 55 total tests: 19 smoke + 1 cold_start + 5 decomp Phase1 + 4 folder_color + 4 folder_visual + 2 search_progressive + 3 drawer_insets (Phase2) + 3 drawer_state (079) + 3 deletion_safety (080) + 4 profile_coordinator (081) + 4 search_lifecycle (082) + 3 visuals.
+- Verified result (Session 8, ~10 min run): 44 passed, 0 failed, 2 xfailed, 9 skipped. Exit 0.
 - deletion_safety 3 tests skip on AVD (no widget); they run on physical phone with widget stacks.
 - profile_coordinator 3 tests skip on AVD (no work profile / private space).
 - 2 tests marked xfail(strict=False) due to emulator-load flakiness: `test_drawer_intact_after_folder_color_change` (model reload takes >20s on loaded emulator) and `test_folder_can_be_created_from_seed_icons` (drag gesture unreliable when emulator is loaded). Both were failing in the baseline before any changes.
