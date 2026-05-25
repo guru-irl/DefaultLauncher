@@ -2420,7 +2420,20 @@ public class Launcher extends StatefulActivity<LauncherState>
                 continue;
             }
             if (enableWorkspaceInflation() && view instanceof LauncherAppWidgetHostView lv) {
-                view = getAppWidgetHolder().attachViewToHostAndGetAttachedView(lv);
+                View attached = getAppWidgetHolder().attachViewToHostAndGetAttachedView(lv);
+                if (attached == null) {
+                    // attachViewToHostAndGetAttachedView returned null — keep the original
+                    // pre-attachment view to prevent a crash. Recoverable on next bind.
+                    // docs/changes/080 NPE fix.
+                    attached = lv;
+                }
+                if (attached.getTag() == null) {
+                    // New view object doesn't inherit the tag set by prepareAppWidget.
+                    // Copy it to prevent NPE in WorkspaceLayoutManager.addInScreen:140.
+                    // docs/changes/080 NPE fix.
+                    attached.setTag(lv.getTag());
+                }
+                view = attached;
             } else if (enableWorkspaceInflation() && view instanceof WidgetStackView wsv) {
                 wsv.attachChildWidgetsToHost(getAppWidgetHolder());
             }

@@ -40,7 +40,6 @@ import com.android.launcher3.model.data.WorkspaceItemInfo
 import com.android.launcher3.views.ActivityContext
 import com.android.launcher3.widget.LauncherWidgetHolder
 import com.android.launcher3.widget.PendingAppWidgetHostView
-import com.android.launcher3.widget.UnavailableWidgetView
 import com.android.launcher3.widget.WidgetInflater
 import com.android.launcher3.widget.WidgetStackView
 
@@ -121,21 +120,9 @@ class ItemInflater<T>(
         TraceHelper.INSTANCE.beginSection("BIND_WIDGET_id=" + item.appWidgetId)
         try {
             val (type, reason, _, isUpdate, widgetInfo) = widgetInflater.inflateAppWidget(item)
-            // TYPE_DELETE is no longer returned by WidgetInflater; guard defensively.
             if (type == WidgetInflater.TYPE_DELETE) {
-                android.util.Log.e("ItemInflater",
-                    "TYPE_DELETE for widget id=${item.appWidgetId} — treating as " +
-                    "TYPE_MISSING (not deleting). docs/changes/080")
-            }
-            if (type == WidgetInflater.TYPE_MISSING || type == WidgetInflater.TYPE_DELETE) {
-                // Provider absent — show recoverable placeholder. Widget stays in DB.
-                val launcher = context as? com.android.launcher3.Launcher
-                val view = UnavailableWidgetView(context, item) {
-                    launcher?.removeItem(null, item, true /* deleteFromDb */,
-                        "user removed unavailable widget")
-                }
-                prepareAppWidget(view, item)
-                return view
+                writer.deleteItemFromDatabase(item, reason)
+                return null
             }
             if (isUpdate) {
                 writer.updateItemInDatabase(item)
@@ -151,6 +138,7 @@ class ItemInflater<T>(
         }
     }
 
+    /** Sets tag, focusability, and focus listener on any widget-related view. docs/changes/080 */
     fun prepareAppWidget(hostView: View, item: LauncherAppWidgetInfo) {
         hostView.tag = item
         hostView.isFocusable = true
@@ -162,7 +150,6 @@ class ItemInflater<T>(
         val stackView = WidgetStackView(context)
         stackView.tag = info
         val inflatedIds = mutableSetOf<Int>()
-        val launcher = context as? com.android.launcher3.Launcher
         for (child in info.getContents()) {
             val widgetInfo = child as? LauncherAppWidgetInfo
             if (widgetInfo == null) {
@@ -170,29 +157,8 @@ class ItemInflater<T>(
                 continue
             }
             val (type, reason, _, isUpdate, providerInfo) = widgetInflater.inflateAppWidget(widgetInfo)
-            // TYPE_DELETE no longer returned by WidgetInflater; guard defensively.
             if (type == WidgetInflater.TYPE_DELETE) {
-                android.util.Log.e("ItemInflater",
-                    "TYPE_DELETE for stack child id=${widgetInfo.appWidgetId} — " +
-                    "treating as TYPE_MISSING (not deleting). docs/changes/080")
-            }
-            if (type == WidgetInflater.TYPE_MISSING || type == WidgetInflater.TYPE_DELETE) {
-                // Provider absent — placeholder slot in the stack. Child stays in DB.
-                inflatedIds.add(widgetInfo.id)
-                val unavailView = UnavailableWidgetView(context, widgetInfo) {
-                    // × tapped: remove this child from the stack view and DB.
-                    stackView.removeChildWidget(widgetInfo.appWidgetId)
-                    launcher?.getModelWriter()?.deleteWidgetInfo(
-                        widgetInfo, launcher.getAppWidgetHolder(),
-                        "user removed unavailable stack widget")
-                    // If stack now empty, remove the parent container too.
-                    if (stackView.widgetCount == 0) {
-                        launcher?.removeItem(stackView, info, true /* deleteFromDb */,
-                            "widget stack empty after last unavailable child removed")
-                    }
-                }
-                prepareAppWidget(unavailView, widgetInfo)
-                stackView.addWidgetView(unavailView, widgetInfo)
+                writer.deleteItemFromDatabase(widgetInfo, reason)
                 continue
             }
             inflatedIds.add(widgetInfo.id)
@@ -203,9 +169,7 @@ class ItemInflater<T>(
             prepareAppWidget(hostView, widgetInfo)
             stackView.addWidgetView(hostView, widgetInfo)
         }
-        // Remove dead children from model so contents stays in sync with views.
-        // With TYPE_MISSING all valid children are in inflatedIds, so only
-        // truly non-widget-type entries are removed here.
+        // Remove dead children from model so contents stays in sync with views
         info.getContents().removeIf { it.id !in inflatedIds }
         stackView.setActiveIndex(info.getActiveIndex())
         return stackView

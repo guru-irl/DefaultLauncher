@@ -137,6 +137,15 @@ public interface WorkspaceLayoutManager {
 
         // Get the canonical child id to uniquely represent this view in this screen
         ItemInfo info = (ItemInfo) child.getTag();
+        if (info == null) {
+            // Defensive guard: a view with null tag must not reach addInScreen.
+            // Root cause was attachViewToHostAndGetAttachedView returning a new object
+            // without the tag. The caller in Launcher.bindInflatedItems now copies the
+            // tag, but keep this guard as belt-and-braces. docs/changes/080 NPE fix.
+            Log.e(TAG, "addInScreen: child " + child.getClass().getSimpleName()
+                    + " has null tag — skipping to prevent NPE");
+            return;
+        }
         int childId = info.getViewId();
 
         boolean markCellsAsOccupied = !(child instanceof Folder);

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Background for UnavailableWidgetView.
+  Semi-transparent dark rounded rect matching cell border radius. docs/changes/080.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#B3000000" />
+    <corners android:radius="@dimen/dynamic_grid_cell_border_spacing" />
+</shape>

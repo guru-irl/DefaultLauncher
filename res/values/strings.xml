@@ -796,4 +796,8 @@
     <string name="widget_stack_add_widget">Add widget</string>
     <string name="widget_stack_remove_widget">Remove</string>
     <string name="widget_stack_drag_handle">Reorder</string>
+
+    <!-- UnavailableWidgetView strings. docs/changes/080 -->
+    <string name="unavailable_widget_title">Widget unavailable</string>
+    <string name="unavailable_widget_remove_desc">Remove unavailable widget</string>
 </resources>

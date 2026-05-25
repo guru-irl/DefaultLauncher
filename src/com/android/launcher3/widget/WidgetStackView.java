@@ -250,7 +250,11 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
      * INVISIBLE unless it's the active widget. Individual widget long-press is disabled
      * to prevent child widgets from starting their own drags.
      */
-    public void addWidgetView(AppWidgetHostView hostView, LauncherAppWidgetInfo info) {
+    /**
+     * @param hostView the widget view to add; may be a real {@link AppWidgetHostView} or an
+     *                 {@link UnavailableWidgetView} placeholder. docs/changes/080
+     */
+    public void addWidgetView(android.view.View hostView, LauncherAppWidgetInfo info) {
         hostView.setTag(info);
 
         // Disable individual widget long-press — the stack handles drag as a unit
@@ -290,6 +294,30 @@ public class WidgetStackView extends FrameLayout implements DraggableView, Reord
 
     public int getWidgetCount() {
         return mWidgetViews.size();
+    }
+
+    /**
+     * Removes the child view whose tag is a {@link LauncherAppWidgetInfo} with the given
+     * appWidgetId. Call this when the user removes an {@link UnavailableWidgetView} slot.
+     *
+     * @return {@code true} if a child was found and removed, {@code false} otherwise.
+     * docs/changes/080
+     */
+    public boolean removeChildWidget(int appWidgetId) {
+        for (int i = 0; i < mWidgetViews.size(); i++) {
+            android.view.View child = mWidgetViews.get(i);
+            if (child.getTag() instanceof com.android.launcher3.model.data.LauncherAppWidgetInfo info
+                    && info.appWidgetId == appWidgetId) {
+                mWidgetViews.remove(i);
+                removeView(child);
+                if (!mWidgetViews.isEmpty()) {
+                    mActiveIndex = Math.max(0, Math.min(mActiveIndex, mWidgetViews.size() - 1));
+                    updateChildVisibility();
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
