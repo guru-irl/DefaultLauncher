@@ -114,4 +114,4 @@ approach abandoned — the no-auto-delete policy is simpler and more robust).
 ## Verification
 
 - `assembleDebug`: clean.
-- Full test suite: see task 8.
+- Full test suite (47 tests): 39 passed, 0 failed, 2 xfailed, 6 skipped. Exit 0 in 7 min.
