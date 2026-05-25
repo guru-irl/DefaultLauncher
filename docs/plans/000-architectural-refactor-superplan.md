@@ -252,6 +252,18 @@ Plan-subagents drafted both T3.0 plans in parallel. Plan 005 maps the superplan'
 
 **T3.1 Phases 3–5 + T3.2 remain. Test suite: 44 tests.**
 
+### Session 7
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| T3.2 | Widget deletion prevention: TYPE_MISSING + UnavailableWidgetView; widgets never auto-deleted; × button for user removal; recovery automatic on provider reinstall | ✅ done | `docs/changes/080` |
+| NPE fix | WorkspaceLayoutManager.addInScreen:140 null-tag crash; Launcher.bindInflatedItems tag-preservation after attachViewToHostAndGetAttachedView | ✅ done | `docs/changes/080` |
+| Forensics | Diagnosed widget stack loss from device logs: AppWidgetService t:0 r:0 at 15:45:57 + concurrent PM NameNotFoundException; 3 regression tests in test_deletion_safety.py | ✅ done | — |
+
+**Session 7 highlight:** T3.2 shipped. Root cause of widget deletion confirmed from AppWidget service history: 9-second blackout (t:0 r:0) after Samsung game exit. Policy change: WidgetInflater never returns TYPE_DELETE; all absent-provider cases return TYPE_MISSING, showing UnavailableWidgetView placeholder. NPE bug recurring since 2026-05-23 fixed with tag-preservation + null guard. Test suite: 47 tests.
+
+**T3.1 Phases 3–5 remain. T3.2 done.**
+
 ### How to resume in a new session
 
 **Quick start (~10-15 min targeted, ~25-30 min full):**
@@ -281,7 +293,7 @@ export ANDROID_SERIAL=emulator-5554
 # (emulator-load flakes, xfail(strict=False), pre-existing before changes)
 ```
 
-**Pick up at:** **T3.1 Phase 3** (ProfileCoordinator) — extract `mWorkManager`, `mPrivateProfileManager`, `mHasWorkApps`, `mHasPrivateApps`, `mPersonalMatcher`, `onAppsUpdated()` work/private branches, `resetAndScrollToPrivateSpaceHeader()`, `inflateWorkCardsIfNeeded()`. All changes through `docs/changes/079` shipped. Next change doc: **080**.
+**Pick up at:** **T3.1 Phase 3** (ProfileCoordinator) — extract `mWorkManager`, `mPrivateProfileManager`, `mHasWorkApps`, `mHasPrivateApps`, `mPersonalMatcher`, `onAppsUpdated()` work/private branches, `resetAndScrollToPrivateSpaceHeader()`, `inflateWorkCardsIfNeeded()`. All changes through `docs/changes/080` shipped. Next change doc: **081**.
 
 **Remaining work (ordered):**
 
@@ -289,13 +301,13 @@ export ANDROID_SERIAL=emulator-5554
 2. **T3.1 Phase 2** ✅ SHIPPED — `docs/changes/078`. DrawerInsetsController owns mInsets + mNavBarScrimHeight + inset methods. Container: 1931→1914 LOC.
 3. **Bug 079** ✅ SHIPPED — `docs/changes/079`. Empty-drawer race (mKeepKeyboardOnSearchExit) fixed + 3 drawer_state regression tests + test reliability fixes.
 4. **T3.1 Phases 3–5** — execute `docs/plans/004-drawer-decomposition-v2.md` phases 3-5 in order. Phase 3 (ProfileCoordinator): work + private profile management. Phase 4 (SearchLifecycle): SearchState machine. Phase 5 (HeaderCoordinator): highest risk. Each phase: build → install → smoke + regression + visuals → change doc → commit.
-3. **T3.2** — execute `docs/plans/005-deletion-safety-v2.md`. **Pre-flight decision (made in Session 5):** Phase A will use e2e-only testing (no unit test harness re-introduction). `tests/` remains deleted per CLAUDE.md. Phase A adds `PackagePresenceVerifier.kt` with the e2e `test_deletion_safety.py` tests covering Phase B behavior. Phase A itself doesn't change behavior (feature flag defaults OFF).
+3. **T3.2** ✅ SHIPPED — `docs/changes/080`. **Design superseded**: PackagePresenceVerifier (plan 005) replaced by never-auto-delete + UnavailableWidgetView. Spec: `docs/superpowers/specs/2026-05-25-widget-deletion-prevention-design.md`.
 4. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority; ship after T3.x.
 
 **Execution invariants** for any session:
 
 - Every plan execution **must** pass `tests-e2e/smoke/` + `tests-e2e/regression/` + `tests-e2e/visuals/` before commit (44+ tests, ~10-12 min).
-- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **080**).
+- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **081**).
 - AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
 - `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
 - All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Gurupungav Narayanan" -c user.email="gurupungavn@gmail.com" commit ...` (CLAUDE.md forbids permanent git config changes).
@@ -305,8 +317,8 @@ export ANDROID_SERIAL=emulator-5554
 **Known good baselines:**
 - AVD: `emulator-5554`, Pixel 7 Pro (sdk_gphone16k_x86_64), Android 17 (SDK 37), 1440×3120 @ 560dpi.
 - DefaultLauncher set as default home activity.
-- 44 total tests: 19 smoke + 1 cold_start + 5 decomp Phase1 + 4 folder_color + 4 folder_visual + 2 search_progressive + 3 drawer_insets (Phase2) + 3 drawer_state (079) + 3 visuals.
-- Expected result: 0 failed, ~39 passed, 3 skipped, 2 xfailed.
+- 47 total tests: 19 smoke + 1 cold_start + 5 decomp Phase1 + 4 folder_color + 4 folder_visual + 2 search_progressive + 3 drawer_insets (Phase2) + 3 drawer_state (079) + 3 deletion_safety (080) + 3 visuals.
+- Expected result: 0 failed, ~42 passed, 3 skipped, 2 xfailed. (deletion_safety tests skip on AVD without widget; they pass on physical phone.)
 - 2 tests marked xfail(strict=False) due to emulator-load flakiness: `test_drawer_intact_after_folder_color_change` (model reload takes >20s on loaded emulator) and `test_folder_can_be_created_from_seed_icons` (drag gesture unreliable when emulator is loaded). Both were failing in the baseline before any changes.
 - Full suite runtime: 25-30 min due to emulator degradation over time. Targeted runs (~25 tests) take ~10-15 min with clean results.
 - Full suite runtime: ~10-12 min due to emulator warmup + `app_current()` slowdown. With `is_home()` fix, should return to ~5-6 min on a fresh emulator session.
