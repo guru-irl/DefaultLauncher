@@ -1982,11 +1982,24 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
 
     /** Dragged item is a widget and target is an existing stack that isn't full */
     boolean willAddToExistingWidgetStack(ItemInfo info, View dropOverView) {
-        if (!(dropOverView instanceof WidgetStackView wsv)) return false;
-        if (!WidgetStackInfo.willAcceptItemType(info.itemType)) return false;
+        if (!(dropOverView instanceof WidgetStackView wsv)) {
+            if (BuildConfig.DEBUG) android.util.Log.d(TAG,
+                    "willAddToExistingWidgetStack: dropOverView is "
+                    + (dropOverView == null ? "null" : dropOverView.getClass().getSimpleName()));
+            return false;
+        }
+        if (!WidgetStackInfo.willAcceptItemType(info.itemType)) {
+            if (BuildConfig.DEBUG) android.util.Log.d(TAG,
+                    "willAddToExistingWidgetStack: itemType " + info.itemType + " not accepted");
+            return false;
+        }
         WidgetStackInfo stackInfo = wsv.getStackInfo();
-        return stackInfo != null
-                && stackInfo.getWidgetCount() < WidgetStackInfo.MAX_STACK_SIZE;
+        boolean result = stackInfo != null && stackInfo.getWidgetCount() < WidgetStackInfo.MAX_STACK_SIZE;
+        if (BuildConfig.DEBUG) android.util.Log.d(TAG,
+                "willAddToExistingWidgetStack: stackInfo=" + stackInfo
+                + " count=" + (stackInfo != null ? stackInfo.getWidgetCount() : "null")
+                + " result=" + result);
+        return result;
     }
 
     boolean createUserFolderIfNecessary(View newView, int container, CellLayout target,
@@ -3051,11 +3064,15 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
 
             // Add to existing widget stack
             boolean addToStackPending = willAddToExistingWidgetStack(info, mDragOverView);
+            if (BuildConfig.DEBUG && addToStackPending) android.util.Log.d(TAG,
+                    "manageFolderFeedback: addToStackPending=true dragMode=" + mDragMode);
             if (mDragMode == DRAG_MODE_NONE && addToStackPending) {
                 mWidgetStackHighlightedView = (WidgetStackView) mDragOverView;
                 mWidgetStackHighlightedView.showDropHighlight();
                 mDragTargetLayout.clearDragOutlines();
                 setDragMode(DRAG_MODE_ADD_TO_WIDGET_STACK);
+                if (BuildConfig.DEBUG) android.util.Log.d(TAG,
+                        "manageFolderFeedback: → DRAG_MODE_ADD_TO_WIDGET_STACK");
                 return;
             }
 
@@ -3208,16 +3225,27 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             boolean findNearestVacantCell = true;
 
             // Widget stack: external drop onto existing stack
+            if (BuildConfig.DEBUG) android.util.Log.d(TAG,
+                    "onDrop: mAddToWidgetStackOnDrop=" + mAddToWidgetStackOnDrop
+                    + " mCreateWidgetStackOnDrop=" + mCreateWidgetStackOnDrop
+                    + " mDragMode=" + mDragMode
+                    + " itemType=" + pendingInfo.itemType);
             if (mAddToWidgetStackOnDrop && WidgetStackInfo.willAcceptItemType(
                     pendingInfo.itemType)) {
                 mAddToWidgetStackOnDrop = false;
                 mTargetCell = findNearestArea(touchXY[0], touchXY[1], spanX, spanY,
                         cellLayout, mTargetCell);
                 View dropOverView = cellLayout.getChildAt(mTargetCell[0], mTargetCell[1]);
+                if (BuildConfig.DEBUG) android.util.Log.d(TAG,
+                        "onDrop: dropOverView=" + (dropOverView == null ? "null"
+                        : dropOverView.getClass().getSimpleName())
+                        + " cell=" + mTargetCell[0] + "," + mTargetCell[1]);
                 if (dropOverView instanceof WidgetStackView stackView) {
                     mPendingExternalStackTarget = stackView;
                     stackView.clearDropHighlight();
                     findNearestVacantCell = false;
+                    if (BuildConfig.DEBUG) android.util.Log.d(TAG,
+                            "onDrop: SET mPendingExternalStackTarget=" + stackView);
                 }
             }
 

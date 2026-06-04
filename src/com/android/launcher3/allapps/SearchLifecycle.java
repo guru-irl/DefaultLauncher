@@ -393,5 +393,17 @@ class SearchLifecycle<T extends Context & ActivityContext> {
                 mPendingSearchExitWork = null;
             }
         }
+        // When mSearchState was SEARCHING, the enter animation set appsContainer.alpha=0.
+        // The normal exit animation restores it via onProgressUpdated(1). But when reset()
+        // is called (e.g. HOME press), mSearchState is set to IDLE synchronously, causing
+        // animateToSearch(false) to return early via its guard — the exit animation never
+        // runs, and appsContainer.alpha stays 0. Force-reset the visual state so the apps
+        // list is visible on the next drawer open. See docs/changes/084.
+        android.view.View appsContainer = mHost.getAppsRecyclerViewContainer();
+        appsContainer.setAlpha(1f);
+        appsContainer.setTranslationY(0f);
+        // Also reset the header transforms that the search animation sets.
+        mHost.mHeader.setAlpha(1f);
+        mHost.mHeader.setTranslationY(0f);
     }
 }

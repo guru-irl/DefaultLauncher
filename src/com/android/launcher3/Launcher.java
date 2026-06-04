@@ -1258,6 +1258,15 @@ public class Launcher extends StatefulActivity<LauncherState>
         super.onResume();
 
         DragView.removeAllViews(this);
+
+        // When the launcher resumes directly into ALL_APPS state (e.g., user pressed BACK
+        // from an app that was launched from the drawer while searching), the search visual
+        // state may be stale: appsContainer.alpha=0 from the search-enter animation that was
+        // never reversed. Reset the drawer to ensure the apps grid is visible. See change 084.
+        if (isInState(LauncherState.ALL_APPS) && mAppsView.isSearching()) {
+            mAppsView.reset(false /* animate */);
+        }
+
         TraceHelper.INSTANCE.endSection();
     }
 
