@@ -285,6 +285,15 @@ Plan-subagents drafted both T3.0 plans in parallel. Plan 005 maps the superplan'
 
 **T3.1 COMPLETE. T3.2 COMPLETE. All T3 done.**
 
+### Session 9
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| Bug 084 | Empty drawer after launching app from search results. appsContainer.alpha=0 regression from T3.1 Phase 4: onContainerReset set mSearchState=IDLE synchronously before animateToSearch(false) ran, so guard returned early and alpha was never restored. Three-site fix. | ✅ done | `docs/changes/084` |
+| Widget picker → stack | Diagnostic logging added; Samsung phone connection needed for fresh repro. | 🔍 open | — |
+
+**Session 9 highlight:** Fixed bug 084 — T3.1 Phase 4 regression where `appsContainer.alpha=0` was stuck after launching an app from search results. The fix is in three places: `SearchLifecycle.onContainerReset` (HOME path), `Launcher.onResume` (BACK path), and the deferred exit runnable (rapid type/clear path). Test suite: 61 tests (49 passed, 10 skipped, 2 xfailed). Full suite exit 0.
+
 ### How to resume in a new session
 
 **Quick start (~10-15 min targeted, ~25-30 min full):**
