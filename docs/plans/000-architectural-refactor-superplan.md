@@ -289,10 +289,10 @@ Plan-subagents drafted both T3.0 plans in parallel. Plan 005 maps the superplan'
 
 | ID | Task | Status | Doc |
 |----|------|--------|-----|
-| Bug 084 | Empty drawer after launching app from search results. appsContainer.alpha=0 regression from T3.1 Phase 4: onContainerReset set mSearchState=IDLE synchronously before animateToSearch(false) ran, so guard returned early and alpha was never restored. Three-site fix. | ✅ done | `docs/changes/084` |
-| Widget picker → stack | Diagnostic logging added; Samsung phone connection needed for fresh repro. | 🔍 open | — |
+| Bug 084 | Empty drawer after launching app from search results. appsContainer.alpha=0 regression from T3.1 Phase 4: onContainerReset set mSearchState=IDLE synchronously before animateToSearch(false) ran, so guard returned early and alpha was never restored. Three-site fix. | ✅ verified | `docs/changes/084` |
+| Bug 085 | Widget from picker rejected when dropped on existing stack. Samsung logs revealed `acceptDrop()` was missing widget-stack checks: it ran `performReorder` which found no vacant cell (stack fills page) → `onNoCellFound()` rejected the drop before `onDropExternal()` could consume `mPendingExternalStackTarget`. Fix: add widget-stack accept checks in `acceptDrop()` matching the folder pattern. | ⚠️ patched, unverified | `docs/changes/085` |
 
-**Session 9 highlight:** Fixed bug 084 — T3.1 Phase 4 regression where `appsContainer.alpha=0` was stuck after launching an app from search results. The fix is in three places: `SearchLifecycle.onContainerReset` (HOME path), `Launcher.onResume` (BACK path), and the deferred exit runnable (rapid type/clear path). Test suite: 61 tests (49 passed, 10 skipped, 2 xfailed). Full suite exit 0.
+**Session 9 highlight:** Fixed bug 084 (verified via 49-passed test suite) and diagnosed + patched bug 085. The bug 085 patch is in `Workspace.acceptDrop()` — adds widget-stack accept checks before the `performReorder` no-vacant-cell rejection. **Patch is unverified on hardware** because the emulator does not have a widget picker; the Samsung phone (RFCX712ZQDT) is the only device that exercises this path. Verification deferred to next session.
 
 ### How to resume in a new session
 

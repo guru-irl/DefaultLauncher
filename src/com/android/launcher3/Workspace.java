@@ -1853,6 +1853,31 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                 return true;
             }
 
+            // Widget stack acceptance: external widget dropped onto an existing stack
+            // or onto a single widget (creating a new stack). Without these checks,
+            // the performReorder/foundCell path below rejects the drop with
+            // onNoCellFound() because the stack/widget already occupies cells — even
+            // though the widget-stack flow doesn't need a vacant cell. See bug 085.
+            if (mAddToWidgetStackOnDrop
+                    && WidgetStackInfo.willAcceptItemType(d.dragInfo.itemType)) {
+                View dropOverView = dropTargetLayout.getChildAt(
+                        mTargetCell[0], mTargetCell[1]);
+                if (dropOverView instanceof WidgetStackView) {
+                    mAcceptedDropLayout = dropTargetLayout;
+                    return true;
+                }
+            }
+            if (mCreateWidgetStackOnDrop
+                    && WidgetStackInfo.willAcceptItemType(d.dragInfo.itemType)) {
+                View dropOverView = dropTargetLayout.getChildAt(
+                        mTargetCell[0], mTargetCell[1]);
+                if (dropOverView instanceof LauncherAppWidgetHostView
+                        && willCreateWidgetStack(d.dragInfo, dropOverView)) {
+                    mAcceptedDropLayout = dropTargetLayout;
+                    return true;
+                }
+            }
+
             int[] resultSpan = new int[2];
             mTargetCell = dropTargetLayout.performReorder((int) mDragViewVisualCenter[0],
                     (int) mDragViewVisualCenter[1], minSpanX, minSpanY, spanX, spanY,
