@@ -353,6 +353,16 @@ class SearchLifecycle<T extends Context & ActivityContext> {
                                 setSearchState(SearchState.IDLE);
                                 mHost.onActivePageChanged(previousPage);
                             }
+                            // Ensure the apps container alpha is restored to 1. The exit
+                            // animation reaches alpha=1 via onProgressUpdated(1), but if a
+                            // rapid type/clear cycle cancelled the enter animation mid-way
+                            // (progress<1), alpha may be stuck at 0. Reset here as a
+                            // belt-and-braces: this fires AFTER the exit animation ends, so
+                            // any alpha=0 from a mid-enter-cancel is overwritten. Change 084.
+                            android.view.View appsContainer =
+                                    mHost.getAppsRecyclerViewContainer();
+                            appsContainer.setAlpha(1f);
+                            appsContainer.setTranslationY(0f);
                         };
                         mHost.post(mPendingSearchExitWork);
                     }

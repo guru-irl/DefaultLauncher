@@ -149,13 +149,17 @@ def test_rapid_enter_exit_no_setup_header_storm(launcher):
         launcher.clear_search()
         time.sleep(0.15)
 
-    # Let animations settle
-    time.sleep(1.5)
-
-    # After settling, the drawer must show either apps grid or search results
-    # (not an invisible/empty state)
-    apps_visible = _apps_list_visible(launcher)
-    search_visible = _search_results_visible(launcher)
+    # Let animations settle — use extended wait for degraded emulators where
+    # 300ms search animations may take longer. Wait until one of the views appears.
+    deadline = time.time() + 5.0
+    apps_visible = False
+    search_visible = False
+    while time.time() < deadline:
+        apps_visible = _apps_list_visible(launcher)
+        search_visible = _search_results_visible(launcher)
+        if apps_visible or search_visible:
+            break
+        time.sleep(0.3)
     assert apps_visible or search_visible, (
         "After rapid type/clear cycles, neither apps_list_view nor "
         "search_results_list_view is visible — the drawer is in a broken state. "

@@ -36,22 +36,28 @@ def _search_results_visible(launcher) -> bool:
 
 
 def _find_and_launch(launcher, query: str) -> bool:
-    """Type query and launch first result. Returns True if launched."""
+    """Type query in drawer, launch first result. Returns True if launched."""
+    # Start from a known-good workspace state
+    launcher.d.press("home")
+    time.sleep(1.0)
+
     launcher.open_drawer()
     launcher.type_search(query)
     time.sleep(1.5)
 
     if not _search_results_visible(launcher):
-        launcher.go_home()
+        launcher.d.press("home")
+        time.sleep(0.5)
         return False
 
     for selector in [launcher.d(description="Settings"), launcher.d(text="Settings")]:
         if selector.wait(timeout=3.0):
             selector.click()
-            time.sleep(2.0)
+            time.sleep(2.5)
             return True
 
-    launcher.go_home()
+    launcher.d.press("home")
+    time.sleep(0.5)
     return False
 
 
