@@ -12,3 +12,4 @@ local.properties
 .kotlin/
 *.jks
 *.keystore
+.superpowers/
