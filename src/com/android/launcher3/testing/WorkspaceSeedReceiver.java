@@ -91,6 +91,19 @@ public class WorkspaceSeedReceiver extends BroadcastReceiver {
                 // UNIQUE constraint on the fixed _ID.
                 db.delete("_id = 200", null);
 
+                // Optional span override so visual tests can place at any size.
+                int sx = intent.getIntExtra("spanx", 2);
+                int sy = intent.getIntExtra("spany", 2);
+
+                // Optional: clear other desktop items so a large widget has room
+                // (the seed icons at row 2 would otherwise collide). Debug-only,
+                // off by default so the canonical 2x2 e2e flow keeps its icons.
+                if (intent.getBooleanExtra("clear", false)) {
+                    db.delete("container = "
+                            + LauncherSettings.Favorites.CONTAINER_DESKTOP
+                            + " AND _id != 200", null);
+                }
+
                 ContentValues cv = new ContentValues();
                 cv.put(LauncherSettings.Favorites._ID, 200);
                 cv.put(LauncherSettings.Favorites.CONTAINER,
@@ -98,8 +111,8 @@ public class WorkspaceSeedReceiver extends BroadcastReceiver {
                 cv.put(LauncherSettings.Favorites.SCREEN, 0);
                 cv.put(LauncherSettings.Favorites.CELLX, 0);
                 cv.put(LauncherSettings.Favorites.CELLY, 0);
-                cv.put(LauncherSettings.Favorites.SPANX, 2);
-                cv.put(LauncherSettings.Favorites.SPANY, 2);
+                cv.put(LauncherSettings.Favorites.SPANX, sx);
+                cv.put(LauncherSettings.Favorites.SPANY, sy);
                 cv.put(LauncherSettings.Favorites.ITEM_TYPE,
                         LauncherSettings.Favorites.ITEM_TYPE_CUSTOM_APPWIDGET);
                 cv.put(LauncherSettings.Favorites.APPWIDGET_ID, widgetId);
