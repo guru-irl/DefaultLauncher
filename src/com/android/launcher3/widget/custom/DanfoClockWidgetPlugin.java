@@ -33,8 +33,13 @@ public class DanfoClockWidgetPlugin implements CustomWidgetPlugin {
         lpi.spanY = 2;
         lpi.minSpanX = 2;
         lpi.minSpanY = 2;
-        lpi.maxSpanX = 0;
-        lpi.maxSpanY = 0;
+        // maxSpan must be > 1 and > minSpan for the resize frame to enable
+        // handles (see AppWidgetResizeFrame.setupForWidget); the frame clamps
+        // to the real grid anyway.
+        com.android.launcher3.InvariantDeviceProfile idp =
+                com.android.launcher3.InvariantDeviceProfile.INSTANCE.get(context);
+        lpi.maxSpanX = Math.max(3, idp.numColumns);
+        lpi.maxSpanY = Math.max(3, idp.numRows);
         lpi.resizeMode = AppWidgetProviderInfo.RESIZE_HORIZONTAL
                 | AppWidgetProviderInfo.RESIZE_VERTICAL;
     }
