@@ -226,6 +226,22 @@
         <property
             android:name="android.window.PROPERTY_ACTIVITY_EMBEDDING_SPLITS_ENABLED"
             android:value="true" />
+
+        <!-- DEBUG-ONLY: workspace seed receiver for e2e test fixture.
+             Not present in release builds (guarded by BuildConfig.DEBUG in onReceive).
+             Invoked via: adb shell am broadcast -n <pkg>/.testing.WorkspaceSeedReceiver
+                              -a com.guru.defaultlauncher.test.SEED_WORKSPACE -->
+        <!-- Exported so adb shell am broadcast can reach it (shell UID ≠ launcher UID).
+             Security: onReceive() returns immediately if BuildConfig.DEBUG is false,
+             so this is safe in release builds. Only useful on debug AVDs. -->
+        <receiver
+            android:name="com.android.launcher3.testing.WorkspaceSeedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.guru.defaultlauncher.test.SEED_WORKSPACE" />
+            </intent-filter>
+        </receiver>
+
     </application>
     <!-- Icon pack discovery: query for ADW-format icon pack intents -->
     <queries>

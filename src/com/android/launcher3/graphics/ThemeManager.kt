@@ -24,7 +24,6 @@ import android.graphics.Color
 import androidx.core.graphics.ColorUtils
 import com.android.launcher3.EncryptionType
 import com.android.launcher3.Item
-import com.android.launcher3.LauncherPrefChangeListener
 import com.android.launcher3.LauncherPrefs
 import com.android.launcher3.LauncherPrefs.Companion.backedUpItem
 import com.android.launcher3.allapps.AllAppsColorResolver
@@ -87,11 +86,14 @@ constructor(
             + LauncherPrefs.ICON_WRAP_BG_OPACITY + LauncherPrefs.ICON_WRAP_BG_OPACITY_DRAWER)
 
         val keysArray = keys.toTypedArray()
-        val prefKeySet = keys.map { it.sharedPrefKey }
-        val prefListener = LauncherPrefChangeListener { key ->
-            if (prefKeySet.contains(key)) verifyIconState()
-        }
-        prefs.addListener(prefListener, *keysArray)
+        // Migrated to the unified prefs framework in T2.3 Phase 4 — same
+        // dispatcher used by drawer colors and SysUiScrim. The dispatcher
+        // already filters by subscribed items so we don't need a key-set
+        // membership check; any callback means at least one of our keys
+        // fired, so verifyIconState() is the correct response.
+        val prefSubscription = prefs.prefChanges.subscribe(
+            { _ -> verifyIconState() }, *keysArray
+        )
 
         // Detect dark mode and wallpaper color changes via configuration callbacks
         val configCallbacks = object : ComponentCallbacks2 {
@@ -103,7 +105,7 @@ constructor(
 
         lifecycle.addCloseable {
             receiver.unregisterReceiverSafely()
-            prefs.removeListener(prefListener, *keysArray)
+            prefSubscription.close()
             context.unregisterComponentCallbacks(configCallbacks)
         }
     }

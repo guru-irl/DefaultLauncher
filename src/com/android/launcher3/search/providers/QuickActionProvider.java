@@ -107,8 +107,8 @@ public class QuickActionProvider implements SearchProvider<QuickAction> {
     }
 
     @Override
-    public String category() {
-        return "quick_actions";
+    public ProviderCategory category() {
+        return ProviderCategory.QUICK_ACTIONS;
     }
 
     private Intent buildWebSearchIntent(String query) {

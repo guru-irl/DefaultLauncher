@@ -65,8 +65,8 @@ public class ShortcutSearchProvider implements SearchProvider<ShortcutResult> {
     }
 
     @Override
-    public String category() {
-        return "shortcuts";
+    public ProviderCategory category() {
+        return ProviderCategory.SHORTCUTS;
     }
 
     @Override

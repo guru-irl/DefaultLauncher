@@ -166,6 +166,18 @@ public class RecyclerViewFastScroller extends View {
     private int mLastY;
     private FastScrollerLocation mFastScrollerLocation;
 
+    private AutoCloseable mScrollbarPrefSubscription;
+    private final com.android.launcher3.PrefSubscriber mScrollbarPrefSubscriber =
+            new com.android.launcher3.PrefSubscriber() {
+                @Override
+                public void onPrefsChanged(
+                        java.util.Set<? extends com.android.launcher3.Item> changes) {
+                    if (changes.contains(LauncherPrefs.DRAWER_SCROLLBAR_COLOR)) {
+                        refreshThumbColor();
+                    }
+                }
+            };
+
     public RecyclerViewFastScroller(Context context) {
         this(context, null);
     }
@@ -217,6 +229,26 @@ public class RecyclerViewFastScroller extends View {
                 context.obtainStyledAttributes(attrs, R.styleable.RecyclerViewFastScroller, defStyleAttr, 0);
         mCanThumbDetach = ta.getBoolean(R.styleable.RecyclerViewFastScroller_canThumbDetach, false);
         ta.recycle();
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        mScrollbarPrefSubscription = LauncherPrefs.get(getContext()).getPrefChanges()
+                .subscribe(mScrollbarPrefSubscriber, LauncherPrefs.DRAWER_SCROLLBAR_COLOR);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if (mScrollbarPrefSubscription != null) {
+            try {
+                mScrollbarPrefSubscription.close();
+            } catch (Exception ignored) {
+                // Best-effort unsubscribe.
+            }
+            mScrollbarPrefSubscription = null;
+        }
     }
 
     /** Re-reads the custom scrollbar color preference and updates the thumb paint. */

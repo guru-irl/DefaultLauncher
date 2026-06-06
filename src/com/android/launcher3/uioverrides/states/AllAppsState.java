@@ -18,15 +18,21 @@ package com.android.launcher3.uioverrides.states;
 import static com.android.app.animation.Interpolators.DECELERATE;
 import static com.android.launcher3.logging.StatsLogManager.LAUNCHER_STATE_ALLAPPS;
 
+import android.content.Context;
+
 import androidx.core.graphics.ColorUtils;
 
+import com.android.launcher3.Item;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.LauncherState;
+import com.android.launcher3.PrefSubscriber;
 import com.android.launcher3.R;
 import com.android.launcher3.allapps.AllAppsColorResolver;
 import com.android.launcher3.util.Themes;
 import com.android.launcher3.views.ActivityContext;
+
+import java.util.Set;
 
 /**
  * Definition for AllApps state
@@ -35,8 +41,42 @@ public class AllAppsState extends LauncherState {
 
     private static final int STATE_FLAGS = FLAG_WORKSPACE_INACCESSIBLE;
 
+    /**
+     * Cached drawer bg pref values, refreshed via {@link PrefSubscriber}.
+     * AllAppsState is a process-wide singleton (see LauncherState.ALL_APPS), so
+     * the subscriber is registered lazily on the first call to
+     * {@link #getWorkspaceScrimColor(Launcher)} and never closed — it lives as
+     * long as the process.
+     */
+    private volatile String mDrawerBgColor;
+    private volatile int mDrawerBgOpacity = 95;
+    private volatile boolean mPrefCacheInitialized;
+    private final PrefSubscriber mScrimPrefSubscriber = new PrefSubscriber() {
+        @Override
+        public void onPrefsChanged(Set<? extends Item> changes) {
+            // No context here; the subscriber is registered with the application
+            // context. Reload both cached values regardless of which key fired
+            // — both are cheap and the dispatcher already coalesces.
+            mDrawerBgColor = mPrefsRef.get(LauncherPrefs.DRAWER_BG_COLOR);
+            mDrawerBgOpacity = mPrefsRef.get(LauncherPrefs.DRAWER_BG_OPACITY);
+        }
+    };
+    /** Application-context-backed LauncherPrefs handle, captured at first init. */
+    private volatile LauncherPrefs mPrefsRef;
+
     public AllAppsState(int id) {
         super(id, LAUNCHER_STATE_ALLAPPS, STATE_FLAGS);
+    }
+
+    private synchronized void ensurePrefCache(Context anyContext) {
+        if (mPrefCacheInitialized) return;
+        Context appCtx = anyContext.getApplicationContext();
+        mPrefsRef = LauncherPrefs.get(appCtx);
+        mDrawerBgColor = mPrefsRef.get(LauncherPrefs.DRAWER_BG_COLOR);
+        mDrawerBgOpacity = mPrefsRef.get(LauncherPrefs.DRAWER_BG_OPACITY);
+        mPrefsRef.getPrefChanges().subscribe(mScrimPrefSubscriber,
+                LauncherPrefs.DRAWER_BG_COLOR, LauncherPrefs.DRAWER_BG_OPACITY);
+        mPrefCacheInitialized = true;
     }
 
     @Override
@@ -104,12 +144,11 @@ public class AllAppsState extends LauncherState {
         if (launcher.getDeviceProfile().isTablet) {
             return launcher.getResources().getColor(R.color.widgets_picker_scrim);
         }
+        ensurePrefCache(launcher);
         int defaultColor = Themes.getAttrColor(launcher, R.attr.allAppsScrimColor);
-        String customBgColor = LauncherPrefs.get(launcher)
-                .get(LauncherPrefs.DRAWER_BG_COLOR);
-        int resolved = AllAppsColorResolver.resolveColorByName(launcher, customBgColor);
+        int resolved = AllAppsColorResolver.resolveColorByName(launcher, mDrawerBgColor);
         int baseColor = resolved != 0 ? resolved : defaultColor;
-        int opacity = LauncherPrefs.get(launcher).get(LauncherPrefs.DRAWER_BG_OPACITY);
+        int opacity = mDrawerBgOpacity;
         if (opacity < 100) {
             baseColor = ColorUtils.setAlphaComponent(
                     baseColor, (int) (opacity / 100f * 255));

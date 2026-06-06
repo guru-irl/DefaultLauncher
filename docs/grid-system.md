@@ -271,6 +271,17 @@ child.height = (cellVSpan * cellHeight) + ((cellVSpan - 1) * borderSpaceY)
 
 A 2x2 widget at position (1, 2) with `borderSpaceX = 10` and `cellWidth = 200` would be positioned at x = `0 + (1 * 200) + (1 * 10) = 210` with width = `(2 * 200) + (1 * 10) = 410`.
 
+### CellLayout.resetCellSize and grid occupancy (audit note)
+
+`CellLayout.resetCellSize(DeviceProfile)` ([`CellLayout.java:416`](../src/com/android/launcher3/CellLayout.java)) clears `mCellWidth = mCellHeight = -1` and `mFixedCellWidth = mFixedCellHeight = -1` to force a re-derivation on the next measure pass. It deliberately does **not** clear `mOccupied` / `mTmpOccupied` — the grid coordinate count (`mCountX`, `mCountY`) is unchanged by a cell-size reset, so the occupancy bitmap stays valid.
+
+A subtle hazard would exist if a caller could change `mCountX`/`mCountY` between the `resetCellSize` and the next `onMeasure` without going through `setGridSize` (which rebuilds the occupancy bitmap). In the current codebase that combination is **unreachable**:
+
+- The only `resetCellSize` callers are `Hotseat.onDeviceProfileChanged` (lines 173-177 of [`Hotseat.java`](../src/com/android/launcher3/Hotseat.java)), which always follows with `setGridSize(1, dp.numShownHotseatIcons)` (or the landscape equivalent) immediately after. `setGridSize` reallocates `mOccupied` / `mTmpOccupied` to the new dimensions, so any stale occupancy entries are discarded before they can be queried.
+- Other callers (`FolderPagedView.java:150` and `:297`) use `setGridSize` directly and never call `resetCellSize`.
+
+Documented per `docs/plans/001-workspace-reliability-v2.md` Item 8. If a future change introduces a `resetCellSize` caller that bypasses `setGridSize`, the occupancy guarantee must be re-validated at that site.
+
 ---
 
 ## App Drawer Grid (All-Apps)

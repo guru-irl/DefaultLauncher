@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Placeholder shown when a widget's provider app is absent.
+  Dimensions are set by the parent to match the original widget's span.
+  docs/changes/080.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/unavailable_widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/unavailable_widget_bg">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="12dp">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_warning"
+            android:tint="@android:color/white"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/unavailable_widget_title"
+            android:textSize="12sp"
+            android:textColor="@android:color/white"
+            android:gravity="center"
+            android:maxLines="2" />
+
+    </LinearLayout>
+
+    <!-- × remove button — top right corner -->
+    <ImageButton
+        android:id="@+id/remove_unavailable_widget"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|end"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_remove_no_shadow"
+        android:tint="@android:color/white"
+        android:contentDescription="@string/unavailable_widget_remove_desc"
+        android:padding="12dp" />
+
+</FrameLayout>

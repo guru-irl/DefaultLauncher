@@ -36,8 +36,8 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.content.ContextCompat;
 
 import com.android.launcher3.DeviceProfile;
-import com.android.launcher3.LauncherPrefChangeListener;
 import com.android.launcher3.LauncherPrefs;
+import com.android.launcher3.PrefSubscriber;
 import com.android.launcher3.R;
 import com.android.launcher3.anim.AnimatedFloat;
 import com.android.launcher3.statemanager.StatefulContainer;
@@ -95,7 +95,17 @@ public class SysUiScrim implements View.OnAttachStateChangeListener, OnColorHint
     private boolean mHideSysUiScrim;
     private boolean mSkipScrimAnimationForTest = false;
 
-    private final LauncherPrefChangeListener mPrefListener;
+    /**
+     * Unified prefs framework subscriber for [LauncherPrefs.SHOW_TOP_SHADOW].
+     * Replaces the legacy [LauncherPrefChangeListener] path so SysUiScrim
+     * goes through the same dedup/coalescing dispatcher as drawer colors and
+     * the rest of T2.3. Assigned in the constructor (cannot be a field
+     * initializer because the lambda captures mContainer which is itself set
+     * in the constructor). Lifecycle attaches in onViewAttachedToWindow and
+     * closes the returned [AutoCloseable] in onViewDetachedFromWindow.
+     */
+    private final PrefSubscriber mPrefSubscriber;
+    @Nullable private AutoCloseable mPrefSubscription;
 
     private boolean mAnimateScrimOnNextDraw = false;
     private final AnimatedFloat mSysUiAnimMultiplier = new AnimatedFloat(this::reapplySysUiAlpha);
@@ -104,12 +114,8 @@ public class SysUiScrim implements View.OnAttachStateChangeListener, OnColorHint
     public SysUiScrim(View view) {
         mRoot = view;
         mContainer = ActivityContext.lookupContext(view.getContext());
-        mPrefListener = key -> {
-            if (LauncherPrefs.SHOW_TOP_SHADOW.getSharedPrefKey().equals(key)) {
-                refreshFromColorHints(
-                        WallpaperColorHints.get(mContainer.asContext()).getHints());
-            }
-        };
+        mPrefSubscriber = changes -> refreshFromColorHints(
+                WallpaperColorHints.get(mContainer.asContext()).getHints());
         DisplayMetrics dm = mContainer.asContext().getResources().getDisplayMetrics();
 
         mTopMaskHeight = ResourceUtils.pxFromDp(TOP_MASK_HEIGHT_DP, dm);
@@ -222,8 +228,9 @@ public class SysUiScrim implements View.OnAttachStateChangeListener, OnColorHint
         ScreenOnTracker.INSTANCE.get(mContainer.asContext()).addListener(mScreenOnListener);
         WallpaperColorHints colorHints = WallpaperColorHints.get(mContainer.asContext());
         colorHints.registerOnColorHintsChangedListener(this);
-        LauncherPrefs.get(mContainer.asContext()).addListener(
-                mPrefListener, LauncherPrefs.SHOW_TOP_SHADOW);
+        mPrefSubscription = LauncherPrefs.get(mContainer.asContext())
+                .getPrefChanges()
+                .subscribe(mPrefSubscriber, LauncherPrefs.SHOW_TOP_SHADOW);
         // Catch hint or pref updates that arrived while we were detached.
         refreshFromColorHints(colorHints.getHints());
     }
@@ -233,8 +240,14 @@ public class SysUiScrim implements View.OnAttachStateChangeListener, OnColorHint
         ScreenOnTracker.INSTANCE.get(mContainer.asContext()).removeListener(mScreenOnListener);
         WallpaperColorHints.get(mContainer.asContext())
                 .unregisterOnColorsChangedListener(this);
-        LauncherPrefs.get(mContainer.asContext()).removeListener(
-                mPrefListener, LauncherPrefs.SHOW_TOP_SHADOW);
+        if (mPrefSubscription != null) {
+            try {
+                mPrefSubscription.close();
+            } catch (Exception ignored) {
+                // PrefSubscriptions don't throw — defensive only.
+            }
+            mPrefSubscription = null;
+        }
     }
 
     /**

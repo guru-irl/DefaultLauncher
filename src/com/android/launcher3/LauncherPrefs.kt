@@ -61,6 +61,19 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
             else encryptedContext.getSharedPreferences(sharedPrefFile, MODE_PRIVATE)
         }
 
+    /**
+     * Internal hook exposing [getSharedPrefs] to [PrefChangeDispatcher].
+     * Subclasses (e.g., [ProxyPrefs]) still control which file backs each item.
+     */
+    internal fun getSharedPrefsForListening(item: Item): SharedPreferences = getSharedPrefs(item)
+
+    /**
+     * Lazy preference-change dispatcher. See [PrefChangeDispatcher] for the
+     * subscribe-by-item and subscribe-by-impact APIs. Phase 1 of the unified
+     * prefs framework — no production callers yet.
+     */
+    val prefChanges: PrefChangeDispatcher by lazy { PrefChangeDispatcher(this) }
+
     /** Returns the value with type [T] for [item]. */
     fun <T> get(item: ContextualItem<T>): T =
         getInner(item, item.defaultValueFromContext(encryptedContext))
@@ -320,6 +333,47 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         val GRID_ROWS_COLUMNS = nonRestorableItem("pref_grid_rows_columns", -1)
         @JvmField
         val GRID_ROWS_NAV_HEIGHT = nonRestorableItem("pref_grid_rows_nav_height", -1)
+
+        /**
+         * Ordinal of the active NavigationMode at the time GRID_ROWS / GRID_GAP
+         * were persisted. Part of the invalidation triple (cols, nav_height,
+         * nav_mode). nav_height alone is a proxy that can yield the same value
+         * for different modes on some devices; the explicit mode ordinal is the
+         * authoritative signal. Default -1 sentinel matches the other keys so
+         * a fresh install recomputes geometry on first launch.
+         */
+        @JvmField
+        val GRID_ROWS_NAV_MODE = nonRestorableItem("pref_grid_rows_nav_mode", -1)
+
+        /**
+         * User-controlled top padding (dp) above the workspace grid in square-grid
+         * mode. Replaces the dynamic mInsets.top in [DeviceProfile.deriveSquareGridRows]
+         * so the layout no longer depends on system bar inset reporting (which varies
+         * across OS versions — see One UI 8.5 regression).
+         *
+         * Default `-1` ([InvariantDeviceProfile.AUTO_PAD_SENTINEL]) means "auto":
+         * IDP computes the closest multiple of 8 dp to the device's portrait
+         * status-bar inset on first construction and rewrites the pref. The
+         * slider therefore opens at a device-appropriate value rather than a
+         * one-size-fits-all 36.
+         */
+        @JvmField
+        val WORKSPACE_TOP_PADDING_DP = backedUpItem("pref_workspace_top_padding_dp", -1)
+        /** Same as above but for the space between the dock icons and screen bottom.
+         *  Default `-1` → auto-compute from portrait nav-bar inset (rounded to 8 dp). */
+        @JvmField
+        val WORKSPACE_BOTTOM_PADDING_DP = backedUpItem("pref_workspace_bottom_padding_dp", -1)
+
+        /**
+         * Padding values that were live when [GRID_ROWS] / [GRID_GAP] were persisted.
+         * Part of the invalidation key so changing the padding sliders triggers a
+         * fresh row derivation.
+         */
+        @JvmField
+        val GRID_ROWS_TOP_PAD = nonRestorableItem("pref_grid_rows_top_pad", -1)
+        @JvmField
+        val GRID_ROWS_BOTTOM_PAD = nonRestorableItem("pref_grid_rows_bottom_pad", -1)
+
         @JvmField
         val ALLAPPS_ROW_GAP = backedUpItem("pref_allapps_row_gap", 16)
         @JvmField
@@ -458,6 +512,14 @@ abstract class Item {
     abstract val isBackedUp: Boolean
     abstract val type: Class<*>
     abstract val encryptionType: EncryptionType
+
+    /**
+     * Cascade classification for [PrefChangeDispatcher]. Defaults to the most
+     * conservative level so a misclassified pref still receives a notification;
+     * explicit downgrades land via `docs/plans/003-unified-prefs-framework-v2.md`.
+     */
+    open val impact: SettingImpact = SettingImpact.VIEW_INVALIDATE
+
     val sharedPrefFile: String
         get() = if (isBackedUp) SHARED_PREFERENCES_KEY else DEVICE_PREFERENCES_KEY
 
@@ -471,7 +533,9 @@ data class ConstantItem<T>(
     override val encryptionType: EncryptionType,
     // The default value can be null. If so, the type needs to be explicitly stated, or else NPE
     override val type: Class<out T> = defaultValue!!::class.java,
+    override val impact: SettingImpact = SettingImpact.VIEW_INVALIDATE,
 ) : Item() {
+    init { ItemRegistry.register(this) }
 
     fun get(c: Context): T = LauncherPrefs.get(c).get(this)
 }
@@ -482,7 +546,10 @@ data class ContextualItem<T>(
     private val defaultSupplier: (c: Context) -> T,
     override val encryptionType: EncryptionType,
     override val type: Class<out T>,
+    override val impact: SettingImpact = SettingImpact.VIEW_INVALIDATE,
 ) : Item() {
+    init { ItemRegistry.register(this) }
+
     private var default: T? = null
 
     fun defaultValueFromContext(context: Context): T {

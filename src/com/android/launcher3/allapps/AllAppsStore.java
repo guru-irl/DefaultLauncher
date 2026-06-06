@@ -50,6 +50,14 @@ import java.util.function.Predicate;
 /**
  * A utility class to maintain the collection of all apps.
  *
+ * <p><b>Threading contract.</b> Writes to {@link #mApps} happen on the main
+ * thread via {@link #setApps(AppInfo[], int, java.util.Map, boolean)}. Reads
+ * from non-main threads MUST capture a local reference to the array first;
+ * the field is {@code volatile} so visibility of a fresh {@code setApps}
+ * publication is guaranteed. The array contents themselves are immutable
+ * from the moment {@code setApps} returns — replacement always allocates a
+ * new array and reassigns the field rather than mutating in place.
+ *
  * @param <T> The type of the context.
  */
 public class AllAppsStore<T extends Context & ActivityContext> {
@@ -63,7 +71,7 @@ public class AllAppsStore<T extends Context & ActivityContext> {
     private PackageUserKey mTempKey = new PackageUserKey(null, null);
     private AppInfo mTempInfo = new AppInfo();
 
-    private @NonNull AppInfo[] mApps = EMPTY_ARRAY;
+    private volatile @NonNull AppInfo[] mApps = EMPTY_ARRAY;
 
     private final List<OnUpdateListener> mUpdateListeners = new CopyOnWriteArrayList<>();
     private final ArrayList<ViewGroup> mIconContainers = new ArrayList<>();
@@ -103,8 +111,13 @@ public class AllAppsStore<T extends Context & ActivityContext> {
      */
     public void setApps(@Nullable AppInfo[] apps, int flags, Map<PackageUserKey, Integer> map,
             boolean shouldPreinflate) {
-        mApps = apps == null ? EMPTY_ARRAY : apps;
-        Log.d(TAG, "setApps: apps.length=" + mApps.length);
+        final AppInfo[] snapshot = apps == null ? EMPTY_ARRAY : apps;
+        // Publish the snapshot to the volatile field first so any reader
+        // that observes the change sees the new array. Subsequent local
+        // operations use `snapshot` directly to avoid re-reading the
+        // volatile reference.
+        mApps = snapshot;
+        Log.d(TAG, "setApps: apps.length=" + snapshot.length);
         mModelFlags = flags;
         notifyUpdate();
         mPackageUserKeytoUidMap = map;

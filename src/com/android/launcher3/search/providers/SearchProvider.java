@@ -32,8 +32,8 @@ public interface SearchProvider<T> {
     /** Cancels any in-progress search. */
     void cancel();
 
-    /** Returns the category name for this provider (e.g. "apps", "contacts"). */
-    String category();
+    /** Returns the category identity for this provider. */
+    ProviderCategory category();
 
     /** Returns the minimum query length required for this provider to search. */
     default int minQueryLength() {

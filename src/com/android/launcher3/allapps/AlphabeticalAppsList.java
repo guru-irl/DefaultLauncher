@@ -18,7 +18,7 @@ package com.android.launcher3.allapps;
 import static android.multiuser.Flags.enableMovingContentIntoPrivateSpace;
 
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_BOTTOM_VIEW_TO_SCROLL_TO;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_MASK_PRIVATE_SPACE_HEADER;
+import static com.android.launcher3.allapps.BaseAllAppsAdapter.isPrivateSpaceHeaderView;
 import static com.android.launcher3.allapps.SectionDecorationInfo.ROUND_BOTTOM_LEFT;
 import static com.android.launcher3.allapps.SectionDecorationInfo.ROUND_BOTTOM_RIGHT;
 import static com.android.launcher3.allapps.SectionDecorationInfo.ROUND_NOTHING;
@@ -430,7 +430,7 @@ public class AlphabeticalAppsList<T extends Context & ActivityContext> implement
             int privateSpaceAppIndex = -1;
             for (int i = 0; i < mAdapterItems.size(); i++) {
                 BaseAllAppsAdapter.AdapterItem currentItem = mAdapterItems.get(i);
-                if (currentItem.viewType == VIEW_TYPE_MASK_PRIVATE_SPACE_HEADER) {
+                if (isPrivateSpaceHeaderView(currentItem.viewType)) {
                     headerIndex = i;
                 }
                 if (currentItem.itemInfo != null && Objects.equals(

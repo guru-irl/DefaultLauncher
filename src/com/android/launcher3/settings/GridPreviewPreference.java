@@ -47,6 +47,8 @@ public class GridPreviewPreference extends Preference {
 
     private GridPreviewView mPreviewView;
     private int mPendingColumns = -1;
+    private int mPendingTopPaddingPx = -1;
+    private int mPendingBottomPaddingPx = -1;
 
     public GridPreviewPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -58,6 +60,24 @@ public class GridPreviewPreference extends Preference {
             mPreviewView.animateToColumns(columns);
         } else {
             mPendingColumns = columns;
+        }
+    }
+
+    /** Live-update the preview's top padding in px (e.g., from the slider). */
+    public void updateTopPaddingPx(int px) {
+        if (mPreviewView != null) {
+            mPreviewView.setTopPaddingPx(px);
+        } else {
+            mPendingTopPaddingPx = px;
+        }
+    }
+
+    /** Live-update the preview's bottom margin in px. */
+    public void updateBottomPaddingPx(int px) {
+        if (mPreviewView != null) {
+            mPreviewView.setBottomPaddingPx(px);
+        } else {
+            mPendingBottomPaddingPx = px;
         }
     }
 
@@ -124,6 +144,14 @@ public class GridPreviewPreference extends Preference {
         if (mPendingColumns > 0) {
             mPreviewView.animateToColumns(mPendingColumns);
             mPendingColumns = -1;
+        }
+        if (mPendingTopPaddingPx >= 0) {
+            mPreviewView.setTopPaddingPx(mPendingTopPaddingPx);
+            mPendingTopPaddingPx = -1;
+        }
+        if (mPendingBottomPaddingPx >= 0) {
+            mPreviewView.setBottomPaddingPx(mPendingBottomPaddingPx);
+            mPendingBottomPaddingPx = -1;
         }
     }
 }

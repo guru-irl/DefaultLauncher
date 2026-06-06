@@ -307,6 +307,14 @@ public class DeviceProfile {
     // Insets
     private final Rect mInsets = new Rect();
     public final Rect workspacePadding = new Rect();
+    /**
+     * Set true when {@link #updateWorkspacePadding()} has completed, false at
+     * the top of every {@link #updateAvailableDimensions(android.content.Context)}.
+     * Used by {@link #getCellSize()} in debug builds to flag callers that read
+     * cell size before workspacePadding is finalized — the documented
+     * initialization ordering hazard from CLAUDE.md.
+     */
+    private boolean mWorkspacePaddingReady;
     // Additional padding added to the widget inside its cellSpace. It is applied outside
     // the widgetView, such that the actual view size is same as the widget size.
     public final Rect widgetPadding = new Rect();
@@ -831,9 +839,12 @@ public class DeviceProfile {
             cellLayoutPaddingPx = new Rect(cellLayoutPadding, cellLayoutPadding, cellLayoutPadding,
                     cellLayoutPadding);
         }
-        // Square grid: minimum margin between hotseat icons and screen bottom
+        // Square grid: minimum margin between hotseat icons and screen bottom.
+        // Uses the user-controlled WORKSPACE_BOTTOM_PADDING pref instead of the
+        // system bottom inset so layout stays stable across OS bar-height changes.
         if (inv.isSquareGrid && !isVerticalBarLayout()) {
-            hotseatBarBottomSpacePx = Math.max(getSquareGridMinMarginPx(), mInsets.bottom);
+            hotseatBarBottomSpacePx = Math.max(
+                    getSquareGridMinMarginPx(), inv.workspaceBottomPaddingPx);
             hotseatBarSizePx = cellHeightPx + hotseatBarBottomSpacePx;
         }
         updateWorkspacePadding();
@@ -859,6 +870,15 @@ public class DeviceProfile {
             allAppsPadding.top = mInsets.top;
             allAppsShiftRange = heightPx;
         } else {
+            // Non-sheet drawer (the square-grid path): the drawer's children
+            // already get the synthesized inset via LauncherRootView's
+            // square-grid override (LauncherRootView dispatches the pref
+            // values as the insets to all children including the drawer).
+            // Setting allAppsPadding.top from the pref here too was
+            // additive on top of that dispatch — the search bar ended up
+            // 2× the configured padding from the top. Leave the container
+            // padding at 0 and let inset-dispatch position the search bar.
+            // See 087 for the original (regression-causing) attempt.
             allAppsPadding.top = 0;
             allAppsShiftRange =
                     res.getDimensionPixelSize(R.dimen.all_apps_starting_vertical_translate);
@@ -1228,9 +1248,11 @@ public class DeviceProfile {
         int edgeGap = getSquareGridEdgeGapPx();
         int bottomMargin = hotseatBarBottomSpacePx;  // max(margin, navBar), from constructor
 
-        // Total available height: from below status bar to above bottom margin.
+        // Total available height: from user-pref top padding to above bottom margin.
+        // Uses inv.workspaceTopPaddingPx (user-controlled) instead of mInsets.top so
+        // row-fit is independent of OS-version-specific system-bar inset reporting.
         // This holds ALL icon rows (workspace + hotseat) and inter-cell gaps.
-        int availH = heightPx - mInsets.top - bottomMargin;
+        int availH = heightPx - inv.workspaceTopPaddingPx - bottomMargin;
 
         int totalRows;
         int gap;
@@ -1263,7 +1285,7 @@ public class DeviceProfile {
 
         // Compute slop: excess height beyond grid + margins
         int gridH = totalRows * cellHeightPx + (totalRows - 1) * gap;
-        int totalUsed = mInsets.top + gridH + bottomMargin;
+        int totalUsed = inv.workspaceTopPaddingPx + gridH + bottomMargin;
         int slop = heightPx - totalUsed;
 
         // Split slop between top and bottom of screen
@@ -1296,15 +1318,18 @@ public class DeviceProfile {
         if (DEBUG_SQUARE_GRID) {
             Log.d(TAG, "=== Square Grid Derivation ===");
             Log.d(TAG, String.format(
-                    "Screen: %dx%d  density=%.1f  insets.top=%d insets.bottom=%d",
-                    widthPx, heightPx, density, mInsets.top, mInsets.bottom));
+                    "Screen: %dx%d  density=%.1f  topPad=%d (pref) bottomPad=%d (pref)  "
+                            + "mInsets=%s",
+                    widthPx, heightPx, density,
+                    inv.workspaceTopPaddingPx, inv.workspaceBottomPaddingPx, mInsets));
             Log.d(TAG, String.format(
                     "Cell: %dx%d (%.1fx%.1fdp)  gap=%dpx(%.1fdp)  edgeGap=%dpx(%.1fdp)",
                     cellWidthPx, cellHeightPx, cellWidthPx/density, cellHeightPx/density,
                     gap, gap/density, edgeGap, edgeGap/density));
             Log.d(TAG, String.format(
-                    "AvailH: %dpx = %d(screenH) - %d(statusBar) - %d(bottomMargin %.1fdp)",
-                    availH, heightPx, mInsets.top, bottomMargin, bottomMargin/density));
+                    "AvailH: %dpx = %d(screenH) - %d(topPad) - %d(bottomMargin %.1fdp)",
+                    availH, heightPx, inv.workspaceTopPaddingPx,
+                    bottomMargin, bottomMargin/density));
             Log.d(TAG, String.format(
                     "Rows: totalRows=%d  workspaceRows=%d  cols=%d  persisted=%b",
                     totalRows, numRows, inv.numColumns,
@@ -1336,6 +1361,10 @@ public class DeviceProfile {
      * Returns the amount of extra (or unused) vertical space.
      */
     private int updateAvailableDimensions(Context context) {
+        // The workspacePadding Rect is not finalized until updateWorkspacePadding()
+        // runs below. Reset the readiness flag so getCellSize() can warn about
+        // any reads that happen during this method's body.
+        mWorkspacePaddingReady = false;
         iconCenterVertically = (mIsScalableGrid || mIsResponsiveGrid) && isVerticalBarLayout();
 
         if (mIsResponsiveGrid) {
@@ -1987,6 +2016,18 @@ public class DeviceProfile {
             return result;
         }
 
+        // Init-ordering guard: in debug builds, log any call that reads cell
+        // size before updateWorkspacePadding() has finalized workspacePadding.
+        // The non-square branch below reads getCellLayoutHeight(), which in
+        // turn reads workspacePadding. CLAUDE.md documents this ordering
+        // hazard; the warning gives us bug-report evidence if a future
+        // change reintroduces it.
+        if (BuildConfig.DEBUG && !mWorkspacePaddingReady) {
+            Log.w(TAG, "getCellSize() called before workspacePadding is ready; "
+                    + "result may be incorrect. Caller stack:",
+                    new IllegalStateException("init-ordering"));
+        }
+
         int shortcutAndWidgetContainerWidth =
                 getCellLayoutWidth() - (cellLayoutPaddingPx.left + cellLayoutPaddingPx.right);
         result.x = calculateCellWidth(shortcutAndWidgetContainerWidth, cellLayoutBorderSpacePx.x,
@@ -2146,6 +2187,7 @@ public class DeviceProfile {
             padding.set(paddingLeft, paddingTop, paddingRight, paddingBottom);
             insetPadding(workspacePadding, cellLayoutPaddingPx);
         }
+        mWorkspacePaddingReady = true;
     }
 
     private void insetPadding(Rect paddings, Rect insets) {

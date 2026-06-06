@@ -103,7 +103,12 @@ import com.android.launcher3.touch.ItemClickHandler;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
+
+import com.android.launcher3.Item;
+import com.android.launcher3.LauncherPrefs;
+import com.android.launcher3.PrefSubscriber;
 
 /**
  * An icon that can appear on in the workspace representing an {@link Folder}.
@@ -194,6 +199,30 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
 
     private float mScaleForReorderBounce = 1f;
 
+    private AutoCloseable mFolderPrefSubscription;
+    private final PrefSubscriber mFolderPrefSubscriber = new PrefSubscriber() {
+        @Override
+        public void onPrefsChanged(Set<? extends Item> changes) {
+            boolean bgChanged = changes.contains(LauncherPrefs.FOLDER_BG_COLOR)
+                    || changes.contains(LauncherPrefs.FOLDER_BG_OPACITY);
+            boolean coverBgChanged = changes.contains(LauncherPrefs.FOLDER_COVER_BG_COLOR);
+            boolean coverIconChanged = changes.contains(LauncherPrefs.FOLDER_COVER_ICON_COLOR);
+            if (bgChanged || coverBgChanged) {
+                refreshCachedState();
+                if (bgChanged) {
+                    mBackground.refreshBgColor(getContext());
+                }
+            }
+            if (coverIconChanged && mCoverDrawable != null && mInfo != null) {
+                mCoverDrawable = FolderCoverManager.getInstance(
+                        getContext().getApplicationContext()).loadCoverDrawable(mInfo.id);
+            }
+            if (bgChanged || coverBgChanged || coverIconChanged) {
+                invalidate();
+            }
+        }
+    };
+
     private static final Property<FolderIcon, Float> DOT_SCALE_PROPERTY
             = new Property<FolderIcon, Float>(Float.TYPE, "dotScale") {
         @Override
@@ -223,6 +252,30 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
         mPreviewLayoutRule = new ClippedFolderIconLayoutRule();
         mPreviewItemManager = new PreviewItemManager(this);
         mDotParams = new DotRenderer.DrawParams();
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        mFolderPrefSubscription = LauncherPrefs.get(getContext()).getPrefChanges()
+                .subscribe(mFolderPrefSubscriber,
+                        LauncherPrefs.FOLDER_BG_COLOR,
+                        LauncherPrefs.FOLDER_BG_OPACITY,
+                        LauncherPrefs.FOLDER_COVER_BG_COLOR,
+                        LauncherPrefs.FOLDER_COVER_ICON_COLOR);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if (mFolderPrefSubscription != null) {
+            try {
+                mFolderPrefSubscription.close();
+            } catch (Exception e) {
+                if (DEBUG) Log.w(TAG, "Failed to close folder pref subscription", e);
+            }
+            mFolderPrefSubscription = null;
+        }
     }
 
     /**

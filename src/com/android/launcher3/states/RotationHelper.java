@@ -34,17 +34,19 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
 
+import androidx.annotation.Nullable;
+
 import com.android.launcher3.BaseActivity;
 import com.android.launcher3.DeviceProfile;
-import com.android.launcher3.LauncherPrefChangeListener;
 import com.android.launcher3.LauncherPrefs;
+import com.android.launcher3.PrefSubscriber;
 import com.android.launcher3.util.ContextTracker;
 import com.android.launcher3.util.DisplayController;
 
 /**
  * Utility class to manage launcher rotation
  */
-public class RotationHelper implements LauncherPrefChangeListener,
+public class RotationHelper implements
         DeviceProfile.OnDeviceProfileChangeListener,
         DisplayController.DisplayInfoChangeListener {
 
@@ -97,10 +99,28 @@ public class RotationHelper implements LauncherPrefChangeListener,
     // Initialize mLastActivityFlags to a value not used by SCREEN_ORIENTATION flags
     private int mLastActivityFlags = -999;
 
+    /**
+     * Unified prefs framework subscription for ALLOW_ROTATION. Held while
+     * mIgnoreAutoRotateSettings == false; closed (and nulled) when we
+     * transition into ignore-mode so subsequent toggles don't double-fire.
+     */
+    @Nullable private AutoCloseable mAllowRotationSubscription;
+    /** Set in the constructor; cannot be a field initializer because the
+     *  lambda captures the (then-uninitialized) `mActivity`. */
+    private final PrefSubscriber mAllowRotationSubscriber;
+
     public RotationHelper(@NonNull BaseActivity activity) {
         mActivity = activity;
         mRequestOrientationHandler =
                 new Handler(UI_HELPER_EXECUTOR.getLooper(), this::setOrientationAsync);
+        mAllowRotationSubscriber = changes -> {
+            if (mDestroyed || mIgnoreAutoRotateSettings) return;
+            boolean wasRotationEnabled = mHomeRotationEnabled;
+            mHomeRotationEnabled = LauncherPrefs.get(mActivity).get(ALLOW_ROTATION);
+            if (mHomeRotationEnabled != wasRotationEnabled) {
+                notifyChange();
+            }
+        };
     }
 
     private void setIgnoreAutoRotateSettings(boolean ignoreAutoRotateSettings) {
@@ -109,20 +129,24 @@ public class RotationHelper implements LauncherPrefChangeListener,
         mIgnoreAutoRotateSettings = ignoreAutoRotateSettings;
         if (!mIgnoreAutoRotateSettings) {
             mHomeRotationEnabled = LauncherPrefs.get(mActivity).get(ALLOW_ROTATION);
-            LauncherPrefs.get(mActivity).addListener(this, ALLOW_ROTATION);
+            if (mAllowRotationSubscription == null) {
+                mAllowRotationSubscription = LauncherPrefs.get(mActivity)
+                        .getPrefChanges()
+                        .subscribe(mAllowRotationSubscriber, ALLOW_ROTATION);
+            }
         } else {
-            LauncherPrefs.get(mActivity).removeListener(this, ALLOW_ROTATION);
+            closeAllowRotationSubscription();
         }
     }
 
-    @Override
-    public void onPrefChanged(String s) {
-        if (mDestroyed || mIgnoreAutoRotateSettings) return;
-        boolean wasRotationEnabled = mHomeRotationEnabled;
-        mHomeRotationEnabled = LauncherPrefs.get(mActivity).get(ALLOW_ROTATION);
-        if (mHomeRotationEnabled != wasRotationEnabled) {
-            notifyChange();
+    private void closeAllowRotationSubscription() {
+        if (mAllowRotationSubscription == null) return;
+        try {
+            mAllowRotationSubscription.close();
+        } catch (Exception ignored) {
+            // PrefSubscriptions don't throw.
         }
+        mAllowRotationSubscription = null;
     }
 
     /**
@@ -202,7 +226,7 @@ public class RotationHelper implements LauncherPrefChangeListener,
         mDestroyed = true;
         mActivity.removeOnDeviceProfileChangeListener(this);
         DisplayController.INSTANCE.get(mActivity).removeChangeListener(this);
-        LauncherPrefs.get(mActivity).removeListener(this, ALLOW_ROTATION);
+        closeAllowRotationSubscription();
     }
 
     private void notifyChange() {

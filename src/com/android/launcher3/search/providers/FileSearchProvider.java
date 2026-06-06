@@ -71,8 +71,8 @@ public class FileSearchProvider implements SearchProvider<FileResult> {
     }
 
     @Override
-    public String category() {
-        return "files";
+    public ProviderCategory category() {
+        return ProviderCategory.FILES;
     }
 
     @Override

@@ -68,9 +68,15 @@ public class FloatingHeaderView extends LinearLayout implements
                     moved(current);
                     applyVerticalMove();
                     if (headerCollapsed != mHeaderCollapsed) {
-                        ActivityAllAppsContainerView<?> parent =
-                                (ActivityAllAppsContainerView<?>) getParent();
-                        parent.invalidateHeader();
+                        // Route via HeaderCoordinator callback if available (T3.1 Phase 5).
+                        // Otherwise fall back to the parent cast (preserved for safety).
+                        if (mOnHeaderCollapsedChanged != null) {
+                            mOnHeaderCollapsedChanged.run();
+                        } else {
+                            ActivityAllAppsContainerView<?> parent =
+                                    (ActivityAllAppsContainerView<?>) getParent();
+                            parent.invalidateHeader();
+                        }
                     }
                 }
             };
@@ -108,6 +114,20 @@ public class FloatingHeaderView extends LinearLayout implements
     // Array of all fixed rows and plugin rows. This is initialized every time a plugin is
     // enabled or disabled, and represent the current set of all rows.
     private FloatingHeaderRow[] mAllRows = NO_ROWS;
+
+    /**
+     * Optional callback to the HeaderCoordinator (T3.1 Phase 5 decomposition).
+     * When set, routes the invalidateHeader() call through the coordinator instead of
+     * the {@code (ActivityAllAppsContainerView<?>) getParent()} cast. The cast is preserved
+     * as a fallback if this is not set. Do NOT touch {@link #moved()} (invariant #6) or
+     * {@link #getMaxTranslation()} (invariant #7).
+     */
+    @Nullable Runnable mOnHeaderCollapsedChanged;
+
+    /** Wire the coordinator's invalidateHeader path. Package-private. */
+    void setOnHeaderCollapsedChangedCallback(@Nullable Runnable callback) {
+        mOnHeaderCollapsedChanged = callback;
+    }
 
     public FloatingHeaderView(@NonNull Context context) {
         this(context, null);

@@ -18,4 +18,27 @@
         launcher:showSeekBarValue="true"
         launcher:iconSpaceReserved="false" />
 
+    <!-- Top padding default is computed at first launch from the device's
+         status-bar inset (rounded to 8 dp) — see InvariantDeviceProfile
+         AUTO_PAD_SENTINEL handling. We still set `android:defaultValue` to the
+         sentinel so a SettingsActivity pref-init path that bypasses IDP still
+         persists -1 and triggers the auto-compute on next IDP run. -->
+    <com.android.launcher3.settings.M3SliderPreference
+        android:key="pref_workspace_top_padding_dp"
+        android:title="@string/workspace_top_padding_title"
+        android:defaultValue="-1"
+        android:max="120"
+        launcher:min="0"
+        launcher:showSeekBarValue="true"
+        launcher:iconSpaceReserved="false" />
+
+    <com.android.launcher3.settings.M3SliderPreference
+        android:key="pref_workspace_bottom_padding_dp"
+        android:title="@string/workspace_bottom_padding_title"
+        android:defaultValue="-1"
+        android:max="120"
+        launcher:min="0"
+        launcher:showSeekBarValue="true"
+        launcher:iconSpaceReserved="false" />
+
 </androidx.preference.PreferenceScreen>

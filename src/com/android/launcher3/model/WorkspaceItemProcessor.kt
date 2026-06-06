@@ -569,8 +569,11 @@ class WorkspaceItemProcessor(
         )
         when (inflationResult.type) {
             WidgetInflater.TYPE_DELETE -> {
-                c.markDeleted(inflationResult.reason, inflationResult.restoreErrorType)
-                return
+                // TYPE_DELETE is no longer returned by WidgetInflater. If it somehow
+                // arrives here, do NOT delete — log and fall through. docs/changes/080.
+                android.util.Log.e(TAG,
+                    "processWidget: unexpected TYPE_DELETE for id=${c.id}" +
+                    ", appWidgetId=${c.appWidgetId} — skipping deletion")
             }
             WidgetInflater.TYPE_PENDING -> {
                 tempPackageKey.update(component.packageName, c.user)
@@ -584,16 +587,14 @@ class WorkspaceItemProcessor(
                         (lapi == null) &&
                         !isArchived
                 ) {
-                    // Restore never started
-                    c.markDeleted(
-                        "processWidget: Unrestored Pending widget removed:" +
-                            " id=${c.id}" +
-                            ", appWidgetId=${c.appWidgetId}" +
-                            ", component=${component}" +
-                            ", restoreFlag:=${c.restoreFlag}",
-                        RestoreError.UNRESTORED_PENDING_WIDGET,
-                    )
-                    return
+                    // Restore not yet started and no active installer. Previously deleted
+                    // the widget, but transient service unavailability triggers this path
+                    // too. Keep the widget — it shows UnavailableWidgetView at bind time
+                    // and recovers automatically when the provider is back. docs/changes/080.
+                    FileLog.w(TAG,
+                        "processWidget: unrestored pending widget id=${c.id}" +
+                        ", appWidgetId=${c.appWidgetId} — deferring instead of deleting")
+                    // Do NOT return — continue so the item stays in the model for binding.
                 } else if (
                     !c.hasRestoreFlag(LauncherAppWidgetInfo.FLAG_RESTORE_STARTED) && si != null
                 ) {

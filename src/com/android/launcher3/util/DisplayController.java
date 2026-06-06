@@ -137,23 +137,36 @@ public class DisplayController implements DesktopVisibilityListener {
         mWMProxy = wmProxy;
 
         if (enableTaskbarPinning()) {
-            LauncherPrefChangeListener prefListener = key -> {
-                Info info = getInfo();
-                boolean isTaskbarPinningChanged = TASKBAR_PINNING_KEY.equals(key)
-                        && info.mIsTaskbarPinned != prefs.get(TASKBAR_PINNING);
-                boolean isTaskbarPinningDesktopModeChanged =
-                        TASKBAR_PINNING_DESKTOP_MODE_KEY.equals(key)
-                                && info.mIsTaskbarPinnedInDesktopMode != prefs.get(
-                                TASKBAR_PINNING_IN_DESKTOP_MODE);
-                if (isTaskbarPinningChanged || isTaskbarPinningDesktopModeChanged) {
-                    notifyConfigChange(DEFAULT_DISPLAY);
+            // Migrated to unified prefs framework (T2.3 Phase 4). The
+            // dispatcher delivers a Set<Item> of which keys actually changed
+            // this tick — we still need to check membership to decide whether
+            // *this* config change warrants a notifyConfigChange, because the
+            // info-vs-pref comparison can be true for one key without the
+            // other.
+            AutoCloseable taskbarSub = prefs.getPrefChanges().subscribe(
+                    changes -> {
+                        Info info = getInfo();
+                        boolean pinChanged = changes.contains(TASKBAR_PINNING)
+                                && info.mIsTaskbarPinned != prefs.get(TASKBAR_PINNING);
+                        boolean pinDesktopChanged =
+                                changes.contains(TASKBAR_PINNING_IN_DESKTOP_MODE)
+                                && info.mIsTaskbarPinnedInDesktopMode
+                                        != prefs.get(TASKBAR_PINNING_IN_DESKTOP_MODE);
+                        if (pinChanged || pinDesktopChanged) {
+                            notifyConfigChange(DEFAULT_DISPLAY);
+                        }
+                    },
+                    TASKBAR_PINNING, TASKBAR_PINNING_IN_DESKTOP_MODE);
+            // DaggerSingletonTracker expects SafeCloseable, not AutoCloseable —
+            // wrap with a SAM-converted lambda that swallows the (impossible)
+            // checked exception PrefSubscription doesn't actually throw.
+            lifecycle.addCloseable(() -> {
+                try {
+                    taskbarSub.close();
+                } catch (Exception ignored) {
+                    // PrefSubscriptions don't throw.
                 }
-            };
-
-            prefs.addListener(prefListener, TASKBAR_PINNING);
-            prefs.addListener(prefListener, TASKBAR_PINNING_IN_DESKTOP_MODE);
-            lifecycle.addCloseable(() -> prefs.removeListener(
-                        prefListener, TASKBAR_PINNING, TASKBAR_PINNING_IN_DESKTOP_MODE));
+            });
         }
 
         DisplayManager displayManager = context.getSystemService(DisplayManager.class);

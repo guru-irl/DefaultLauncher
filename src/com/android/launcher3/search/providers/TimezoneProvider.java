@@ -121,8 +121,8 @@ public class TimezoneProvider implements SearchProvider<TimezoneResult> {
     }
 
     @Override
-    public String category() {
-        return "timezone";
+    public ProviderCategory category() {
+        return ProviderCategory.TIMEZONE;
     }
 
     @Override

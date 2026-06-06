@@ -10,32 +10,19 @@
  */
 package com.android.launcher3.search;
 
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_EMPTY_SEARCH;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_ICON;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_CALCULATOR;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_CALENDAR;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_CONTACT;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_FILE;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_FILTER_BAR;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_QUICK_ACTION;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_SECTION_HEADER;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_SHORTCUT;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_TIMEZONE;
-import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_SEARCH_UNIT_CONVERTER;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 
 import android.content.Context;
 import android.os.Handler;
 
 import com.android.launcher3.LauncherPrefs;
-import com.android.launcher3.R;
 import com.android.launcher3.allapps.BaseAllAppsAdapter.AdapterItem;
-import com.android.launcher3.model.data.AppInfo;
 import com.android.launcher3.search.providers.AppSearchProvider;
 import com.android.launcher3.search.providers.CalendarSearchProvider;
 import com.android.launcher3.search.providers.CalculatorProvider;
 import com.android.launcher3.search.providers.ContactSearchProvider;
 import com.android.launcher3.search.providers.FileSearchProvider;
+import com.android.launcher3.search.providers.ProviderCategory;
 import com.android.launcher3.search.providers.QuickActionProvider;
 import com.android.launcher3.search.providers.SearchProvider;
 import com.android.launcher3.search.providers.ShortcutSearchProvider;
@@ -51,13 +38,22 @@ import com.android.launcher3.search.result.TimezoneResult;
 import com.android.launcher3.search.result.UnitConversion;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Universal search algorithm that dispatches to multiple providers in parallel
  * and aggregates results into categorized AdapterItems.
  * Inspired by Kvaesitso's multi-source search pattern.
+ *
+ * <p>Concurrency model: every {@link #doSearch} call mints a {@link SearchSession}
+ * that captures the query, callback, enabled-provider set, accumulator, and
+ * pending-provider counter. Provider lambdas close over the session by reference,
+ * not over {@code this}'s fields. Each callback re-checks
+ * {@code s.abandoned || s != mActiveSession} before mutating the accumulator,
+ * so late-arriving I/O results from a superseded query cannot corrupt the
+ * active state.
  */
 public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
 
@@ -69,11 +65,10 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
     private final AppSearchProvider mAppProvider;
     private final List<SearchProvider<?>> mExtraProviders = new ArrayList<>();
 
-    // Current aggregated result
-    private SearchResult mCurrentResult;
-    private String mCurrentQuery;
-    private SearchCallback<AdapterItem> mCurrentCallback;
-    private final AtomicInteger mPendingProviders = new AtomicInteger(0);
+    // Active session. Replaced atomically by doSearch; consulted by every
+    // provider callback to short-circuit if a newer query has superseded it.
+    private volatile SearchSession mActiveSession;
+    private final AtomicLong mNextVersion = new AtomicLong(0);
 
     public UniversalSearchAlgorithm(Context context) {
         mContext = context;
@@ -92,10 +87,11 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
         mExtraProviders.add(new FileSearchProvider());
 
         mFilters.setOnFilterChangedListener(() -> {
-            // Re-run current query with new filters if we have one
-            if (mCurrentQuery != null && mCurrentCallback != null) {
-                deliverResults();
-            }
+            // Re-render the active session's accumulator with the new filter
+            // mask. No new dispatch — just a UI-only re-conversion.
+            SearchSession s = mActiveSession;
+            if (s == null || s.abandoned) return;
+            deliverResults(s, SearchCallback.FINAL);
         });
     }
 
@@ -109,244 +105,150 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
         mExtraProviders.add(provider);
     }
 
-    /** Returns true if the provider's category is enabled in user prefs. */
-    private boolean isProviderEnabled(SearchProvider<?> provider) {
+    /**
+     * Snapshots enabled-provider categories from prefs. Called once at the top
+     * of {@link #doSearch} so a pref toggle landing mid-flight doesn't reshape
+     * the active session's provider set.
+     */
+    private EnumSet<ProviderCategory> snapshotEnabledProviders() {
+        EnumSet<ProviderCategory> enabled = EnumSet.noneOf(ProviderCategory.class);
         LauncherPrefs prefs = LauncherPrefs.get(mContext);
-        switch (provider.category()) {
-            case "shortcuts": return prefs.get(LauncherPrefs.SEARCH_SHORTCUTS);
-            case "contacts": return prefs.get(LauncherPrefs.SEARCH_CONTACTS);
-            case "calendar": return prefs.get(LauncherPrefs.SEARCH_CALENDAR);
-            case "files": return prefs.get(LauncherPrefs.SEARCH_FILES);
-            case "calculator": return prefs.get(LauncherPrefs.SEARCH_CALCULATOR);
-            case "unit_converter": return prefs.get(LauncherPrefs.SEARCH_UNIT_CONVERTER);
-            case "timezone": return prefs.get(LauncherPrefs.SEARCH_TIMEZONE);
-            case "quick_actions": return true; // Always enabled
-            default: return true;
+        if (prefs.get(LauncherPrefs.SEARCH_APPS)) enabled.add(ProviderCategory.APPS);
+        if (prefs.get(LauncherPrefs.SEARCH_SHORTCUTS)) enabled.add(ProviderCategory.SHORTCUTS);
+        if (prefs.get(LauncherPrefs.SEARCH_CONTACTS)) enabled.add(ProviderCategory.CONTACTS);
+        if (prefs.get(LauncherPrefs.SEARCH_CALENDAR)) enabled.add(ProviderCategory.CALENDAR);
+        if (prefs.get(LauncherPrefs.SEARCH_FILES)) enabled.add(ProviderCategory.FILES);
+        if (prefs.get(LauncherPrefs.SEARCH_CALCULATOR)) enabled.add(ProviderCategory.CALCULATOR);
+        if (prefs.get(LauncherPrefs.SEARCH_UNIT_CONVERTER)) {
+            enabled.add(ProviderCategory.UNIT_CONVERTER);
         }
+        if (prefs.get(LauncherPrefs.SEARCH_TIMEZONE)) enabled.add(ProviderCategory.TIMEZONE);
+        // Quick actions are always enabled.
+        enabled.add(ProviderCategory.QUICK_ACTIONS);
+        return enabled;
     }
 
     @Override
     public void doSearch(String query, SearchCallback<AdapterItem> callback) {
+        // Abandon the previous session (if any) so its in-flight provider
+        // callbacks short-circuit before mutating any shared state.
+        SearchSession previous = mActiveSession;
+        if (previous != null) {
+            previous.abandoned = true;
+        }
         cancel(true);
-        mCurrentQuery = query;
-        mCurrentCallback = callback;
-        mCurrentResult = new SearchResult();
+
+        EnumSet<ProviderCategory> enabledProviders = snapshotEnabledProviders();
+        SearchSession s = new SearchSession(
+                mNextVersion.incrementAndGet(), query, enabledProviders, callback);
+        mActiveSession = s;
 
         if (query == null || query.isEmpty()) {
             callback.onSearchResult(query, new ArrayList<>());
             return;
         }
 
-        boolean appsEnabled = LauncherPrefs.get(mContext).get(LauncherPrefs.SEARCH_APPS);
-
-        // Count how many providers will run
-        int providerCount = appsEnabled ? 1 : 0;
+        // Count how many providers will run under this session's snapshot.
+        int providerCount = enabledProviders.contains(ProviderCategory.APPS) ? 1 : 0;
         for (SearchProvider<?> provider : mExtraProviders) {
-            if (query.length() >= provider.minQueryLength() && isProviderEnabled(provider)) {
+            if (query.length() >= provider.minQueryLength()
+                    && enabledProviders.contains(provider.category())) {
                 providerCount++;
             }
         }
         if (providerCount == 0) {
-            // No providers enabled, show empty
-            deliverResults();
+            // No providers enabled — emit an empty FINAL.
+            deliverResults(s, SearchCallback.FINAL);
             return;
         }
-        mPendingProviders.set(providerCount);
+        s.pendingProviders.set(providerCount);
 
-        // Dispatch app search — deliver results immediately (progressive delivery)
-        if (appsEnabled) {
+        // Dispatch app search — INTERMEDIATE delivery so app results paint
+        // before slower I/O providers complete.
+        if (enabledProviders.contains(ProviderCategory.APPS)) {
             mAppProvider.search(query, apps -> {
-                synchronized (mCurrentResult) {
-                    mCurrentResult.apps.clear();
-                    mCurrentResult.apps.addAll(apps);
+                if (s.abandoned || s != mActiveSession) return;
+                synchronized (s.accumulator) {
+                    s.accumulator.apps.clear();
+                    s.accumulator.apps.addAll(apps);
                 }
-                int remaining = mPendingProviders.decrementAndGet();
-                if (remaining <= 0) {
-                    deliverResults(SearchCallback.FINAL);
-                } else {
-                    // Deliver app results immediately so users see them while I/O
-                    // providers are still running
-                    deliverResults(SearchCallback.INTERMEDIATE);
-                }
+                int remaining = s.pendingProviders.decrementAndGet();
+                deliverResults(s, remaining <= 0 ? SearchCallback.FINAL : SearchCallback.INTERMEDIATE);
             });
         }
 
-        // Dispatch extra providers
+        // Dispatch extra providers under the session's snapshotted enabled-set.
         for (SearchProvider<?> provider : mExtraProviders) {
-            if (query.length() >= provider.minQueryLength() && isProviderEnabled(provider)) {
-                dispatchProvider(provider, query);
+            if (query.length() >= provider.minQueryLength()
+                    && enabledProviders.contains(provider.category())) {
+                dispatchProvider(s, provider);
             }
         }
     }
 
     @SuppressWarnings("unchecked")
-    private void dispatchProvider(SearchProvider<?> provider, String query) {
-        String cat = provider.category();
-        provider.search(query, results -> {
-            synchronized (mCurrentResult) {
+    private void dispatchProvider(SearchSession s, SearchProvider<?> provider) {
+        ProviderCategory cat = provider.category();
+        provider.search(s.query, results -> {
+            if (s.abandoned || s != mActiveSession) return;
+            synchronized (s.accumulator) {
                 switch (cat) {
-                    case "shortcuts":
-                        mCurrentResult.shortcuts.clear();
-                        mCurrentResult.shortcuts.addAll((List<ShortcutResult>) (List<?>) results);
+                    case SHORTCUTS:
+                        s.accumulator.shortcuts.clear();
+                        s.accumulator.shortcuts.addAll((List<ShortcutResult>) (List<?>) results);
                         break;
-                    case "contacts":
-                        mCurrentResult.contacts.clear();
-                        mCurrentResult.contacts.addAll((List<ContactResult>) (List<?>) results);
+                    case CONTACTS:
+                        s.accumulator.contacts.clear();
+                        s.accumulator.contacts.addAll((List<ContactResult>) (List<?>) results);
                         break;
-                    case "calendar":
-                        mCurrentResult.calendarEvents.clear();
-                        mCurrentResult.calendarEvents.addAll(
+                    case CALENDAR:
+                        s.accumulator.calendarEvents.clear();
+                        s.accumulator.calendarEvents.addAll(
                                 (List<CalendarResult>) (List<?>) results);
                         break;
-                    case "files":
-                        mCurrentResult.files.clear();
-                        mCurrentResult.files.addAll((List<FileResult>) (List<?>) results);
+                    case FILES:
+                        s.accumulator.files.clear();
+                        s.accumulator.files.addAll((List<FileResult>) (List<?>) results);
                         break;
-                    case "quick_actions":
-                        mCurrentResult.quickActions.clear();
-                        mCurrentResult.quickActions.addAll((List<QuickAction>) (List<?>) results);
+                    case QUICK_ACTIONS:
+                        s.accumulator.quickActions.clear();
+                        s.accumulator.quickActions.addAll((List<QuickAction>) (List<?>) results);
                         break;
-                    case "calculator":
+                    case CALCULATOR:
                         if (!results.isEmpty()) {
-                            mCurrentResult.calculator = (CalculatorResult) results.get(0);
+                            s.accumulator.calculator = (CalculatorResult) results.get(0);
                         }
                         break;
-                    case "unit_converter":
+                    case UNIT_CONVERTER:
                         if (!results.isEmpty()) {
-                            mCurrentResult.unitConversion = (UnitConversion) results.get(0);
+                            s.accumulator.unitConversion = (UnitConversion) results.get(0);
                         }
                         break;
-                    case "timezone":
+                    case TIMEZONE:
                         if (!results.isEmpty()) {
-                            mCurrentResult.timezone = (TimezoneResult) results.get(0);
+                            s.accumulator.timezone = (TimezoneResult) results.get(0);
                         }
+                        break;
+                    case APPS:
+                        // AppSearchProvider has its own dedicated dispatch path
+                        // in doSearch() with progressive INTERMEDIATE delivery —
+                        // never routed here.
                         break;
                 }
             }
-            onProviderComplete();
+            int remaining = s.pendingProviders.decrementAndGet();
+            if (remaining <= 0) {
+                deliverResults(s, SearchCallback.FINAL);
+            }
         });
     }
 
-    private void onProviderComplete() {
-        int remaining = mPendingProviders.decrementAndGet();
-        if (remaining <= 0) {
-            deliverResults(SearchCallback.FINAL);
-        }
-    }
-
-    /** Converts the current SearchResult into adapter items respecting filters. */
-    private void deliverResults() {
-        deliverResults(SearchCallback.FINAL);
-    }
-
-    /** Converts the current SearchResult into adapter items respecting filters. */
-    private void deliverResults(int resultCode) {
-        if (mCurrentCallback == null || mCurrentResult == null) return;
-
-        ArrayList<AdapterItem> items = new ArrayList<>();
-
-        // Filter bar is always first
-        items.add(SearchResultAdapterItem.asFilterBar(VIEW_TYPE_SEARCH_FILTER_BAR, mFilters));
-
-        synchronized (mCurrentResult) {
-            // Quick actions (always shown regardless of filter).
-            // Skip WEB_SEARCH type — replaced by the floating "Search online" FAB.
-            for (QuickAction action : mCurrentResult.quickActions) {
-                if (action.type == QuickAction.Type.WEB_SEARCH) continue;
-                items.add(SearchResultAdapterItem.asQuickAction(
-                        VIEW_TYPE_SEARCH_QUICK_ACTION, action));
-            }
-
-            // Calculator
-            if (mCurrentResult.calculator != null
-                    && mFilters.isCategorySelected(SearchFilters.Category.TOOLS)) {
-                items.add(SearchResultAdapterItem.asResult(
-                        VIEW_TYPE_SEARCH_CALCULATOR, mCurrentResult.calculator));
-            }
-
-            // Unit converter
-            if (mCurrentResult.unitConversion != null
-                    && mFilters.isCategorySelected(SearchFilters.Category.TOOLS)) {
-                items.add(SearchResultAdapterItem.asResult(
-                        VIEW_TYPE_SEARCH_UNIT_CONVERTER, mCurrentResult.unitConversion));
-            }
-
-            // Timezone
-            if (mCurrentResult.timezone != null
-                    && mFilters.isCategorySelected(SearchFilters.Category.TOOLS)) {
-                items.add(SearchResultAdapterItem.asResult(
-                        VIEW_TYPE_SEARCH_TIMEZONE, mCurrentResult.timezone));
-            }
-
-            // Apps
-            if (!mCurrentResult.apps.isEmpty()
-                    && mFilters.isCategorySelected(SearchFilters.Category.APPS)) {
-                items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER,
-                        mContext.getString(R.string.search_section_apps)));
-                for (AppInfo app : mCurrentResult.apps) {
-                    items.add(AdapterItem.asApp(app));
-                }
-            }
-
-            // Shortcuts
-            if (!mCurrentResult.shortcuts.isEmpty()
-                    && mFilters.isCategorySelected(SearchFilters.Category.SHORTCUTS)) {
-                items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER,
-                        mContext.getString(R.string.search_section_shortcuts)));
-                for (ShortcutResult shortcut : mCurrentResult.shortcuts) {
-                    items.add(SearchResultAdapterItem.asResult(
-                            VIEW_TYPE_SEARCH_SHORTCUT, shortcut));
-                }
-            }
-
-            // Contacts
-            if (!mCurrentResult.contacts.isEmpty()
-                    && mFilters.isCategorySelected(SearchFilters.Category.CONTACTS)) {
-                items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER,
-                        mContext.getString(R.string.search_section_contacts)));
-                for (ContactResult contact : mCurrentResult.contacts) {
-                    items.add(SearchResultAdapterItem.asResult(
-                            VIEW_TYPE_SEARCH_CONTACT, contact));
-                }
-            }
-
-            // Calendar
-            if (!mCurrentResult.calendarEvents.isEmpty()
-                    && mFilters.isCategorySelected(SearchFilters.Category.CALENDAR)) {
-                items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER,
-                        mContext.getString(R.string.search_section_calendar)));
-                for (CalendarResult event : mCurrentResult.calendarEvents) {
-                    items.add(SearchResultAdapterItem.asResult(
-                            VIEW_TYPE_SEARCH_CALENDAR, event));
-                }
-            }
-
-            // Files
-            if (!mCurrentResult.files.isEmpty()
-                    && mFilters.isCategorySelected(SearchFilters.Category.FILES)) {
-                items.add(SearchResultAdapterItem.asSectionHeader(
-                        VIEW_TYPE_SEARCH_SECTION_HEADER,
-                        mContext.getString(R.string.search_section_files)));
-                for (FileResult file : mCurrentResult.files) {
-                    items.add(SearchResultAdapterItem.asResult(VIEW_TYPE_SEARCH_FILE, file));
-                }
-            }
-        }
-
-        if (resultCode == SearchCallback.FINAL && items.size() <= 1) {
-            // All providers finished with no results — show empty state
-            AdapterItem emptyItem = new AdapterItem(VIEW_TYPE_EMPTY_SEARCH);
-            AppInfo placeholder = new AppInfo();
-            placeholder.title = mCurrentQuery;
-            emptyItem.itemInfo = placeholder;
-            items.add(emptyItem);
-        }
-
-        mCurrentCallback.onSearchResult(mCurrentQuery, items, resultCode);
+    /** Converts the session's SearchResult into adapter items and dispatches via the callback. */
+    private void deliverResults(SearchSession s, int resultCode) {
+        if (s.abandoned || s != mActiveSession) return;
+        ArrayList<AdapterItem> items = UniversalSearchAdapterProvider.convertResults(
+                mContext, s.accumulator, mFilters, s.query, resultCode);
+        s.callback.onSearchResult(s.query, items, resultCode);
     }
 
     @Override
@@ -363,5 +265,10 @@ public class UniversalSearchAlgorithm implements SearchAlgorithm<AdapterItem> {
     @Override
     public void destroy() {
         cancel(true);
+        SearchSession s = mActiveSession;
+        if (s != null) {
+            s.abandoned = true;
+        }
+        mActiveSession = null;
     }
 }

@@ -1258,6 +1258,15 @@ public class Launcher extends StatefulActivity<LauncherState>
         super.onResume();
 
         DragView.removeAllViews(this);
+
+        // When the launcher resumes directly into ALL_APPS state (e.g., user pressed BACK
+        // from an app that was launched from the drawer while searching), the search visual
+        // state may be stale: appsContainer.alpha=0 from the search-enter animation that was
+        // never reversed. Reset the drawer to ensure the apps grid is visible. See change 084.
+        if (isInState(LauncherState.ALL_APPS) && mAppsView.isSearching()) {
+            mAppsView.reset(false /* animate */);
+        }
+
         TraceHelper.INSTANCE.endSection();
     }
 
@@ -1712,10 +1721,15 @@ public class Launcher extends StatefulActivity<LauncherState>
                             alreadyOnHome && mStateManager.shouldAnimateStateChange());
                 }
 
-                // Reset the apps view
-                if (!alreadyOnHome) {
-                    mAppsView.reset(isStarted() /* animate */);
-                }
+                // Reset the apps view. Previously guarded by !alreadyOnHome, but
+                // that left mSearchState=ACTIVE_EMPTY when pressing HOME while the
+                // launcher is already the foreground app (the race documented in
+                // docs/changes/070 can recur when _wake_and_home skips the HOME press).
+                // Calling reset() unconditionally ensures search state is always clean
+                // when HOME fires. When alreadyOnHome=true (already on workspace), the
+                // animate=false path runs a no-op header animation; it does not re-enter
+                // the drawer or cause any visible glitch.
+                mAppsView.reset(!alreadyOnHome && isStarted() /* animate */);
 
                 if (shouldMoveToDefaultScreen && !mWorkspace.isHandlingTouch()) {
                     mWorkspace.post(mWorkspace::moveToDefaultScreen);
@@ -2415,7 +2429,20 @@ public class Launcher extends StatefulActivity<LauncherState>
                 continue;
             }
             if (enableWorkspaceInflation() && view instanceof LauncherAppWidgetHostView lv) {
-                view = getAppWidgetHolder().attachViewToHostAndGetAttachedView(lv);
+                View attached = getAppWidgetHolder().attachViewToHostAndGetAttachedView(lv);
+                if (attached == null) {
+                    // attachViewToHostAndGetAttachedView returned null — keep the original
+                    // pre-attachment view to prevent a crash. Recoverable on next bind.
+                    // docs/changes/080 NPE fix.
+                    attached = lv;
+                }
+                if (attached.getTag() == null) {
+                    // New view object doesn't inherit the tag set by prepareAppWidget.
+                    // Copy it to prevent NPE in WorkspaceLayoutManager.addInScreen:140.
+                    // docs/changes/080 NPE fix.
+                    attached.setTag(lv.getTag());
+                }
+                view = attached;
             } else if (enableWorkspaceInflation() && view instanceof WidgetStackView wsv) {
                 wsv.attachChildWidgetsToHost(getAppWidgetHolder());
             }

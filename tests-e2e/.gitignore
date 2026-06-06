@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+report.html
+artifacts/
+visuals/baseline/*.png.local

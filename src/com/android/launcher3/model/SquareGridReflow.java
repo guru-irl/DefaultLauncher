@@ -22,11 +22,13 @@ import static com.android.launcher3.LauncherSettings.Favorites.CELLX;
 import static com.android.launcher3.LauncherSettings.Favorites.CELLY;
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER;
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_DESKTOP;
+import static com.android.launcher3.LauncherSettings.Favorites.OPTIONS;
 import static com.android.launcher3.LauncherSettings.Favorites.SCREEN;
 import static com.android.launcher3.LauncherSettings.Favorites.SPANX;
 import static com.android.launcher3.LauncherSettings.Favorites.SPANY;
 import static com.android.launcher3.LauncherSettings.Favorites.TABLE_NAME;
 import static com.android.launcher3.LauncherSettings.Favorites._ID;
+import static com.android.launcher3.model.data.FolderInfo.FLAG_EXPANDED;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -66,7 +68,10 @@ public class SquareGridReflow {
         int cellY;
         int spanX;
         int spanY;
+        /** Folder options bitmask (FLAG_EXPANDED etc.) for folder rows; 0 for others. */
+        int options;
         boolean moved;
+        boolean optionsChanged;
 
         ReflowEntry(Cursor c) {
             id = c.getLong(c.getColumnIndexOrThrow(_ID));
@@ -75,6 +80,7 @@ public class SquareGridReflow {
             cellY = c.getInt(c.getColumnIndexOrThrow(CELLY));
             spanX = c.getInt(c.getColumnIndexOrThrow(SPANX));
             spanY = c.getInt(c.getColumnIndexOrThrow(SPANY));
+            options = c.getInt(c.getColumnIndexOrThrow(OPTIONS));
         }
 
         boolean fitsInGrid(int cols, int rows) {
@@ -179,6 +185,19 @@ public class SquareGridReflow {
                 entry.spanY = clampedY;
                 entry.moved = true;
             }
+            // FLAG_EXPANDED preservation contract: an expanded folder must satisfy
+            // spanX == spanY && spanX >= 2 to render expanded. If reflow clamped the
+            // span past that invariant, persist the cleared flag so the DB stays
+            // consistent. The runtime view layer (FolderIcon.updateExpandedState)
+            // intentionally does NOT clear the flag on bind — see drawer-invariants
+            // doc and change 029.
+            if ((entry.options & FLAG_EXPANDED) != 0
+                    && !(entry.spanX == entry.spanY && entry.spanX >= 2)) {
+                Log.d(TAG, "reflow: clearing FLAG_EXPANDED on id=" + entry.id
+                        + " (post-clamp span " + entry.spanX + "x" + entry.spanY + ")");
+                entry.options &= ~FLAG_EXPANDED;
+                entry.optionsChanged = true;
+            }
         }
 
         // Group by screen, preserving insertion order.
@@ -268,13 +287,18 @@ public class SquareGridReflow {
         db.beginTransaction();
         try {
             for (ReflowEntry entry : allItems) {
-                if (!entry.moved) continue;
+                if (!entry.moved && !entry.optionsChanged) continue;
                 ContentValues values = new ContentValues();
-                values.put(CELLX, entry.cellX);
-                values.put(CELLY, entry.cellY);
-                values.put(SPANX, entry.spanX);
-                values.put(SPANY, entry.spanY);
-                values.put(SCREEN, entry.screenId);
+                if (entry.moved) {
+                    values.put(CELLX, entry.cellX);
+                    values.put(CELLY, entry.cellY);
+                    values.put(SPANX, entry.spanX);
+                    values.put(SPANY, entry.spanY);
+                    values.put(SCREEN, entry.screenId);
+                }
+                if (entry.optionsChanged) {
+                    values.put(OPTIONS, entry.options);
+                }
                 db.update(TABLE_NAME, values, _ID + " = ?",
                         new String[]{String.valueOf(entry.id)});
                 movedCount++;

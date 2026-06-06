@@ -159,6 +159,28 @@ public class InvariantDeviceProfile {
     /** Valid row gap values (dp) for the all-apps drawer. */
     public static final float[] ALLAPPS_ROW_GAP_OPTIONS = {16f, 24f, 32f};
 
+    /**
+     * Step size (dp) for the workspace top/bottom padding sliders. Chosen so
+     * the slider always snaps to a multiple of 8dp — a common 4dp grid
+     * doubling that lines up with M3 spacing tokens. Reused by GridsFragment
+     * to call slider.setStepSize(PAD_STEP_DP).
+     */
+    public static final int PAD_STEP_DP = 8;
+
+    /**
+     * Sentinel stored in WORKSPACE_TOP_PADDING_DP / WORKSPACE_BOTTOM_PADDING_DP
+     * meaning "auto — compute from this device's system bar insets on next
+     * IDP construction". Replaced by the computed value once IDP runs so the
+     * slider can display a concrete number.
+     */
+    public static final int AUTO_PAD_SENTINEL = -1;
+
+    /** Round {@code value} to the nearest multiple of {@code step}. */
+    public static int roundToMultipleOf(int value, int step) {
+        if (step <= 0) return value;
+        return Math.round((float) value / step) * step;
+    }
+
     /** Snaps a raw dp value to the nearest valid gap option. */
     public static float snapToNearestGap(int rawDp) {
         float closest = ALLAPPS_ROW_GAP_OPTIONS[0];
@@ -183,6 +205,15 @@ public class InvariantDeviceProfile {
     public int persistedGridRows = -1;
     /** Locked inter-cell gap in pixels, or -1 if not yet computed. */
     public int persistedGridGap = -1;
+
+    /**
+     * User-controlled top padding in PIXELS reserved above the workspace grid in
+     * square-grid mode. Replaces the system-bar top inset in the row-fit math so
+     * the layout no longer depends on OS-version inset reporting.
+     */
+    public int workspaceTopPaddingPx;
+    /** Same as above, applied to the bottom (hotseat → screen edge). */
+    public int workspaceBottomPaddingPx;
 
     /** Whether workspace icon labels are hidden. */
     public boolean hideWorkspaceLabels;
@@ -337,8 +368,11 @@ public class InvariantDeviceProfile {
                 });
         lifeCycle.addCloseable(() -> dc.setPriorityListener(null));
 
-        LauncherPrefChangeListener prefListener = key -> {
-            if (FIXED_LANDSCAPE_MODE.getSharedPrefKey().equals(key)
+        // Migrated to unified prefs framework (T2.3 Phase 4). The handler is
+        // per-key: FIXED_LANDSCAPE_MODE flips the grid-name pref pair, while
+        // ENABLE_TWOLINE_ALLAPPS_TOGGLE triggers a generic onConfigChanged.
+        AutoCloseable idpPrefSub = prefs.getPrefChanges().subscribe(changes -> {
+            if (changes.contains(FIXED_LANDSCAPE_MODE)
                     && isFixedLandscape != prefs.get(FIXED_LANDSCAPE_MODE)) {
                 Trace.beginSection("InvariantDeviceProfile#setFixedLandscape");
                 if (isFixedLandscape) {
@@ -348,14 +382,18 @@ public class InvariantDeviceProfile {
                     onConfigChanged(context);
                 }
                 Trace.endSection();
-            } else if (ENABLE_TWOLINE_ALLAPPS_TOGGLE.getSharedPrefKey().equals(key)
+            } else if (changes.contains(ENABLE_TWOLINE_ALLAPPS_TOGGLE)
                     && enableTwoLinesInAllApps != prefs.get(ENABLE_TWOLINE_ALLAPPS_TOGGLE)) {
                 onConfigChanged(context);
             }
-        };
-        prefs.addListener(prefListener, FIXED_LANDSCAPE_MODE, ENABLE_TWOLINE_ALLAPPS_TOGGLE);
-        lifeCycle.addCloseable(() -> prefs.removeListener(prefListener,
-                FIXED_LANDSCAPE_MODE, ENABLE_TWOLINE_ALLAPPS_TOGGLE));
+        }, FIXED_LANDSCAPE_MODE, ENABLE_TWOLINE_ALLAPPS_TOGGLE);
+        lifeCycle.addCloseable(() -> {
+            try {
+                idpPrefSub.close();
+            } catch (Exception ignored) {
+                // PrefSubscriptions don't throw.
+            }
+        });
 
         SimpleBroadcastReceiver localeReceiver = new SimpleBroadcastReceiver(context,
                 MAIN_EXECUTOR, i -> onConfigChanged(context));
@@ -530,22 +568,62 @@ public class InvariantDeviceProfile {
             numRows = 20;
         }
 
+        // --- User-controlled workspace top/bottom padding (square-grid mode) ---
+        // These replace mInsets.top / mInsets.bottom in the row-fit math so the
+        // grid no longer depends on OS-reported system bar insets (which can
+        // shift across OS updates — One UI 8.5 was the original motivator).
+        //
+        // First-launch defaults are derived from the device's actual system
+        // bar insets (portrait): top = round-to-8(statusBars.top), bottom =
+        // round-to-8(max(navigationBars.bottom, minMarginDp)). After first
+        // computation we persist the auto-default so the slider shows the
+        // value the user is actually seeing.
+        int topPadDp = mPrefs.get(LauncherPrefs.WORKSPACE_TOP_PADDING_DP);
+        int bottomPadDp = mPrefs.get(LauncherPrefs.WORKSPACE_BOTTOM_PADDING_DP);
+        if (topPadDp == AUTO_PAD_SENTINEL || bottomPadDp == AUTO_PAD_SENTINEL) {
+            // Find the portrait WindowBounds (height > width). Its insets come
+            // from Type.systemBars() | Type.displayCutout() per WindowManagerProxy
+            // so .top is the status bar height and .bottom is the nav bar /
+            // gesture pill height — exactly the inputs the user previously
+            // observed as the "gap above workspace" / "gap below dock".
+            int portraitTopPx = 0;
+            int portraitBottomPx = 0;
+            for (WindowBounds bounds : displayInfo.supportedBounds) {
+                if (bounds.bounds.height() > bounds.bounds.width()) {
+                    portraitTopPx = bounds.insets.top;
+                    portraitBottomPx = bounds.insets.bottom;
+                    break;
+                }
+            }
+            float density = metrics.density;
+            int autoTopDp = roundToMultipleOf(
+                    Math.round(portraitTopPx / density), PAD_STEP_DP);
+            int autoBottomDp = roundToMultipleOf(
+                    Math.max(Math.round(portraitBottomPx / density),
+                            (int) SQUARE_GRID_MIN_TB_MARGIN_DP),
+                    PAD_STEP_DP);
+            if (topPadDp == AUTO_PAD_SENTINEL) {
+                topPadDp = autoTopDp;
+                mPrefs.put(LauncherPrefs.WORKSPACE_TOP_PADDING_DP.to(autoTopDp));
+            }
+            if (bottomPadDp == AUTO_PAD_SENTINEL) {
+                bottomPadDp = autoBottomDp;
+                mPrefs.put(LauncherPrefs.WORKSPACE_BOTTOM_PADDING_DP.to(autoBottomDp));
+            }
+        }
+        workspaceTopPaddingPx = Math.round(topPadDp * metrics.density);
+        workspaceBottomPaddingPx = Math.round(bottomPadDp * metrics.density);
+
         // --- Read persisted grid rows + gap (locked geometry) ---
         int savedRows = mPrefs.get(LauncherPrefs.GRID_ROWS);
         int savedGap = mPrefs.get(LauncherPrefs.GRID_GAP);
         int savedCols = mPrefs.get(LauncherPrefs.GRID_ROWS_COLUMNS);
-        int savedNavHeight = mPrefs.get(LauncherPrefs.GRID_ROWS_NAV_HEIGHT);
+        int savedTopPad = mPrefs.get(LauncherPrefs.GRID_ROWS_TOP_PAD);
+        int savedBottomPad = mPrefs.get(LauncherPrefs.GRID_ROWS_BOTTOM_PAD);
 
-        // Get portrait bottom inset (navbar height) from display bounds
-        int currentNavHeight = -1;
-        for (WindowBounds bounds : displayInfo.supportedBounds) {
-            if (bounds.bounds.height() > bounds.bounds.width()) {
-                currentNavHeight = bounds.insets.bottom;
-                break;
-            }
-        }
-
-        boolean match = savedCols == userColumns && savedNavHeight == currentNavHeight;
+        boolean match = savedCols == userColumns
+                && savedTopPad == topPadDp
+                && savedBottomPad == bottomPadDp;
         persistedGridRows = (match && savedRows > 0) ? savedRows : -1;
         persistedGridGap = (match && savedGap >= 0) ? savedGap : -1;
 
@@ -586,7 +664,8 @@ public class InvariantDeviceProfile {
                             LauncherPrefs.GRID_ROWS.to(persistedGridRows),
                             LauncherPrefs.GRID_GAP.to(persistedGridGap),
                             LauncherPrefs.GRID_ROWS_COLUMNS.to(userColumns),
-                            LauncherPrefs.GRID_ROWS_NAV_HEIGHT.to(currentNavHeight));
+                            LauncherPrefs.GRID_ROWS_TOP_PAD.to(topPadDp),
+                            LauncherPrefs.GRID_ROWS_BOTTOM_PAD.to(bottomPadDp));
                     break;
                 }
             }

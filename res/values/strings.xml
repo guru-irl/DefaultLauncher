@@ -533,6 +533,8 @@
     <!-- Grid settings -->
     <string name="grid_settings_category">Grid</string>
     <string name="grid_columns_title">Grid columns</string>
+    <string name="workspace_top_padding_title">Top padding (dp)</string>
+    <string name="workspace_bottom_padding_title">Bottom padding (dp)</string>
     <string name="allapps_row_gap_title">Row gap</string>
 
     <!-- Settings sub-page titles -->
@@ -796,4 +798,8 @@
     <string name="widget_stack_add_widget">Add widget</string>
     <string name="widget_stack_remove_widget">Remove</string>
     <string name="widget_stack_drag_handle">Reorder</string>
+
+    <!-- UnavailableWidgetView strings. docs/changes/080 -->
+    <string name="unavailable_widget_title">Widget unavailable</string>
+    <string name="unavailable_widget_remove_desc">Remove unavailable widget</string>
 </resources>

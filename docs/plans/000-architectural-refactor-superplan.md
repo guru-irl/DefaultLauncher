@@ -1,0 +1,393 @@
+# Architectural Refactor — Superplan
+
+This document is the canonical reference for the multi-tier architectural refactor following the three-pass audit of workspace, grid, drawer, search, and model-loading subsystems.
+
+It also defines a permanent e2e testing suite as a first-class deliverable.
+
+## Scope
+
+- **Audit findings** are summarized in `docs/architecture/` (one file per subsystem invariants table).
+- **Implementation tiers** (T0 hotfixes through T3 architectural changes) are tracked in the task system and reflected here as section headings.
+- **Testing suite** (`tests-e2e/`) is built in Phase 0 and grown with each tier.
+
+## Non-goals
+
+- No Quickstep/Go reintegration.
+- No new product features. This is hardening + groundwork.
+- No upstream AOSP rebase coordination beyond minimizing divergence per CLAUDE.md.
+
+## Phase 0 — Test Harness (DELIVERABLE)
+
+Phase 0 establishes a permanent e2e testing suite that survives the refactor. Smoke runs guard every later phase; the suite itself is the artifact users gain.
+
+### Stack
+
+| Layer | Choice | Why |
+|-------|--------|-----|
+| Driver | `uiautomator2` (Python) | Wraps Google's UiAutomator2; no separate server (unlike Appium); selector API resembles Playwright |
+| Test runner | `pytest` | Fixtures, parametrization, JUnit XML, plugin ecosystem |
+| Assertion helpers | Custom `LauncherDriver` class | Hides selector churn behind named operations (`open_drawer`, `type_search`, `drag_to_hotseat`) |
+| AVD lifecycle | Headless emulator | Spawned via `emulator -no-window -no-audio -no-snapshot-save` |
+| CI hook | `tests-e2e/run.sh` | Single entry point; supports `--smoke`, `--full`, `--feature workspace` |
+
+### Directory layout
+
+```
+tests-e2e/
+├── README.md                       # how to run + add tests
+├── pyproject.toml                  # uv/pip deps
+├── conftest.py                     # session/device fixtures
+├── pytest.ini                      # markers, timeouts
+├── run.sh                          # entry point
+├── lib/
+│   ├── __init__.py
+│   ├── launcher.py                 # LauncherDriver facade
+│   ├── selectors.py                # central selector strings
+│   ├── adb_setup.py                # ensure device + reinstall APK
+│   ├── perf.py                     # frame timing helpers
+│   └── screencap.py                # diff helpers for visual snapshots
+├── smoke/                          # <5 min total, run on every PR
+│   ├── test_workspace_basics.py
+│   ├── test_drawer_basics.py
+│   ├── test_search_basics.py
+│   ├── test_settings_basics.py
+│   └── test_grid_basics.py
+├── regression/                     # longer; nightly or per-tier
+│   ├── test_workspace_state.py     # drag races, folder open during rebuild
+│   ├── test_drawer_state.py        # search-anim suppression, private space
+│   ├── test_search_progressive.py  # INTERMEDIATE/FINAL contract
+│   ├── test_prefs_cascade.py       # cascade matrix per pref
+│   └── test_model_load.py          # deletion safety scenarios
+├── stress/                         # off by default; long-running
+│   ├── test_rapid_typing.py
+│   ├── test_grid_thrash.py         # column-change cycles
+│   └── test_widget_restore.py      # AppWidgetManager flaps
+└── visuals/                        # golden image diffs
+    └── baseline/                   # PNG references (small, gitignored binaries optional)
+```
+
+### Coverage commitments by tier
+
+| Tier | New smokes | New regressions | New stress |
+|------|-----------|----------------|-----------|
+| Phase 0 | ~20 (golden paths across all features) | 0 | 0 |
+| T0 | +2 (4-param search code, circuit breaker behavior) | +2 | 0 |
+| T1 | +3 (DiffUtil decoration, view-type stability) | +4 | 0 |
+| T2 | +6 (per redrafted plan) | +10 | +2 |
+| T3 | +10 (drawer phases, deletion paths) | +15 | +3 |
+| **Total** | **~41** | **~31** | **~5** |
+
+### Test design principles
+
+1. **Tests describe user intent, not UI structure.** `driver.open_drawer()` not `d(resourceId="launcher:id/apps_button").click()`. Selector changes go in one file.
+2. **No hardcoded sleeps.** Use uiautomator2's wait-for-element semantics. If a test needs an explicit wait, name a constant in `lib/selectors.py`.
+3. **Fixtures own setup teardown.** A test never reaches into ADB directly; it uses fixtures that record state and restore.
+4. **Each test is independent.** No ordering assumptions. Each starts from a known-good state (cleared workspace, settings reset to defaults).
+5. **Smokes assert one thing.** Regressions can assert multi-step flows. Stress tests assert no crashes / no leaks.
+6. **Failures dump artifacts.** Screenshots + logcat tail + UI hierarchy XML on any failure.
+7. **Screenshots are diagnostic, not assertions** — except in `visuals/`, where golden images are explicit.
+
+### Add-a-test ergonomics
+
+The `README.md` at `tests-e2e/README.md` documents:
+- One-liner to install deps
+- How to run locally (full / smoke / by feature)
+- The LauncherDriver API surface
+- How to add a new smoke (5-line template)
+- How visual baselines are managed
+
+## Execution model
+
+For every plan (T0 through T3):
+
+1. **Create a feature branch** off `dev`: `git checkout -b refactor/<tier>-<short-name>`.
+2. **Write the change doc first** in `docs/changes/NNN-<name>.md` — sets the intent before code.
+3. **Add tests first** when reasonable (TDD where applicable, e.g., the search 4-param fix has an obvious regression test).
+4. **Implement** per the plan.
+5. **Build** `assembleDebug` — must pass.
+6. **Install** `adb install -r ...apk`.
+7. **Run smoke suite** — must pass.
+8. **Manual exploratory pass** — 5-10 minutes against the AVD for the feature touched. Notes captured in the PR.
+9. **Commit + open PR** for review against `dev`.
+10. **Merge** only after smoke + manual pass green.
+
+Between tiers: full regression suite + perf comparison (cold start time, scroll smoothness, search latency).
+
+## Failure handling
+
+- **Build failure** → fix or revert. Never `--no-verify`.
+- **Smoke failure** → identify root cause. If the failure is in code touched by the plan, fix. If in unrelated code, that's a pre-existing bug — file separately, don't sneak the fix into this PR.
+- **Manual pass surfaces issue** → either fix in-PR (small) or file as follow-up (large) and decide whether to ship the partial work.
+- **Performance regression** → block the PR. Performance is a feature.
+
+## Tier reference
+
+### Tier 0 — Hotfixes (single-PR each, no plan v2 needed)
+- T0.1 Search 4-param onSearchResult override
+- T0.2 Orphaned pref triage (split per pref family as separate small PRs)
+- T0.3 Circuit breaker floor/ratio tuning
+- T0.4 Drawer invariants documentation
+
+### Tier 1 — Verified-safe small plans
+- T1.1 DiffUtil decoration fix (`AdapterItem.isContentSame` + `SectionDecorationInfo.equals`)
+- T1.2 Grid init `mWorkspacePaddingReady` debug log + `GRID_ROWS_NAV_MODE` invalidation key
+- T1.3 AllAppsStore `volatile mApps` + threading contract
+- T1.4 View-type ID renumbering + duplicate static-block guard
+
+### Tier 2 — Plans needing v2 drafts
+- T2.0 Three plan agents redraft workspace / search / prefs frameworks with audit deltas
+- T2.1 Execute workspace reliability v2
+- T2.2 Execute search reliability v2 (depends on T0.1)
+- T2.3 Execute prefs framework v2 (5-tier taxonomy)
+
+### Tier 3 — Architecture plans (depend on Tier 2)
+- T3.0 Two plan agents redraft drawer decomposition / deletion safety
+- T3.1 Execute drawer decomposition (5 phases, smoke gate per phase)
+- T3.2 Execute deletion safety v2
+
+## Status tracking
+
+The TaskCreate/TaskList system tracks execution. See task IDs 13–34. Dependencies enforced via `blockedBy`.
+
+Each change generates a numbered file in `docs/changes/048-…` onwards. Each merged PR moves the corresponding task to `completed`.
+
+## Living document
+
+This file evolves as the work progresses. After each tier completes, add a "Lessons learned" subsection capturing what the audits missed and what we learned during implementation. Future architecture work uses this as a reference.
+
+## Execution log
+
+### Session 1 (handoff point)
+
+Branch: `refactor/t0.1-search-4param-override` — 9 commits ahead of `dev`.
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| P0 | Test harness + 19 smoke + 2 regression tests | ✅ done | — |
+| T0.1 | Search 4-param onSearchResult override | ✅ done | `docs/changes/048` |
+| T0.2 | Orphan-pref triage (verified no real orphans) | ✅ done | `docs/changes/049` |
+| T0.3 | Mass-delete circuit breaker floor 3→5, ratio 25%→20% | ✅ done | `docs/changes/050` |
+| T0.4 | Drawer invariants reference doc | ✅ done | `docs/architecture/drawer-invariants.md` |
+| T1.1 | DiffUtil decoration equality | ✅ done | `docs/changes/051` |
+| T1.2 | Grid init guard + nav-mode invalidation key | ✅ done | `docs/changes/052` |
+| T1.3 | AllAppsStore volatile + snapshot | ✅ done | `docs/changes/053` |
+| T1.4 | View-type duplicate guard + misuse fix | ✅ done | `docs/changes/054` |
+| T2.0a | Workspace reliability v2 plan | ✅ drafted | `docs/plans/001-…` |
+| T2.0b | Search reliability v2 plan | ✅ drafted | `docs/plans/002-…` |
+| T2.0c | Prefs framework v2 plan | ✅ drafted | `docs/plans/003-…` |
+| T2.1 Item 1 | FLAG_EXPANDED cleared at SquareGridReflow clamp | ✅ done | `docs/changes/055` |
+| T2.1 Item 6 | strip-empty-screens drag guard | ✅ done | `docs/changes/056` |
+
+### Session 2
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| T2.1 Item 3 | Folder span persist call-site consolidation | ✅ done | `docs/changes/057` |
+| T2.1 Item 5 | Close folder on DP change | ✅ done | `docs/changes/058` |
+| T2.1 Item 7 | Workspace acceptDrop async drop-layout snapshot | ✅ done | `docs/changes/059` |
+| T2.1 Item 4 | Folder.replaceFolderWithFinalItem re-entry guard | ✅ done | `docs/changes/060` |
+| T2.1 Item 8 | CellLayout.resetCellSize occupancy doc note | ✅ done | `docs/changes/061` |
+| T2.2 Phase 1a | ProviderCategory enum migration | ✅ done | `docs/changes/062` |
+| T2.2 Phase 1b | SearchSession + provider snapshotting | ✅ done | `docs/changes/063` |
+| T2.2 Phase 2 | SearchState five-state machine | ✅ done | `docs/changes/064` |
+| T2.2 Phase 3 | convertResults moved to adapter provider | ✅ done | `docs/changes/065` |
+| T2.2 Phase 4 | DefaultAppSearchAlgorithm + DefaultSearchAdapterProvider deletion | ✅ done | `docs/changes/066` |
+| T2.3 Phase 1 | Prefs framework foundation (dormant) | ✅ done | `docs/changes/067` |
+| Cold-start drawer test | force-stop regression test + investigation | ✅ done | `docs/changes/068` |
+| T2.3 Phase 2 prep | Visuals baseline framework | ✅ done | `docs/changes/069` |
+
+### Session 3
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| Bug fix | SearchState reset on home return + workspace scaffolding fixture | ✅ done | `docs/changes/070` |
+
+**Session 3 highlight:** identified and fixed the user-reported "empty drawer on first open, search-and-back fixes it" bug. Root cause was a SearchState regression from T2.2 Phase 2 — `clear_search()` transitions state to `ACTIVE_EMPTY`, but closing the drawer via Launcher state transition (NORMAL ← ALL_APPS) didn't reset `mSearchState` to `IDLE`. Next drawer open found `isSearching()` true for `ACTIVE_EMPTY`, so `updateSearchResultsVisibility()` rendered the empty `search_results_list_view` instead of the apps grid. Fix in `ActivityAllAppsContainerView.reset(animate, exitSearch=true)`.
+
+Same commit also added a workspace scaffolding fixture in `tests-e2e/conftest.py`: idempotent, reproducible, retried up to 3 times. Wired into `launcher` (session), `_wake_and_home` (autouse, every test), and `clean_launcher` (per-test). Tests now start from a guaranteed-populated workspace regardless of prior state, fixing the latent fragility where `default_workspace_5x5.xml` resolves zero workspace items on the Pixel 7 Pro AVD.
+
+**T2.1 + T2.2 complete. T2.3 Phase 1 + visuals-baseline prerequisites shipped.**
+
+T2.3 Phases 2 and 3 (drawer-color migration + IDP.onConfigChanged downgrade) can now ship safely: the visuals tests at `tests-e2e/visuals/` will catch paint regressions, and `LauncherPrefs.get(context).prefChanges.subscribe(...)` is the framework consumers wire into.
+
+### Session 4
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| T2.3 Phase 2a | ActivityAllAppsContainerView subscriber wiring (DRAWER_BG_COLOR, DRAWER_BG_OPACITY, DRAWER_HIDE_TABS) | ✅ done | `docs/changes/071` |
+| T2.3 Phase 2b | AppsSearchContainerLayout + AllAppsState (lazy singleton) + RecyclerViewFastScroller | ✅ done | `docs/changes/072` |
+| T2.3 Phase 3 (drawer scope) | Removed IDP.onConfigChanged from 5 sites in AppDrawerColorsFragment for the 7 drawer paint prefs; added DRAWER_TAB_*_COLOR to the subscriber | ✅ done | `docs/changes/073` |
+| T3.0a | Plan 004 — drawer decomposition v2 (5 phases) | ✅ drafted | `docs/plans/004-drawer-decomposition-v2.md` |
+| T3.0b | Plan 005 — deletion safety v2 (3 phases) | ✅ drafted | `docs/plans/005-deletion-safety-v2.md` |
+
+**Session 4 highlight:** T2.3 (unified prefs framework) drawer scope landed. The "big perf win" the plan targeted — eliminating `rebindCallbacks` + DeviceProfile rebuild on each drawer color change — is now real for `DRAWER_BG_COLOR`, `DRAWER_BG_OPACITY`, `DRAWER_SEARCH_BG_COLOR`, `DRAWER_SEARCH_BG_OPACITY`, `DRAWER_SCROLLBAR_COLOR`, `DRAWER_TAB_SELECTED_COLOR`, `DRAWER_TAB_UNSELECTED_COLOR`. The 4 folder color prefs were intentionally left on the legacy `IDP.onConfigChanged` path — folder consumers (`FolderIcon` + `Folder` + `PreviewBackground` + `FolderCoverManager` bitmap cache) are non-trivial to migrate; deferred and documented in 073.
+
+Plan-subagents drafted both T3.0 plans in parallel. Plan 005 maps the superplan's `isLauncherAppsHealthy` reference to the actual identifier in source: `ServiceReadiness.isPackageProbablyInstalled` at `src/com/android/launcher3/util/ServiceReadiness.java:52-66`, called from `WorkspaceItemProcessor.kt:247/286` and `WidgetInflater.kt:104/204`. Plan 005 also specifies a unit-test path under `tests/src/...` — that directory was deleted as part of the AOSP cleanup (per CLAUDE.md), so the Phase A unit-test target needs relocating before T3.2 execution.
+
+**T2.3 complete for drawer scope; folder scope deferred. T3.0 plans landed. T3.1 + T3.2 ready to execute.**
+
+### Session 5
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| Folder color migration | T2.3 Phase 2/3 followup: FolderIcon + Folder + PreviewBackground subscribers; AppDrawerColorsFragment `idpReconfigure=false` for 4 folder prefs | ✅ done | `docs/changes/074` |
+| T3.1 Phase 1 | DrawerColorController + SearchFabController extracted from ActivityAllAppsContainerView (2168→1931 LOC) | ✅ done | `docs/changes/075` |
+| Test infra fix | `LauncherDriver.is_home()` fallback to workspace visibility probe; fixes Android 17 `app_current()` staleness with background task stack | ✅ done | `tests-e2e/lib/launcher.py` |
+
+**Session 5 highlight:** T2.3 folder scope landed — all 11 drawer/folder color prefs now use `PrefChangeDispatcher`. T3.1 Phase 1 (DrawerColorController + SearchFabController) extracted with 5 regression tests defining the behavioral contract. Test infrastructure hardened: `is_home()` now falls back to workspace accessibility probe to avoid `app_current()` staleness on Android 17.
+
+**T2.3 complete (drawer + folder scope). T3.1 Phase 1 shipped. T3.1 Phases 2–5 + T3.2 remain.**
+
+**Discovered:** `app_current()` in UIAutomator2 on Android 17 returns a background task (e.g., Phone dialer) instead of the foreground launcher after `test_launch_app_from_hotseat` runs. Fixed in `LauncherDriver.is_home()` by adding workspace visibility as fallback check. This significantly speeds up the test suite (avoids `app_stop + app_start` overhead on every test after the first app launch).
+
+### Session 6
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| T3.1 Phase 2 | DrawerInsetsController extracted from ActivityAllAppsContainerView (1931→1914 LOC); owns mInsets, mNavBarScrimHeight, applyAdapterSideAndBottomPaddings, drawNavBarScrim | ✅ done | `docs/changes/078` |
+| Bug 079 | Empty-drawer race: mKeepKeyboardOnSearchExit not cleared during mid-animation reset(); move flag clear unconditionally before isRunning() guard | ✅ done | `docs/changes/079` |
+| Test reliability | launcher.py open_launcher_settings() waits for RecyclerView; web search test detects chooser dialog; folder drag 1.0→1.5s; drawer_intact scroll-to-top | ✅ done | `docs/changes/079` |
+
+**Session 6 highlight:** T3.1 Phase 2 landed — DrawerInsetsController owns all inset plumbing and nav-bar scrim drawing. Also fixed the root cause of the user-reported "empty drawer on first open" bug (change 079): `mKeepKeyboardOnSearchExit` was only cleared inside the `isRunning()` else branch; when `reset()` fired during the 300ms search animation (user pressed BACK quickly), the flag survived and the deferred runnable resolved to `ACTIVE_EMPTY`. Fix: move the flag clear unconditionally before the guard. Test reliability fixes: settings white screen, web search chooser detection, folder drag duration, drawer_intact scroll-to-top.
+
+**T3.1 Phases 3–5 + T3.2 remain. Test suite: 44 tests.**
+
+### Session 7
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| T3.2 | Widget deletion prevention: TYPE_MISSING + UnavailableWidgetView; widgets never auto-deleted; × button for user removal; recovery automatic on provider reinstall | ✅ done | `docs/changes/080` |
+| NPE fix | WorkspaceLayoutManager.addInScreen:140 null-tag crash; Launcher.bindInflatedItems tag-preservation after attachViewToHostAndGetAttachedView | ✅ done | `docs/changes/080` |
+| Forensics | Diagnosed widget stack loss from device logs: AppWidgetService t:0 r:0 at 15:45:57 + concurrent PM NameNotFoundException; 3 regression tests in test_deletion_safety.py | ✅ done | — |
+
+**Session 7 highlight:** T3.2 shipped. Root cause of widget deletion confirmed from AppWidget service history: 9-second blackout (t:0 r:0) after Samsung game exit. Policy change: WidgetInflater never returns TYPE_DELETE; all absent-provider cases return TYPE_MISSING, showing UnavailableWidgetView placeholder. NPE bug recurring since 2026-05-23 fixed with tag-preservation + null guard. Test suite: 47 tests.
+
+**T3.1 Phases 3–5 remain. T3.2 done.**
+
+### Session 8
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| T3.1 Phase 3 | ProfileCoordinator extracted from ActivityAllAppsContainerView (1912→1877 LOC); owns mWorkManager, mPrivateProfileManager, mHasWorkApps, mHasPrivateApps, mPersonalMatcher, onAppsUpdated branches, resetAndScrollToPrivateSpaceHeader, inflateWorkCardsIfNeeded | ✅ done | `docs/changes/081` |
+
+**Session 8 highlight:** T3.1 Phase 3 landed. ProfileCoordinator is a new class in the `allapps` package. The container retains the `!isSearching()` guard before `rebindAdapters()` — search state is not a profile concern. All 7 invariants (9–12) verified: PPM's three orthogonal booleans stay intra-PPM; mReadyToAnimate ordering untouched; MAIN_EXECUTOR.post guard in PPM.postUnlock() untouched; notifyDataSetChanged at PPM.java:704 preserved verbatim. Test suite: 51 tests (40 passed, 9 skipped, 2 xfailed). New `test_apps_updated_skips_rebind_when_searching` verifies the rebind-skip guard via SEED_WORKSPACE broadcast while in SEARCHING state.
+
+**T3.1 Phases 3–5 complete. T3.1 done.**
+
+### Session 8 (continued)
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| T3.1 Phase 4 | SearchLifecycle extracted from ActivityAllAppsContainerView (1877→~1820 LOC); owns SearchState enum, mSearchState, mSuppressSetupHeader, mKeepKeyboardOnSearchExit, mPendingSearchExitWork, mRebindAdaptersAfterSearchAnimation, mSearchTransitionController, animateToSearch() | ✅ done | `docs/changes/082` |
+| T3.1 Phase 5 | HeaderCoordinator extracted from ActivityAllAppsContainerView (~1820→1607 LOC); owns mUsingTabs, mDrawerHideTabs, setupHeader(), updateRVContainerRules(), replaceAppsRVContainer(), updateHeaderScroll(), scroll listener; minimal FloatingHeaderView change (callback alternative to parent cast) | ✅ done | `docs/changes/083` |
+
+**Session 8 continued highlight:** T3.1 Phase 5 (HeaderCoordinator) landed — the riskiest phase. All 14 invariants verified. Container at 1607 LOC (down from 2168). All 5 T3.1 phases complete. Test suite: 59 tests (44 passed, 10 skipped, 2 xfailed with new header_coordinator tests).
+
+**T3.1 COMPLETE. T3.2 COMPLETE. All T3 done.**
+
+### Session 9
+
+| ID | Task | Status | Doc |
+|----|------|--------|-----|
+| Bug 084 | Empty drawer after launching app from search results. appsContainer.alpha=0 regression from T3.1 Phase 4: onContainerReset set mSearchState=IDLE synchronously before animateToSearch(false) ran, so guard returned early and alpha was never restored. Three-site fix. | ✅ verified | `docs/changes/084` |
+| Bug 085 | Widget from picker rejected when dropped on existing stack. Samsung logs revealed `acceptDrop()` was missing widget-stack checks: it ran `performReorder` which found no vacant cell (stack fills page) → `onNoCellFound()` rejected the drop before `onDropExternal()` could consume `mPendingExternalStackTarget`. Fix: add widget-stack accept checks in `acceptDrop()` matching the folder pattern. | ⚠️ patched, unverified | `docs/changes/085` |
+
+**Session 9 highlight:** Fixed bug 084 (verified via 49-passed test suite) and diagnosed + patched bug 085. The bug 085 patch is in `Workspace.acceptDrop()` — adds widget-stack accept checks before the `performReorder` no-vacant-cell rejection. **Patch is unverified on hardware** because the emulator does not have a widget picker; the Samsung phone (RFCX712ZQDT) is the only device that exercises this path. Verification deferred to next session.
+
+### How to resume in a new session
+
+**Quick start (~10-15 min targeted, ~25-30 min full):**
+
+```bash
+cd /mnt/data/src/DefaultLauncher
+git checkout refactor/t0.1-search-4param-override
+# AVD should already be running; verify:
+export ANDROID_HOME=$HOME/Android/Sdk
+export PATH=$ANDROID_HOME/platform-tools:$PATH
+adb devices                                  # expect: emulator-5554 device
+
+# Rebuild + reinstall the in-tree state
+/opt/android-studio/jbr/bin/java -Xmx2g -Xms256m \
+  -Dorg.gradle.appname=gradlew \
+  -classpath gradle/wrapper/gradle-wrapper.jar \
+  org.gradle.wrapper.GradleWrapperMain assembleDebug
+adb -s emulator-5554 install -r -d -g build/outputs/apk/debug/DefaultLauncher-debug.apk
+
+# Run targeted suite (fast: 15 min) — smoke + all regression/visuals
+# NOTE: a physical phone may also be attached; ANDROID_SERIAL is required.
+cd tests-e2e
+export ANDROID_SERIAL=emulator-5554
+.venv/bin/pytest smoke/ regression/ visuals/ -v --tb=short
+# expect: 0 failed, ~40 passed, 2 xfailed, 9 skipped
+# xfailed = test_drawer_intact_after_folder_color_change + test_folder_can_be_created_from_seed_icons
+# deletion_safety + work_profile + private_space tests skip on AVD
+```
+
+**All T3 work is complete.** T2.3 Phase 4 remains as a deferred low-priority task.
+
+**Remaining work (ordered):**
+
+1. **T0.5 — Test fixture seed** ✅ SHIPPED — `docs/changes/077`.
+2. **T3.1 Phase 2** ✅ SHIPPED — `docs/changes/078`. DrawerInsetsController.
+3. **Bug 079** ✅ SHIPPED — `docs/changes/079`. Empty-drawer race fix.
+4. **T3.2** ✅ SHIPPED — `docs/changes/080`. Widget deletion prevention.
+5. **T3.1 Phase 3** ✅ SHIPPED — `docs/changes/081`. ProfileCoordinator extraction. Container: 1914→1877 LOC.
+6. **T3.1 Phase 4** ✅ SHIPPED — `docs/changes/082`. SearchLifecycle extraction. Container: 1877→~1820 LOC.
+7. **T3.1 Phase 5** ✅ SHIPPED — `docs/changes/083`. HeaderCoordinator extraction. Container: ~1820→1607 LOC.
+8. **Bug 084** ✅ SHIPPED — `docs/changes/084`. Empty drawer after search-launch alpha fix.
+9. **Bug 085** ✅ SHIPPED — `docs/changes/085`. Widget picker → stack acceptDrop. Verified on Samsung 2026-06-06.
+10. **Feature 086** ✅ SHIPPED — `docs/changes/086`. Workspace top/bottom padding prefs (One UI 8.5 row-clip fix).
+11. **Feature 086 follow-up** ✅ SHIPPED (commit `ab3c54e`). Smart auto-defaults from system insets (round to nearest 8 dp), slider step=8, live preview wiring.
+12. **Feature 087** ✅ SHIPPED — `docs/changes/087`. Drawer respects workspace padding prefs in square-grid mode; 6th default dock icon (Calendar).
+13. **T2.3 Phase 4** ✅ SHIPPED — `docs/changes/088`. SysUiScrim, RotationHelper, ThemeManager, DisplayController, and IDP's own `LauncherPrefChangeListener` consumers all migrated to the unified `getPrefChanges().subscribe(...)` framework. T2.3 is now fully complete; only the legacy `LauncherPrefChangeListener` interface + `addListener`/`removeListener` API surface remains as a back-compat shim (explicitly a non-goal per plan 003).
+
+**Pending — picked up here when ready:**
+
+- **Padding-prefs polish** — items the user might want next on the
+  padding-prefs feature once they live with it:
+  - Visual regression test for "drawer top edge aligns with workspace
+    top icon row" at a non-default padding (visuals/ pass).
+  - Extend the 6th hotseat icon to `default_workspace_6x5.xml` and
+    `default_workspace_5x8.xml` for tablet / large-screen grids.
+  - "Reset to auto" affordance on the padding sliders (writes the
+    AUTO_PAD_SENTINEL back so the next IDP run re-derives from system
+    insets). Would need a long-press menu or a small reset button next
+    to each slider.
+  - Test on physical hardware (Samsung) that One UI 8.5 → 8.x updates
+    don't unexpectedly shift the persisted values (e.g., if the user
+    keeps the auto-default and the device's reported status bar height
+    changes again, IDP should NOT re-snap silently — the persisted
+    value should be sticky once set).
+- **Square-grid dock auto-fill** — if the user bumps columns from 6 to
+  7+, the dock gains empty slots. Currently silent — could prompt or
+  auto-fill from the next-most-used apps. Deferred unless raised.
+- **T2.3 Phase 4** — as above, lowest priority, no current motivation.
+
+**Execution invariants** for any session:
+
+- Every plan execution **must** pass `tests-e2e/smoke/` + `tests-e2e/regression/` + `tests-e2e/visuals/` before commit (59 tests, ~25-30 min full / ~15 min targeted).
+- Every change **must** carry a `docs/changes/0NN-…md` entry (next number: **084**).
+- AOSP-origin file edits (BaseAllAppsAdapter, FloatingHeaderView, LoaderCursor, WorkspaceLayoutManager, DeviceProfile, InvariantDeviceProfile, Workspace, Folder, AllAppsStore) require explicit justification per change doc.
+- `docs/architecture/drawer-invariants.md` is required reading before any all-apps refactor.
+- All commits attribute Co-Authored-By: Claude Opus 4.7 and use `git -c user.name="Gurupungav Narayanan" -c user.email="gurupungavn@gmail.com" commit ...` (CLAUDE.md forbids permanent git config changes).
+- Test scaffolding: `tests-e2e/conftest.py::_ensure_workspace_has_icon` runs in `launcher` (session), `_wake_and_home` (autouse), and `clean_launcher` fixtures — every test starts from a populated workspace, including after `pm clear`. Do not bypass this when writing new tests.
+- **Java callers of the prefs framework** use the pattern `LauncherPrefs.get(context).getPrefChanges().subscribe(subscriber, item1, item2, ...)`. The subscriber's `onPrefsChanged` signature must take `Set<? extends Item>` (Kotlin variance) — see `ActivityAllAppsContainerView.mDrawerPrefSubscriber` for the canonical pattern. Subscribe in `onAttachedToWindow`, close the returned `AutoCloseable` in `onDetachedFromWindow`. For singletons without view lifecycle (see `AllAppsState`), lazy-init the subscription on first access and never close.
+
+**Known good baselines:**
+- AVD: `emulator-5554`, Pixel 7 Pro (sdk_gphone16k_x86_64), Android 17 (SDK 37), 1440×3120 @ 560dpi.
+- DefaultLauncher set as default home activity.
+- 59 total tests: 19 smoke + 1 cold_start + 5 decomp Phase1 + 4 folder_color + 4 folder_visual + 2 search_progressive + 3 drawer_insets (Phase2) + 3 drawer_state (079) + 3 deletion_safety (080) + 4 profile_coordinator (081) + 4 search_lifecycle (082) + 4 header_coordinator (083) + 3 visuals.
+- Verified result (Session 8, ~10 min run): 44 passed, 0 failed, 2 xfailed, 9–10 skipped. Exit 0.
+- deletion_safety 3 tests skip on AVD (no widget); they run on physical phone with widget stacks.
+- profile_coordinator 3 tests skip on AVD (no work profile / private space).
+- 2 tests marked xfail(strict=False) due to emulator-load flakiness: `test_drawer_intact_after_folder_color_change` (model reload takes >20s on loaded emulator) and `test_folder_can_be_created_from_seed_icons` (drag gesture unreliable when emulator is loaded). Both were failing in the baseline before any changes.
+- Full suite runtime: 25-30 min due to emulator degradation over time. Targeted runs (~25 tests) take ~10-15 min with clean results.
+- **Important**: `app_current()` in UIAutomator2 returns stale data (background task) after `test_launch_app_from_hotseat` on Android 17. `LauncherDriver.is_home()` now falls back to workspace visibility probe. On a fresh emulator session (no prior app launches in task stack), tests run at original speed.
+
+**Risk flags carried forward:**
+- T2.1 Item 4 resolved Session 2: delegate is non-idempotent but Folder's `mDestroyed` flag is set synchronously before any re-entrant caller, so the simple `if (mDestroyed) return;` guard is sufficient — no token machinery needed. See `docs/changes/060`.
+- Folder color migration SHIPPED (Session 5, `docs/changes/074`): `FolderCoverManager.renderEmoji` reads color fresh at render time — no bitmap cache to invalidate. Reloading `mCoverDrawable` via `loadCoverDrawable()` in the subscriber is sufficient.
+- **T3.1 Phase 5** (HeaderCoordinator + FloatingHeaderView boundary) is the riskiest single phase per `docs/plans/004-…md` — preserve `mSuppressSetupHeader` + `mPendingSearchExitWork` + `mKeepKeyboardOnSearchExit` invariants explicitly. Session 3's `docs/changes/070` shows how easily a missed state-reset hook can produce a user-visible regression. The plan splits state-machine extraction (Phase 4) from header coordinator extraction (Phase 5) precisely so the `isSuppressingSetupHeader()` method exists in a clean form before Phase 5 starts.
+- **T3.2 Phase A unit-test path mismatch** — Plan 005 expects `tests/src/com/android/launcher3/util/PackagePresenceVerifierTest.kt`; `tests/` doesn't exist in this repo. Decide approach (re-introduce harness vs. e2e-only) before opening Phase A.
+- Invariant-doc line refs in `docs/architecture/drawer-invariants.md` have drifted post-068/070; declarations now at ~222/677/694/1176 for invariant #1 (doc says 189/606/617/1048). The plan 004 leans on field/method names not line numbers; a separate doc-only PR should refresh the invariants doc.
+- Cold-start gesture-routing race (drawer fails to fully open with sub-1s warmup + fast swipe) is documented in `docs/changes/068` but **not fixed** — outside the launcher process, in SystemUI gesture dispatch. Not user-reachable in normal flow; tests use 2s warmup to bypass.

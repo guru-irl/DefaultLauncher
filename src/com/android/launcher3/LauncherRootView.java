@@ -48,6 +48,15 @@ public class LauncherRootView extends InsettableFrameLayout {
 
     private void handleSystemWindowInsets(Rect insets) {
         DeviceProfile dp = mStatefulContainer.getDeviceProfile();
+        // Square-grid mode lets the user set workspace top/bottom padding directly
+        // via prefs, ignoring the OS-reported system bar insets. Synthesize the
+        // insets here so all downstream consumers (DeviceProfile math, child view
+        // margins via InsettableFrameLayout, hotseat positioning) see the pref
+        // values instead of the system insets.
+        if (dp.inv.isSquareGrid) {
+            insets = new Rect(0, dp.inv.workspaceTopPaddingPx,
+                    0, dp.inv.workspaceBottomPaddingPx);
+        }
         if (DEBUG_WS_PAD && !insets.equals(dp.getInsets())) {
             Log.d(TAG, "handleSystemWindowInsets: insets changed!"
                     + " profile=" + dp.getInsets() + " incoming=" + insets);

@@ -72,8 +72,8 @@ public class CalendarSearchProvider implements SearchProvider<CalendarResult> {
     }
 
     @Override
-    public String category() {
-        return "calendar";
+    public ProviderCategory category() {
+        return ProviderCategory.CALENDAR;
     }
 
     @Override

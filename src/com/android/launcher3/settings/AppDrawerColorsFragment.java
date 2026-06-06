@@ -39,57 +39,54 @@ public class AppDrawerColorsFragment extends SettingsBaseFragment {
         getPreferenceManager().setSharedPreferencesName(LauncherFiles.SHARED_PREFERENCES_KEY);
         setPreferencesFromResource(R.xml.drawer_colors_preferences, rootKey);
 
-        // Configure color picker preferences — drawer bg default matches allAppsScrimColor
+        // Drawer color/opacity prefs — migrated to PrefChangeDispatcher (T2.3 Phase 2).
+        // The subscriber-driven refresh path handles propagation; no IDP rebuild needed.
         int scrimDefault = getContext().getColor(R.color.materialColorSurfaceContainerLow);
         configureColorPickerWithDefault("pref_drawer_bg_color",
-                LauncherPrefs.DRAWER_BG_COLOR, scrimDefault);
+                LauncherPrefs.DRAWER_BG_COLOR, scrimDefault, /* idpReconfigure= */ false);
         configureColorPicker("pref_drawer_search_bg_color",
-                LauncherPrefs.DRAWER_SEARCH_BG_COLOR, R.color.materialColorSurfaceContainer);
+                LauncherPrefs.DRAWER_SEARCH_BG_COLOR,
+                R.color.materialColorSurfaceContainer, /* idpReconfigure= */ false);
         configureColorPicker("pref_drawer_scrollbar_color",
-                LauncherPrefs.DRAWER_SCROLLBAR_COLOR, R.color.materialColorPrimary);
+                LauncherPrefs.DRAWER_SCROLLBAR_COLOR,
+                R.color.materialColorPrimary, /* idpReconfigure= */ false);
         configureColorPicker("pref_drawer_tab_selected_color",
-                LauncherPrefs.DRAWER_TAB_SELECTED_COLOR, R.color.materialColorPrimary);
+                LauncherPrefs.DRAWER_TAB_SELECTED_COLOR,
+                R.color.materialColorPrimary, /* idpReconfigure= */ false);
         configureColorPicker("pref_drawer_tab_unselected_color",
-                LauncherPrefs.DRAWER_TAB_UNSELECTED_COLOR, R.color.materialColorOnSurfaceVariant);
+                LauncherPrefs.DRAWER_TAB_UNSELECTED_COLOR,
+                R.color.materialColorOnSurfaceVariant, /* idpReconfigure= */ false);
 
-        // Folder color pickers — defaults from FolderSettingsHelper (single source of truth)
+        // Folder color pickers — migrated to PrefChangeDispatcher (folder migration).
+        // FolderIcon/Folder subscribers handle repaints; no IDP rebuild needed.
         configureColorPickerWithDefault("pref_folder_icon_color",
                 LauncherPrefs.FOLDER_COVER_BG_COLOR,
-                FolderSettingsHelper.getDefaultCoverBgColor(getContext()));
+                FolderSettingsHelper.getDefaultCoverBgColor(getContext()),
+                /* idpReconfigure= */ false);
         configureColorPickerWithDefault("pref_folder_cover_icon_color",
                 LauncherPrefs.FOLDER_COVER_ICON_COLOR,
-                FolderSettingsHelper.getDefaultCoverIconColor(getContext()));
+                FolderSettingsHelper.getDefaultCoverIconColor(getContext()),
+                /* idpReconfigure= */ false);
         configureColorPickerWithDefault("pref_folder_bg_color",
                 LauncherPrefs.FOLDER_BG_COLOR,
-                FolderSettingsHelper.getDefaultFolderBgColor(getContext()));
+                FolderSettingsHelper.getDefaultFolderBgColor(getContext()),
+                /* idpReconfigure= */ false);
 
-        // Wire opacity slider changes to trigger recreation
+        // Drawer opacity sliders — migrated; subscriber handles refresh.
         Preference opacityPref = findPreference("pref_drawer_bg_opacity");
         if (opacityPref != null) {
-            opacityPref.setOnPreferenceChangeListener((pref, newValue) -> {
-                getListView().post(() ->
-                        InvariantDeviceProfile.INSTANCE.get(getContext())
-                                .onConfigChanged(getContext()));
-                return true;
-            });
+            // No-op listener: returning true lets the pref-framework persist the value;
+            // PrefChangeDispatcher dispatches the change to its subscribers.
+            opacityPref.setOnPreferenceChangeListener((pref, newValue) -> true);
         }
         Preference searchOpacityPref = findPreference("pref_drawer_search_bg_opacity");
         if (searchOpacityPref != null) {
-            searchOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> {
-                getListView().post(() ->
-                        InvariantDeviceProfile.INSTANCE.get(getContext())
-                                .onConfigChanged(getContext()));
-                return true;
-            });
+            searchOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> true);
         }
+        // Folder opacity slider — migrated; subscriber handles refresh.
         Preference folderOpacityPref = findPreference("pref_folder_bg_opacity");
         if (folderOpacityPref != null) {
-            folderOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> {
-                getListView().post(() ->
-                        InvariantDeviceProfile.INSTANCE.get(getContext())
-                                .onConfigChanged(getContext()));
-                return true;
-            });
+            folderOpacityPref.setOnPreferenceChangeListener((pref, newValue) -> true);
         }
 
         // Hide tabs category if no work profile exists
@@ -111,28 +108,34 @@ public class AppDrawerColorsFragment extends SettingsBaseFragment {
     }
 
     private void configureColorPickerWithDefault(String key,
-            com.android.launcher3.ConstantItem<String> prefItem, int defaultColor) {
+            com.android.launcher3.ConstantItem<String> prefItem, int defaultColor,
+            boolean idpReconfigure) {
         ColorPickerPreference pref = findPreference(key);
         if (pref != null) {
             pref.setColorPrefItem(prefItem, 0, defaultColor);
             pref.setOnPreferenceChangeListener((p, newValue) -> {
-                getListView().post(() ->
-                        InvariantDeviceProfile.INSTANCE.get(getContext())
-                                .onConfigChanged(getContext()));
+                if (idpReconfigure) {
+                    getListView().post(() ->
+                            InvariantDeviceProfile.INSTANCE.get(getContext())
+                                    .onConfigChanged(getContext()));
+                }
                 return true;
             });
         }
     }
 
     private void configureColorPicker(String key,
-            com.android.launcher3.ConstantItem<String> prefItem, int defaultColorResId) {
+            com.android.launcher3.ConstantItem<String> prefItem, int defaultColorResId,
+            boolean idpReconfigure) {
         ColorPickerPreference pref = findPreference(key);
         if (pref != null) {
             pref.setColorPrefItem(prefItem, defaultColorResId);
             pref.setOnPreferenceChangeListener((p, newValue) -> {
-                getListView().post(() ->
-                        InvariantDeviceProfile.INSTANCE.get(getContext())
-                                .onConfigChanged(getContext()));
+                if (idpReconfigure) {
+                    getListView().post(() ->
+                            InvariantDeviceProfile.INSTANCE.get(getContext())
+                                    .onConfigChanged(getContext()));
+                }
                 return true;
             });
         }

@@ -214,8 +214,8 @@ public class UnitConverterProvider implements SearchProvider<UnitConversion> {
     }
 
     @Override
-    public String category() {
-        return "unit_converter";
+    public ProviderCategory category() {
+        return ProviderCategory.UNIT_CONVERTER;
     }
 
     @Override

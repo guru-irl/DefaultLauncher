@@ -42,9 +42,10 @@ constructor(
         if (item.hasOptionFlag(LauncherAppWidgetInfo.OPTION_SEARCH_WIDGET)) {
             item.providerName = QsbContainerView.getSearchComponentName(context)
             if (item.providerName == null) {
+                FileLog.w(Launcher.TAG, "Search widget provider missing → TYPE_MISSING (kept in DB)")
                 return InflationResult(
-                    TYPE_DELETE,
-                    reason = "search widget removed because search component cannot be found",
+                    TYPE_MISSING,
+                    reason = "search widget provider not found",
                     restoreErrorType = RestoreError.NO_SEARCH_WIDGET,
                 )
             }
@@ -74,8 +75,8 @@ constructor(
                 update = true
             }
         } else {
-            appWidgetInfo =
-                widgetHelper.getLauncherAppWidgetInfo(item.appWidgetId, item.targetComponent)
+            appWidgetInfo = if (BuildConfig.DEBUG && sSimulateNullProvider) null
+                else widgetHelper.getLauncherAppWidgetInfo(item.appWidgetId, item.targetComponent)
             if (appWidgetInfo == null) {
                 if (item.appWidgetId <= LauncherAppWidgetInfo.CUSTOM_WIDGET_ID) {
                     removalReason = "CustomWidgetManager cannot find provider from that widget id."
@@ -111,10 +112,13 @@ constructor(
                     return InflationResult(TYPE_PENDING, isUpdate = update,
                             widgetInfo = null)
                 }
+                FileLog.w(Launcher.TAG,
+                        "Widget provider absent (restore-pending): id=${item.appWidgetId}"
+                        + " pkg=${item.providerName?.packageName} → TYPE_MISSING (kept in DB)"
+                        + " " + ServiceReadiness.snapshot(context))
                 return InflationResult(
-                    type = TYPE_DELETE,
-                    reason =
-                        "Removing restored widget: id=${item.appWidgetId} belongs to component ${item.providerName} user ${item.user}, as the provider is null and $removalReason",
+                    type = TYPE_MISSING,
+                    reason = "Provider absent for restored widget id=${item.appWidgetId}: $removalReason",
                     restoreErrorType = logReason,
                 )
             }
@@ -211,9 +215,10 @@ constructor(
                     return InflationResult(TYPE_PENDING, isUpdate = update,
                             widgetInfo = null)
                 }
-                FileLog.e(Launcher.TAG, "Removing invalid widget: id=" + item.appWidgetId
-                        + " " + ServiceReadiness.snapshot(context))
-                return InflationResult(TYPE_DELETE, reason = removalReason)
+                FileLog.w(Launcher.TAG,
+                        "Widget provider absent (RESTORE_COMPLETED): id=" + item.appWidgetId
+                        + " → TYPE_MISSING (kept in DB). " + ServiceReadiness.snapshot(context))
+                return InflationResult(TYPE_MISSING, reason = removalReason)
             }
             item.minSpanX = appWidgetInfo.minSpanX
             item.minSpanY = appWidgetInfo.minSpanY
@@ -238,5 +243,25 @@ constructor(
         const val TYPE_PENDING = 1
 
         const val TYPE_REAL = 2
+
+        /**
+         * Provider package is confirmed absent. Keep widget in DB;
+         * caller creates an UnavailableWidgetView placeholder.
+         * The widget auto-recovers when the provider app is reinstalled.
+         * See docs/changes/080.
+         */
+        const val TYPE_MISSING = 3
+
+        /**
+         * Forces getLauncherAppWidgetInfo to return null for every widget,
+         * simulating a transiently-unavailable AppWidgetService.
+         *
+         * DEBUG BUILDS ONLY. Toggle via:
+         *   adb shell am broadcast -p com.guru.defaultlauncher \
+         *       -a com.guru.defaultlauncher.test.SIMULATE_NULL_PROVIDER
+         */
+        @JvmField
+        @androidx.annotation.VisibleForTesting
+        var sSimulateNullProvider: Boolean = false
     }
 }

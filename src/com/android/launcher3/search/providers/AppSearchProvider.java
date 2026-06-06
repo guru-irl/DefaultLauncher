@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Searches installed apps by title. Extracted from DefaultAppSearchAlgorithm.
+ * Searches installed apps by title. Universal-search apps provider.
  */
 public class AppSearchProvider implements SearchProvider<AppInfo> {
 
@@ -52,8 +52,8 @@ public class AppSearchProvider implements SearchProvider<AppInfo> {
     }
 
     @Override
-    public String category() {
-        return "apps";
+    public ProviderCategory category() {
+        return ProviderCategory.APPS;
     }
 
     private static List<AppInfo> getTitleMatchResult(List<AppInfo> apps, String query) {

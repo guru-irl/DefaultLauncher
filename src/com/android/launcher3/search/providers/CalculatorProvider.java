@@ -81,8 +81,8 @@ public class CalculatorProvider implements SearchProvider<CalculatorResult> {
     }
 
     @Override
-    public String category() {
-        return "calculator";
+    public ProviderCategory category() {
+        return ProviderCategory.CALCULATOR;
     }
 
     private static boolean containsMathContent(String s) {
