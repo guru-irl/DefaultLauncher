@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:launcher="http://schemas.android.com/apk/res-auto">
+
+    <com.android.launcher3.settings.ColorPickerPreference
+        android:key="pref_search_widget_bg_color"
+        android:title="@string/search_widget_bg_color_title"
+        launcher:iconSpaceReserved="false" />
+
+    <com.android.launcher3.settings.ColorPickerPreference
+        android:key="pref_search_widget_text_color"
+        android:title="@string/search_widget_text_color_title"
+        launcher:iconSpaceReserved="false" />
+
+</androidx.preference.PreferenceScreen>
