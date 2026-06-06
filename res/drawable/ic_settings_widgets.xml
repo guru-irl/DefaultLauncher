@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material Symbol: widgets (24dp, weight 400) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960"
+    android:tint="?attr/colorOnSurfaceVariant">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M520,400v-240h280v240L520,400ZM160,520v-360h280v360L160,520ZM520,800v-360h280v360L520,800ZM160,800v-240h280v240L160,800ZM240,440h120v-200L240,240v200ZM600,720h120v-200L600,520v200ZM600,320h120v-80L600,240v80ZM240,720h120v-80L240,640v80ZM600,320Zm-240,120Z"/>
+</vector>
