@@ -208,6 +208,12 @@
     <!--  Used for custom widgets  -->
     <array name="custom_widget_providers"/>
 
+    <!-- Launcher-shipped in-process widgets, registered unconditionally
+         (independent of the smartspace flag). -->
+    <array name="launcher_custom_widgets">
+        <item>com.android.launcher3.widget.custom.DanfoClockWidgetPlugin</item>
+    </array>
+
     <!-- Embed parameters -->
     <dimen name="activity_split_ratio"  format="float">0.5</dimen>
     <integer name="min_width_split">720</integer>

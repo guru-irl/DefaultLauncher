@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:launcher="http://schemas.android.com/apk/res-auto">
+
+    <!-- One row per configurable home screen widget. Add more rows here. -->
+    <Preference
+        android:key="pref_clock_widget"
+        android:icon="@drawable/ic_settings_clock"
+        android:layout="@layout/preference_widget_entry"
+        android:title="@string/clock_widget_title"
+        android:summary="@string/clock_widget_summary"
+        android:fragment="com.android.launcher3.settings.ClockWidgetFragment"
+        launcher:iconSpaceReserved="true" />
+
+</androidx.preference.PreferenceScreen>

@@ -28,6 +28,7 @@ Numbered implementation docs tracking each feature and fix:
 
 | # | Change |
 |---|--------|
+| [091](changes/091-danfo-clock-widget.md) | Danfo clock widget: in-process, resizable, themeable, with a Widgets settings sub-tree |
 | [090](changes/090-danfo-clock-widget-spec.md) | Danfo clock widget design spec (in-process custom widget, responsive, themeable) |
 | [089](changes/089-agent-docs-avd-testing-and-workflow.md) | Agent docs: AVD testing, superpowers/subagent workflow, no-em-dash + invisible-commit style |
 | [047](changes/047-sysui-scrim-color-hint-race.md) | Status-bar shadow toggle, color-hint race fix, deletion-guard polish |

@@ -802,4 +802,37 @@
     <!-- UnavailableWidgetView strings. docs/changes/080 -->
     <string name="unavailable_widget_title">Widget unavailable</string>
     <string name="unavailable_widget_remove_desc">Remove unavailable widget</string>
+
+    <!-- DanfoClockView content description. docs/changes/091 -->
+    <string name="clock_widget_content_description">Danfo clock</string>
+
+    <!-- Danfo clock widget picker label. docs/changes/091 -->
+    <string name="clock_widget_label">Danfo Clock</string>
+
+    <!-- Widgets settings submenu. -->
+    <string name="widgets_title">Widgets</string>
+    <string name="widgets_summary">Clock and other home screen widgets</string>
+
+    <!-- Clock widget settings strings. docs/changes/091 -->
+    <string name="clock_widget_title">Clock widget</string>
+    <string name="clock_widget_summary">Style, format, color</string>
+    <string name="clock_alignment_title">Alignment</string>
+    <string name="clock_alignment_centered">Centered</string>
+    <string name="clock_alignment_left">Left</string>
+    <string name="clock_time_format_title">Time format</string>
+    <string name="clock_format_system">Follow system</string>
+    <string name="clock_format_12">12-hour</string>
+    <string name="clock_format_24">24-hour</string>
+    <string name="clock_color_mode_title">Color</string>
+    <string name="clock_color_white">White</string>
+    <string name="clock_color_custom">Custom</string>
+    <string name="clock_color_material_you">Material You</string>
+    <string name="clock_color_wallpaper">Auto from wallpaper</string>
+    <string name="clock_time_color_title">Time color</string>
+    <string name="clock_date_color_title">Date color</string>
+    <string name="clock_shadow_title">Shadow</string>
+    <string name="clock_shadow_summary">Drop a soft shadow behind the clock</string>
+    <string name="clock_outline_title">Outline (cutout)</string>
+    <string name="clock_outline_summary">Render the clock as a stroked outline so the wallpaper shows through</string>
+    <string name="clock_stroke_width_title">Outline thickness</string>
 </resources>

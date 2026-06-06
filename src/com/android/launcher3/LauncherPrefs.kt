@@ -391,6 +391,16 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
 
         // App drawer color preferences (store Material color resource name; empty = default)
         @JvmField val DRAWER_BG_COLOR = backedUpItem("pref_drawer_bg_color", "")
+
+        // ---- Danfo clock widget ----
+        @JvmField val CLOCK_ALIGNMENT = backedUpItem("pref_clock_alignment", "center")
+        @JvmField val CLOCK_TIME_FORMAT = backedUpItem("pref_clock_time_format", "system")
+        @JvmField val CLOCK_COLOR_MODE = backedUpItem("pref_clock_color_mode", "white")
+        @JvmField val CLOCK_TIME_COLOR = backedUpItem("pref_clock_time_color", "")
+        @JvmField val CLOCK_DATE_COLOR = backedUpItem("pref_clock_date_color", "")
+        @JvmField val CLOCK_SHADOW = backedUpItem("pref_clock_shadow", true)
+        @JvmField val CLOCK_OUTLINE = backedUpItem("pref_clock_outline", false)
+        @JvmField val CLOCK_STROKE_WIDTH = backedUpItem("pref_clock_stroke_width", 4) // dp
         @JvmField val DRAWER_BG_OPACITY = backedUpItem("pref_drawer_bg_opacity", 95)
         @JvmField val DRAWER_SEARCH_BG_COLOR = backedUpItem("pref_drawer_search_bg_color", "")
         @JvmField val DRAWER_SEARCH_BG_OPACITY = backedUpItem("pref_drawer_search_bg_opacity", 95)

@@ -63,7 +63,7 @@ public class CustomWidgetManager {
             new DaggerSingletonObject<>(LauncherBaseAppComponent::getCustomWidgetManager);
 
     private static final String TAG = "CustomWidgetManager";
-    private static final String PLUGIN_PKG = "android";
+    private static final String PLUGIN_PKG = com.android.launcher3.BuildConfig.APPLICATION_ID;
     private final Context mContext;
     private final HashMap<ComponentName, CustomWidgetPlugin> mPlugins;
     private final List<CustomAppWidgetProviderInfo> mCustomWidgets;
@@ -97,6 +97,22 @@ public class CustomWidgetManager {
                          | InvocationTargetException e) {
                     Log.e(TAG, "Exception found when trying to add custom widgets: " + e);
                 }
+            }
+        }
+
+        // Launcher-shipped widgets register unconditionally (not gated by the
+        // smartspace flag). AOSP-origin file: this additive block is the only
+        // change; justification in docs/changes. See plan task 8.
+        for (String s : context.getResources().getStringArray(R.array.launcher_custom_widgets)) {
+            try {
+                Class<?> cls = Class.forName(s);
+                CustomWidgetPlugin plugin = (CustomWidgetPlugin)
+                        cls.getDeclaredConstructor(Context.class).newInstance(context);
+                MAIN_EXECUTOR.execute(() -> onPluginConnected(plugin, context));
+            } catch (ClassNotFoundException | InstantiationException
+                     | IllegalAccessException | ClassCastException
+                     | NoSuchMethodException | InvocationTargetException e) {
+                Log.e(TAG, "Exception adding launcher custom widget: " + e);
             }
         }
     }
@@ -184,6 +200,24 @@ public class CustomWidgetManager {
 
         info.provider = cn;
         info.initialLayout = 0;
+        // The clone above carries the foreign provider's ActivityInfo, so
+        // resource loading (loadPreviewImage / loadIcon) resolves OUR preview
+        // and icon resource IDs against the WRONG package and fails ("Can't load
+        // widget preview drawable"). Point the hidden providerInfo field at the
+        // launcher's own package so launcher-shipped custom widgets load their
+        // own assets. providerInfo is @hide, so set it reflectively.
+        try {
+            android.content.pm.ActivityInfo activityInfo = new android.content.pm.ActivityInfo();
+            activityInfo.packageName = mContext.getPackageName();
+            activityInfo.name = cn.getClassName();
+            activityInfo.applicationInfo = mContext.getApplicationInfo();
+            java.lang.reflect.Field providerInfoField =
+                    AppWidgetProviderInfo.class.getDeclaredField("providerInfo");
+            providerInfoField.setAccessible(true);
+            providerInfoField.set(info, activityInfo);
+        } catch (Throwable t) {
+            Log.w(TAG, "Could not root custom widget providerInfo in launcher package", t);
+        }
         mCustomWidgets.add(info);
         return info;
     }

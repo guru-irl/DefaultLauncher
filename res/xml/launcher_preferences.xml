@@ -51,6 +51,14 @@
         launcher:iconSpaceReserved="true" />
 
     <Preference
+        android:key="pref_widgets"
+        android:icon="@drawable/ic_settings_widgets"
+        android:title="@string/widgets_title"
+        android:summary="@string/widgets_summary"
+        android:fragment="com.android.launcher3.settings.WidgetsFragment"
+        launcher:iconSpaceReserved="true" />
+
+    <Preference
         android:key="pref_search"
         android:icon="@drawable/ic_settings_search"
         android:title="@string/search_title"
