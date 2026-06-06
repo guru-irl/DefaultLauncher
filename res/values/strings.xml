@@ -803,7 +803,7 @@
     <string name="unavailable_widget_title">Widget unavailable</string>
     <string name="unavailable_widget_remove_desc">Remove unavailable widget</string>
 
-    <!-- DanfoClockView content description. docs/changes/088 -->
+    <!-- DanfoClockView content description. docs/changes/091 -->
     <string name="clock_widget_content_description">Danfo clock</string>
 
     <!-- Danfo clock widget picker label. docs/changes/091 -->

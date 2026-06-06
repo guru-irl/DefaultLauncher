@@ -143,6 +143,9 @@ public class DanfoClockView extends LinearLayout {
         }
         mDate.setTextSize(TypedValue.COMPLEX_UNIT_PX, dateSize);
 
+        mTime.setShadowLayer(Math.max(1f, timeSize * 0.06f), 0f, timeSize * 0.02f, 0x66000000);
+        mDate.setShadowLayer(Math.max(1f, dateSize * 0.07f), 0f, dateSize * 0.03f, 0x66000000);
+
         refreshDate();
         if (DEBUG) {
             android.util.Log.d(TAG, "size " + w + "x" + h + " time=" + timeSize
