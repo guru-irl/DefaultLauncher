@@ -69,8 +69,15 @@ public class DanfoClockView extends LinearLayout {
     private static final float TIME_MIN_PX = 18f;
     private static final float TIME_MAX_PX = 1200f;
 
-    /** Fixed gap (px) between the time and the date; set from 8dp at init. */
-    private final int mGapPx;
+    /**
+     * Gap between the time and the date, as a fraction of the resolved time
+     * size, so it stays visually consistent at every widget size. Slightly
+     * negative to pull the date up into the time's descent whitespace so it
+     * sits snug right below the clock. Used in BOTH the date's top margin and
+     * the height budget, so shortening it lets the time grow to fill the cell.
+     */
+    private static final float GAP_FACTOR = -0.10f;
+
     /** Date cap in px, derived from {@link #DATE_CAP_SP}. */
     private final float mDateCapPx;
 
@@ -88,8 +95,6 @@ public class DanfoClockView extends LinearLayout {
         setClipChildren(false);
         setClipToPadding(false);
 
-        float density = context.getResources().getDisplayMetrics().density;
-        mGapPx = Math.round(8f * density);
         mDateCapPx = DATE_CAP_SP * context.getResources().getDisplayMetrics().scaledDensity;
 
         Typeface danfo = context.getResources().getFont(R.font.danfo);
@@ -110,9 +115,9 @@ public class DanfoClockView extends LinearLayout {
         mDate.setMaxLines(1);
         mDate.setLetterSpacing(0.04f);
         mDate.setGravity(Gravity.CENTER);
-        LayoutParams dateLp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-        dateLp.topMargin = mGapPx;
-        addView(mDate, dateLp);
+        // Top margin is set proportionally in onSizeChanged once the time size
+        // is known (see GAP_FACTOR).
+        addView(mDate, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
 
         setContentDescription(context.getString(R.string.clock_widget_content_description));
         setOnClickListener(v -> {
@@ -157,9 +162,11 @@ public class DanfoClockView extends LinearLayout {
         // Time bounded by width and by the stacked block height (time line +
         // fixed gap + date line, where the date line is DATE_FACTOR of the time).
         float timeByWidth = timeWidthRatio > 0f ? availW / timeWidthRatio : TIME_MAX_PX;
-        float heightDenom = timeLineRatio + DATE_FACTOR * dateLineRatio;
-        float timeByHeight = heightDenom > 0f
-                ? (availH - mGapPx) / heightDenom : TIME_MAX_PX;
+        // Block height = time line + gap + date line, all as multiples of the
+        // time size (gap = GAP_FACTOR * timeSize). Folding the gap in here means
+        // a tighter (more negative) gap lets the time grow to fill the cell.
+        float heightDenom = timeLineRatio + GAP_FACTOR + DATE_FACTOR * dateLineRatio;
+        float timeByHeight = heightDenom > 0f ? availH / heightDenom : TIME_MAX_PX;
 
         float timeSize = Math.min(timeByWidth, timeByHeight) * 0.98f;
         timeSize = Math.max(TIME_MIN_PX, Math.min(TIME_MAX_PX, timeSize));
@@ -177,6 +184,15 @@ public class DanfoClockView extends LinearLayout {
 
         mTime.setTextSize(TypedValue.COMPLEX_UNIT_PX, timeSize);
         mDate.setTextSize(TypedValue.COMPLEX_UNIT_PX, dateSize);
+
+        // Pull the date snug under the time, proportional to the time size, so
+        // it reads as "right below" the clock at every widget size.
+        int gap = Math.round(GAP_FACTOR * timeSize);
+        LayoutParams dateLp = (LayoutParams) mDate.getLayoutParams();
+        if (dateLp.topMargin != gap) {
+            dateLp.topMargin = gap;
+            mDate.setLayoutParams(dateLp);
+        }
 
         // Soft shadow keyed to text size so legibility scales with the glyphs.
         mTime.setShadowLayer(Math.max(1f, timeSize * 0.05f), 0f, timeSize * 0.02f, 0x66000000);
@@ -199,7 +215,7 @@ public class DanfoClockView extends LinearLayout {
         if (DEBUG) {
             android.util.Log.d(TAG, "size " + w + "x" + h + " availW=" + availW
                     + " availH=" + availH + " timeSize=" + timeSize
-                    + " dateSize=" + dateSize + " gap=" + mGapPx);
+                    + " dateSize=" + dateSize + " gap=" + gap);
         }
     }
 
