@@ -869,14 +869,16 @@ public class DeviceProfile {
         if (shouldShowAllAppsOnSheet()) {
             allAppsPadding.top = mInsets.top;
             allAppsShiftRange = heightPx;
-        } else if (inv.isSquareGrid) {
-            // Square grid: the drawer mirrors the workspace's user-controlled
-            // top padding so the search bar / first row sit at the same
-            // distance from the status bar as the workspace's first row.
-            allAppsPadding.top = inv.workspaceTopPaddingPx;
-            allAppsShiftRange =
-                    res.getDimensionPixelSize(R.dimen.all_apps_starting_vertical_translate);
         } else {
+            // Non-sheet drawer (the square-grid path): the drawer's children
+            // already get the synthesized inset via LauncherRootView's
+            // square-grid override (LauncherRootView dispatches the pref
+            // values as the insets to all children including the drawer).
+            // Setting allAppsPadding.top from the pref here too was
+            // additive on top of that dispatch — the search bar ended up
+            // 2× the configured padding from the top. Leave the container
+            // padding at 0 and let inset-dispatch position the search bar.
+            // See 087 for the original (regression-causing) attempt.
             allAppsPadding.top = 0;
             allAppsShiftRange =
                     res.getDimensionPixelSize(R.dimen.all_apps_starting_vertical_translate);

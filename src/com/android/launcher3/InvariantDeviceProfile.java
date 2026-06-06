@@ -368,8 +368,11 @@ public class InvariantDeviceProfile {
                 });
         lifeCycle.addCloseable(() -> dc.setPriorityListener(null));
 
-        LauncherPrefChangeListener prefListener = key -> {
-            if (FIXED_LANDSCAPE_MODE.getSharedPrefKey().equals(key)
+        // Migrated to unified prefs framework (T2.3 Phase 4). The handler is
+        // per-key: FIXED_LANDSCAPE_MODE flips the grid-name pref pair, while
+        // ENABLE_TWOLINE_ALLAPPS_TOGGLE triggers a generic onConfigChanged.
+        AutoCloseable idpPrefSub = prefs.getPrefChanges().subscribe(changes -> {
+            if (changes.contains(FIXED_LANDSCAPE_MODE)
                     && isFixedLandscape != prefs.get(FIXED_LANDSCAPE_MODE)) {
                 Trace.beginSection("InvariantDeviceProfile#setFixedLandscape");
                 if (isFixedLandscape) {
@@ -379,14 +382,18 @@ public class InvariantDeviceProfile {
                     onConfigChanged(context);
                 }
                 Trace.endSection();
-            } else if (ENABLE_TWOLINE_ALLAPPS_TOGGLE.getSharedPrefKey().equals(key)
+            } else if (changes.contains(ENABLE_TWOLINE_ALLAPPS_TOGGLE)
                     && enableTwoLinesInAllApps != prefs.get(ENABLE_TWOLINE_ALLAPPS_TOGGLE)) {
                 onConfigChanged(context);
             }
-        };
-        prefs.addListener(prefListener, FIXED_LANDSCAPE_MODE, ENABLE_TWOLINE_ALLAPPS_TOGGLE);
-        lifeCycle.addCloseable(() -> prefs.removeListener(prefListener,
-                FIXED_LANDSCAPE_MODE, ENABLE_TWOLINE_ALLAPPS_TOGGLE));
+        }, FIXED_LANDSCAPE_MODE, ENABLE_TWOLINE_ALLAPPS_TOGGLE);
+        lifeCycle.addCloseable(() -> {
+            try {
+                idpPrefSub.close();
+            } catch (Exception ignored) {
+                // PrefSubscriptions don't throw.
+            }
+        });
 
         SimpleBroadcastReceiver localeReceiver = new SimpleBroadcastReceiver(context,
                 MAIN_EXECUTOR, i -> onConfigChanged(context));

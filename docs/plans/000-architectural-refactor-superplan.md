@@ -339,7 +339,7 @@ export ANDROID_SERIAL=emulator-5554
 10. **Feature 086** ✅ SHIPPED — `docs/changes/086`. Workspace top/bottom padding prefs (One UI 8.5 row-clip fix).
 11. **Feature 086 follow-up** ✅ SHIPPED (commit `ab3c54e`). Smart auto-defaults from system insets (round to nearest 8 dp), slider step=8, live preview wiring.
 12. **Feature 087** ✅ SHIPPED — `docs/changes/087`. Drawer respects workspace padding prefs in square-grid mode; 6th default dock icon (Calendar).
-13. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority.
+13. **T2.3 Phase 4** ✅ SHIPPED — `docs/changes/088`. SysUiScrim, RotationHelper, ThemeManager, DisplayController, and IDP's own `LauncherPrefChangeListener` consumers all migrated to the unified `getPrefChanges().subscribe(...)` framework. T2.3 is now fully complete; only the legacy `LauncherPrefChangeListener` interface + `addListener`/`removeListener` API surface remains as a back-compat shim (explicitly a non-goal per plan 003).
 
 **Pending — picked up here when ready:**
 
