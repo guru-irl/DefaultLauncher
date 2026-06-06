@@ -805,4 +805,7 @@
 
     <!-- DanfoClockView content description. docs/changes/088 -->
     <string name="clock_widget_content_description">Danfo clock</string>
+
+    <!-- Danfo clock widget picker label. docs/changes/091 -->
+    <string name="clock_widget_label">Danfo Clock</string>
 </resources>
