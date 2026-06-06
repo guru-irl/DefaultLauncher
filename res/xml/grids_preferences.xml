@@ -18,4 +18,22 @@
         launcher:showSeekBarValue="true"
         launcher:iconSpaceReserved="false" />
 
+    <com.android.launcher3.settings.M3SliderPreference
+        android:key="pref_workspace_top_padding_dp"
+        android:title="@string/workspace_top_padding_title"
+        android:defaultValue="36"
+        android:max="120"
+        launcher:min="0"
+        launcher:showSeekBarValue="true"
+        launcher:iconSpaceReserved="false" />
+
+    <com.android.launcher3.settings.M3SliderPreference
+        android:key="pref_workspace_bottom_padding_dp"
+        android:title="@string/workspace_bottom_padding_title"
+        android:defaultValue="16"
+        android:max="120"
+        launcher:min="0"
+        launcher:showSeekBarValue="true"
+        launcher:iconSpaceReserved="false" />
+
 </androidx.preference.PreferenceScreen>

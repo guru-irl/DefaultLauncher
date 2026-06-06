@@ -344,6 +344,30 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
          */
         @JvmField
         val GRID_ROWS_NAV_MODE = nonRestorableItem("pref_grid_rows_nav_mode", -1)
+
+        /**
+         * User-controlled top padding (dp) above the workspace grid in square-grid
+         * mode. Replaces the dynamic mInsets.top in [DeviceProfile.deriveSquareGridRows]
+         * so the layout no longer depends on system bar inset reporting (which varies
+         * across OS versions — see One UI 8.5 regression). 36dp ≈ a typical status
+         * bar height; user can reduce to fit more rows under the status bar.
+         */
+        @JvmField
+        val WORKSPACE_TOP_PADDING_DP = backedUpItem("pref_workspace_top_padding_dp", 36)
+        /** Same as above but for the space between the dock icons and screen bottom. */
+        @JvmField
+        val WORKSPACE_BOTTOM_PADDING_DP = backedUpItem("pref_workspace_bottom_padding_dp", 16)
+
+        /**
+         * Padding values that were live when [GRID_ROWS] / [GRID_GAP] were persisted.
+         * Part of the invalidation key so changing the padding sliders triggers a
+         * fresh row derivation.
+         */
+        @JvmField
+        val GRID_ROWS_TOP_PAD = nonRestorableItem("pref_grid_rows_top_pad", -1)
+        @JvmField
+        val GRID_ROWS_BOTTOM_PAD = nonRestorableItem("pref_grid_rows_bottom_pad", -1)
+
         @JvmField
         val ALLAPPS_ROW_GAP = backedUpItem("pref_allapps_row_gap", 16)
         @JvmField

@@ -184,6 +184,15 @@ public class InvariantDeviceProfile {
     /** Locked inter-cell gap in pixels, or -1 if not yet computed. */
     public int persistedGridGap = -1;
 
+    /**
+     * User-controlled top padding in PIXELS reserved above the workspace grid in
+     * square-grid mode. Replaces the system-bar top inset in the row-fit math so
+     * the layout no longer depends on OS-version inset reporting.
+     */
+    public int workspaceTopPaddingPx;
+    /** Same as above, applied to the bottom (hotseat → screen edge). */
+    public int workspaceBottomPaddingPx;
+
     /** Whether workspace icon labels are hidden. */
     public boolean hideWorkspaceLabels;
 
@@ -530,29 +539,25 @@ public class InvariantDeviceProfile {
             numRows = 20;
         }
 
+        // --- User-controlled workspace top/bottom padding (square-grid mode) ---
+        // These replace mInsets.top / mInsets.bottom in the row-fit math so the
+        // grid no longer depends on OS-reported system bar insets (which can
+        // shift across OS updates — One UI 8.5 was the original motivator).
+        int topPadDp = mPrefs.get(LauncherPrefs.WORKSPACE_TOP_PADDING_DP);
+        int bottomPadDp = mPrefs.get(LauncherPrefs.WORKSPACE_BOTTOM_PADDING_DP);
+        workspaceTopPaddingPx = Math.round(topPadDp * metrics.density);
+        workspaceBottomPaddingPx = Math.round(bottomPadDp * metrics.density);
+
         // --- Read persisted grid rows + gap (locked geometry) ---
         int savedRows = mPrefs.get(LauncherPrefs.GRID_ROWS);
         int savedGap = mPrefs.get(LauncherPrefs.GRID_GAP);
         int savedCols = mPrefs.get(LauncherPrefs.GRID_ROWS_COLUMNS);
-        int savedNavHeight = mPrefs.get(LauncherPrefs.GRID_ROWS_NAV_HEIGHT);
-        int savedNavMode = mPrefs.get(LauncherPrefs.GRID_ROWS_NAV_MODE);
-
-        // Get portrait bottom inset (navbar height) from display bounds
-        int currentNavHeight = -1;
-        for (WindowBounds bounds : displayInfo.supportedBounds) {
-            if (bounds.bounds.height() > bounds.bounds.width()) {
-                currentNavHeight = bounds.insets.bottom;
-                break;
-            }
-        }
-        // Explicit nav-mode ordinal. nav_height alone is a proxy that can
-        // produce the same value across modes on some devices; the ordinal
-        // is the authoritative signal.
-        int currentNavMode = displayInfo.getNavigationMode().ordinal();
+        int savedTopPad = mPrefs.get(LauncherPrefs.GRID_ROWS_TOP_PAD);
+        int savedBottomPad = mPrefs.get(LauncherPrefs.GRID_ROWS_BOTTOM_PAD);
 
         boolean match = savedCols == userColumns
-                && savedNavHeight == currentNavHeight
-                && savedNavMode == currentNavMode;
+                && savedTopPad == topPadDp
+                && savedBottomPad == bottomPadDp;
         persistedGridRows = (match && savedRows > 0) ? savedRows : -1;
         persistedGridGap = (match && savedGap >= 0) ? savedGap : -1;
 
@@ -593,8 +598,8 @@ public class InvariantDeviceProfile {
                             LauncherPrefs.GRID_ROWS.to(persistedGridRows),
                             LauncherPrefs.GRID_GAP.to(persistedGridGap),
                             LauncherPrefs.GRID_ROWS_COLUMNS.to(userColumns),
-                            LauncherPrefs.GRID_ROWS_NAV_HEIGHT.to(currentNavHeight),
-                            LauncherPrefs.GRID_ROWS_NAV_MODE.to(currentNavMode));
+                            LauncherPrefs.GRID_ROWS_TOP_PAD.to(topPadDp),
+                            LauncherPrefs.GRID_ROWS_BOTTOM_PAD.to(bottomPadDp));
                     break;
                 }
             }

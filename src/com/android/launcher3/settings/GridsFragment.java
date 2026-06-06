@@ -39,6 +39,8 @@ public class GridsFragment extends SettingsBaseFragment {
 
         GridPreviewPreference previewPref = findPreference("pref_grid_preview");
         M3SliderPreference columnsPref = findPreference("pref_grid_columns");
+        M3SliderPreference topPadPref = findPreference("pref_workspace_top_padding_dp");
+        M3SliderPreference bottomPadPref = findPreference("pref_workspace_bottom_padding_dp");
 
         if (columnsPref != null) {
             // Real-time preview on every slider tick
@@ -55,6 +57,20 @@ public class GridsFragment extends SettingsBaseFragment {
                         InvariantDeviceProfile.INSTANCE.get(getContext())
                                 .onConfigChanged(getContext()));
             });
+        }
+
+        // Top/bottom workspace padding: rebuild the IDP on finger-release so the
+        // row count is re-derived against the new padding (which is part of the
+        // GRID_ROWS_TOP_PAD / GRID_ROWS_BOTTOM_PAD invalidation key).
+        M3SliderPreference.OnTrackingStopListener paddingTrackingStop = finalValue ->
+                getListView().post(() ->
+                        InvariantDeviceProfile.INSTANCE.get(getContext())
+                                .onConfigChanged(getContext()));
+        if (topPadPref != null) {
+            topPadPref.setOnTrackingStopListener(paddingTrackingStop);
+        }
+        if (bottomPadPref != null) {
+            bottomPadPref.setOnTrackingStopListener(paddingTrackingStop);
         }
     }
 

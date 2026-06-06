@@ -839,9 +839,12 @@ public class DeviceProfile {
             cellLayoutPaddingPx = new Rect(cellLayoutPadding, cellLayoutPadding, cellLayoutPadding,
                     cellLayoutPadding);
         }
-        // Square grid: minimum margin between hotseat icons and screen bottom
+        // Square grid: minimum margin between hotseat icons and screen bottom.
+        // Uses the user-controlled WORKSPACE_BOTTOM_PADDING pref instead of the
+        // system bottom inset so layout stays stable across OS bar-height changes.
         if (inv.isSquareGrid && !isVerticalBarLayout()) {
-            hotseatBarBottomSpacePx = Math.max(getSquareGridMinMarginPx(), mInsets.bottom);
+            hotseatBarBottomSpacePx = Math.max(
+                    getSquareGridMinMarginPx(), inv.workspaceBottomPaddingPx);
             hotseatBarSizePx = cellHeightPx + hotseatBarBottomSpacePx;
         }
         updateWorkspacePadding();
@@ -1236,9 +1239,11 @@ public class DeviceProfile {
         int edgeGap = getSquareGridEdgeGapPx();
         int bottomMargin = hotseatBarBottomSpacePx;  // max(margin, navBar), from constructor
 
-        // Total available height: from below status bar to above bottom margin.
+        // Total available height: from user-pref top padding to above bottom margin.
+        // Uses inv.workspaceTopPaddingPx (user-controlled) instead of mInsets.top so
+        // row-fit is independent of OS-version-specific system-bar inset reporting.
         // This holds ALL icon rows (workspace + hotseat) and inter-cell gaps.
-        int availH = heightPx - mInsets.top - bottomMargin;
+        int availH = heightPx - inv.workspaceTopPaddingPx - bottomMargin;
 
         int totalRows;
         int gap;
@@ -1271,7 +1276,7 @@ public class DeviceProfile {
 
         // Compute slop: excess height beyond grid + margins
         int gridH = totalRows * cellHeightPx + (totalRows - 1) * gap;
-        int totalUsed = mInsets.top + gridH + bottomMargin;
+        int totalUsed = inv.workspaceTopPaddingPx + gridH + bottomMargin;
         int slop = heightPx - totalUsed;
 
         // Split slop between top and bottom of screen
@@ -1304,15 +1309,18 @@ public class DeviceProfile {
         if (DEBUG_SQUARE_GRID) {
             Log.d(TAG, "=== Square Grid Derivation ===");
             Log.d(TAG, String.format(
-                    "Screen: %dx%d  density=%.1f  insets.top=%d insets.bottom=%d",
-                    widthPx, heightPx, density, mInsets.top, mInsets.bottom));
+                    "Screen: %dx%d  density=%.1f  topPad=%d (pref) bottomPad=%d (pref)  "
+                            + "mInsets=%s",
+                    widthPx, heightPx, density,
+                    inv.workspaceTopPaddingPx, inv.workspaceBottomPaddingPx, mInsets));
             Log.d(TAG, String.format(
                     "Cell: %dx%d (%.1fx%.1fdp)  gap=%dpx(%.1fdp)  edgeGap=%dpx(%.1fdp)",
                     cellWidthPx, cellHeightPx, cellWidthPx/density, cellHeightPx/density,
                     gap, gap/density, edgeGap, edgeGap/density));
             Log.d(TAG, String.format(
-                    "AvailH: %dpx = %d(screenH) - %d(statusBar) - %d(bottomMargin %.1fdp)",
-                    availH, heightPx, mInsets.top, bottomMargin, bottomMargin/density));
+                    "AvailH: %dpx = %d(screenH) - %d(topPad) - %d(bottomMargin %.1fdp)",
+                    availH, heightPx, inv.workspaceTopPaddingPx,
+                    bottomMargin, bottomMargin/density));
             Log.d(TAG, String.format(
                     "Rows: totalRows=%d  workspaceRows=%d  cols=%d  persisted=%b",
                     totalRows, numRows, inv.numColumns,
