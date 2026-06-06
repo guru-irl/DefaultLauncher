@@ -67,6 +67,41 @@ def sample_screen_pixel(d: u2.Device, x: int, y: int,
             pass
 
 
+def sample_region_grid(d: u2.Device, left: int, top: int, right: int,
+                       bottom: int, cols: int = 24, rows: int = 16,
+                       scratch: Optional[Path] = None) -> list[Pixel]:
+    """Sample a `cols` x `rows` grid of pixels over a screen rectangle.
+
+    Takes a single screenshot (cheap relative to one-per-pixel sampling) and
+    returns the flattened list of sampled `Pixel`s. Useful for detecting
+    painted glyphs anywhere inside a view whose exact text position is not
+    known ahead of time (e.g. a clock whose digits shift with the time).
+    """
+    from PIL import Image
+    if scratch is None:
+        scratch = Path(f"/tmp/vislib_{int(time.time() * 1000)}.png")
+    d.screenshot(str(scratch))
+    try:
+        with Image.open(str(scratch)) as img:
+            rgb = img.convert("RGB")
+            w, h = rgb.size
+            out: list[Pixel] = []
+            for j in range(rows):
+                fy = (j + 0.5) / rows
+                y = min(h - 1, max(0, top + int((bottom - top) * fy)))
+                for i in range(cols):
+                    fx = (i + 0.5) / cols
+                    x = min(w - 1, max(0, left + int((right - left) * fx)))
+                    r, g, b = rgb.getpixel((x, y))
+                    out.append(Pixel(r=r, g=g, b=b))
+            return out
+    finally:
+        try:
+            scratch.unlink()
+        except FileNotFoundError:
+            pass
+
+
 def sample_view_center(d: u2.Device, resource_id: str,
                        offset_x: int = 0, offset_y: int = 0) -> Pixel:
     """Sample the pixel at the center of the view with `resource_id`.
