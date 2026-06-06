@@ -200,6 +200,24 @@ public class CustomWidgetManager {
 
         info.provider = cn;
         info.initialLayout = 0;
+        // The clone above carries the foreign provider's ActivityInfo, so
+        // resource loading (loadPreviewImage / loadIcon) resolves OUR preview
+        // and icon resource IDs against the WRONG package and fails ("Can't load
+        // widget preview drawable"). Point the hidden providerInfo field at the
+        // launcher's own package so launcher-shipped custom widgets load their
+        // own assets. providerInfo is @hide, so set it reflectively.
+        try {
+            android.content.pm.ActivityInfo activityInfo = new android.content.pm.ActivityInfo();
+            activityInfo.packageName = mContext.getPackageName();
+            activityInfo.name = cn.getClassName();
+            activityInfo.applicationInfo = mContext.getApplicationInfo();
+            java.lang.reflect.Field providerInfoField =
+                    AppWidgetProviderInfo.class.getDeclaredField("providerInfo");
+            providerInfoField.setAccessible(true);
+            providerInfoField.set(info, activityInfo);
+        } catch (Throwable t) {
+            Log.w(TAG, "Could not root custom widget providerInfo in launcher package", t);
+        }
         mCustomWidgets.add(info);
         return info;
     }
