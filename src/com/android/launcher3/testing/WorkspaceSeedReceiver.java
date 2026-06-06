@@ -43,6 +43,13 @@ public class WorkspaceSeedReceiver extends BroadcastReceiver {
     public static final String ACTION_SIMULATE_NULL_PROVIDER =
             "com.guru.defaultlauncher.test.SIMULATE_NULL_PROVIDER";
 
+    /** Places the Danfo clock widget at (0,0), span 2x2 (debug builds only). */
+    public static final String ACTION_PLACE_CLOCK_WIDGET =
+            "com.guru.defaultlauncher.test.PLACE_CLOCK_WIDGET";
+
+    private static final String CLOCK_PROVIDER =
+            "android/#custom-widget-com.android.launcher3.widget.custom.DanfoClockWidgetPlugin";
+
     private static final String SETTINGS_INTENT =
             "#Intent;action=android.intent.action.MAIN;"
             + "category=android.intent.category.LAUNCHER;"
@@ -67,6 +74,38 @@ public class WorkspaceSeedReceiver extends BroadcastReceiver {
             boolean enable = !intent.getBooleanExtra("disable", false);
             com.android.launcher3.widget.WidgetInflater.sSimulateNullProvider = enable;
             android.util.Log.d("WorkspaceSeedReceiver", "sSimulateNullProvider = " + enable);
+            return;
+        }
+
+        if (ACTION_PLACE_CLOCK_WIDGET.equals(intent.getAction())) {
+            Executors.MODEL_EXECUTOR.execute(() -> {
+                com.android.launcher3.model.ModelDbController db =
+                        LauncherAppState.getInstance(context).getModel().getModelDbController();
+                android.content.ComponentName cn =
+                        android.content.ComponentName.unflattenFromString(CLOCK_PROVIDER);
+                int widgetId = com.android.launcher3.widget.custom.CustomWidgetManager.INSTANCE
+                        .get(context).allocateCustomAppWidgetId(cn);
+
+                ContentValues cv = new ContentValues();
+                cv.put(LauncherSettings.Favorites._ID, 200);
+                cv.put(LauncherSettings.Favorites.CONTAINER,
+                        LauncherSettings.Favorites.CONTAINER_DESKTOP);
+                cv.put(LauncherSettings.Favorites.SCREEN, 0);
+                cv.put(LauncherSettings.Favorites.CELLX, 0);
+                cv.put(LauncherSettings.Favorites.CELLY, 0);
+                cv.put(LauncherSettings.Favorites.SPANX, 2);
+                cv.put(LauncherSettings.Favorites.SPANY, 2);
+                cv.put(LauncherSettings.Favorites.ITEM_TYPE,
+                        LauncherSettings.Favorites.ITEM_TYPE_CUSTOM_APPWIDGET);
+                cv.put(LauncherSettings.Favorites.APPWIDGET_ID, widgetId);
+                cv.put(LauncherSettings.Favorites.APPWIDGET_PROVIDER, CLOCK_PROVIDER);
+                cv.put(LauncherSettings.Favorites.PROFILE_ID, 0);
+                cv.put(LauncherSettings.Favorites.RANK, 0);
+                db.insert(cv);
+
+                Executors.MAIN_EXECUTOR.execute(
+                        () -> LauncherAppState.getInstance(context).getModel().forceReload());
+            });
             return;
         }
 

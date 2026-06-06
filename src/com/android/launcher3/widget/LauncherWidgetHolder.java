@@ -393,11 +393,17 @@ public class LauncherWidgetHolder {
             @NonNull LauncherAppWidgetHostView view) {
 
         // Binder can also inflate placeholder widgets in case of backup-restore. Skip
-        // attaching such widgets
+        // attaching such widgets.
+        // In-process custom widgets (isCustomWidget()) set their own view tree via
+        // CustomWidgetManager.onViewCreated(). Skip recycleExistingView so the plugin-
+        // provided child view (e.g. DanfoClockView) is not discarded and replaced by
+        // the "Can't load widget" fallback from the AppWidgetHostView base class.
         boolean isRealWidget = (!(view instanceof PendingAppWidgetHostView pw)
                 || pw.isDeferredWidget())
                 && view.getAppWidgetInfo() != null;
-        if (isRealWidget && mViews.get(view.getAppWidgetId()) != view) {
+        boolean isCustomWidget = view.getAppWidgetInfo() instanceof LauncherAppWidgetProviderInfo
+                && ((LauncherAppWidgetProviderInfo) view.getAppWidgetInfo()).isCustomWidget();
+        if (isRealWidget && !isCustomWidget && mViews.get(view.getAppWidgetId()) != view) {
             view = recycleExistingView(view);
             mViews.put(view.getAppWidgetId(), view);
         }
