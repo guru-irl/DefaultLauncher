@@ -334,7 +334,34 @@ export ANDROID_SERIAL=emulator-5554
 5. **T3.1 Phase 3** ✅ SHIPPED — `docs/changes/081`. ProfileCoordinator extraction. Container: 1914→1877 LOC.
 6. **T3.1 Phase 4** ✅ SHIPPED — `docs/changes/082`. SearchLifecycle extraction. Container: 1877→~1820 LOC.
 7. **T3.1 Phase 5** ✅ SHIPPED — `docs/changes/083`. HeaderCoordinator extraction. Container: ~1820→1607 LOC.
-8. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority.
+8. **Bug 084** ✅ SHIPPED — `docs/changes/084`. Empty drawer after search-launch alpha fix.
+9. **Bug 085** ✅ SHIPPED — `docs/changes/085`. Widget picker → stack acceptDrop. Verified on Samsung 2026-06-06.
+10. **Feature 086** ✅ SHIPPED — `docs/changes/086`. Workspace top/bottom padding prefs (One UI 8.5 row-clip fix).
+11. **Feature 086 follow-up** ✅ SHIPPED (commit `ab3c54e`). Smart auto-defaults from system insets (round to nearest 8 dp), slider step=8, live preview wiring.
+12. **Feature 087** ✅ SHIPPED — `docs/changes/087`. Drawer respects workspace padding prefs in square-grid mode; 6th default dock icon (Calendar).
+13. **T2.3 Phase 4** — deferred (RotationHelper / SysUiScrim / ThemeManager / DisplayController migrations). Lowest priority.
+
+**Pending — picked up here when ready:**
+
+- **Padding-prefs polish** — items the user might want next on the
+  padding-prefs feature once they live with it:
+  - Visual regression test for "drawer top edge aligns with workspace
+    top icon row" at a non-default padding (visuals/ pass).
+  - Extend the 6th hotseat icon to `default_workspace_6x5.xml` and
+    `default_workspace_5x8.xml` for tablet / large-screen grids.
+  - "Reset to auto" affordance on the padding sliders (writes the
+    AUTO_PAD_SENTINEL back so the next IDP run re-derives from system
+    insets). Would need a long-press menu or a small reset button next
+    to each slider.
+  - Test on physical hardware (Samsung) that One UI 8.5 → 8.x updates
+    don't unexpectedly shift the persisted values (e.g., if the user
+    keeps the auto-default and the device's reported status bar height
+    changes again, IDP should NOT re-snap silently — the persisted
+    value should be sticky once set).
+- **Square-grid dock auto-fill** — if the user bumps columns from 6 to
+  7+, the dock gains empty slots. Currently silent — could prompt or
+  auto-fill from the next-most-used apps. Deferred unless raised.
+- **T2.3 Phase 4** — as above, lowest priority, no current motivation.
 
 **Execution invariants** for any session:
 

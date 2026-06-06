@@ -869,6 +869,13 @@ public class DeviceProfile {
         if (shouldShowAllAppsOnSheet()) {
             allAppsPadding.top = mInsets.top;
             allAppsShiftRange = heightPx;
+        } else if (inv.isSquareGrid) {
+            // Square grid: the drawer mirrors the workspace's user-controlled
+            // top padding so the search bar / first row sit at the same
+            // distance from the status bar as the workspace's first row.
+            allAppsPadding.top = inv.workspaceTopPaddingPx;
+            allAppsShiftRange =
+                    res.getDimensionPixelSize(R.dimen.all_apps_starting_vertical_translate);
         } else {
             allAppsPadding.top = 0;
             allAppsShiftRange =
