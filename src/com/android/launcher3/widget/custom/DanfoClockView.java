@@ -1,6 +1,10 @@
 package com.android.launcher3.widget.custom;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.icu.text.SimpleDateFormat;
@@ -12,10 +16,14 @@ import android.widget.TextClock;
 import android.widget.TextView;
 
 import com.android.launcher3.BuildConfig;
+import com.android.launcher3.Item;
+import com.android.launcher3.LauncherPrefs;
+import com.android.launcher3.PrefSubscriber;
 import com.android.launcher3.R;
 
 import java.util.Date;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * In-process clock widget view: a single-line Danfo time over a Bebas Neue
@@ -43,6 +51,9 @@ public class DanfoClockView extends LinearLayout {
     private static final float MAX_TIME_PX = 600f;
 
     private float mAvailWidthPx = 0f;
+
+    private AutoCloseable mPrefSubscription;
+    private BroadcastReceiver mTimeReceiver;
 
     private final TextClock mTime;
     private final TextView mDate;
@@ -113,6 +124,140 @@ public class DanfoClockView extends LinearLayout {
                     + " date=" + dateSize);
         }
     }
+
+    /** Reads all clock prefs and restyles. Safe to call repeatedly. */
+    private void applyPrefs() {
+        LauncherPrefs prefs = LauncherPrefs.get(getContext());
+
+        // Alignment.
+        boolean left = "left".equals(prefs.get(LauncherPrefs.CLOCK_ALIGNMENT));
+        int gravity = (left ? Gravity.START : Gravity.CENTER_HORIZONTAL) | Gravity.CENTER_VERTICAL;
+        setGravity(gravity);
+        mTime.setGravity(gravity);
+        mDate.setGravity(gravity);
+
+        // Time format (12h: h:mm no leading zero; 24h: HH:mm zero-padded).
+        String fmt = prefs.get(LauncherPrefs.CLOCK_TIME_FORMAT);
+        if ("12".equals(fmt)) {
+            mTime.setFormat12Hour("h:mm");
+            mTime.setFormat24Hour("h:mm");
+        } else if ("24".equals(fmt)) {
+            mTime.setFormat12Hour("HH:mm");
+            mTime.setFormat24Hour("HH:mm");
+        } else { // follow system
+            mTime.setFormat12Hour("h:mm");
+            mTime.setFormat24Hour("HH:mm");
+        }
+
+        // Color.
+        int timeColor = resolveTimeColor(prefs);
+        int dateColor = resolveDateColor(prefs, timeColor);
+        mTime.setTextColor(timeColor);
+        mDate.setTextColor(dateColor);
+
+        refreshDate();
+    }
+
+    private int resolveTimeColor(LauncherPrefs prefs) {
+        switch (prefs.get(LauncherPrefs.CLOCK_COLOR_MODE)) {
+            case "custom":
+                return resolveNamedColor(prefs.get(LauncherPrefs.CLOCK_TIME_COLOR), Color.WHITE);
+            case "material_you":
+                return materialYouColor();
+            case "wallpaper":
+                return wallpaperContrastColor();
+            case "white":
+            default:
+                return Color.WHITE;
+        }
+    }
+
+    private int resolveDateColor(LauncherPrefs prefs, int timeColor) {
+        if ("custom".equals(prefs.get(LauncherPrefs.CLOCK_COLOR_MODE))) {
+            return resolveNamedColor(prefs.get(LauncherPrefs.CLOCK_DATE_COLOR), timeColor);
+        }
+        return timeColor;
+    }
+
+    /** Resolves a color-resource name (as stored by ColorPickerPreference) to an int. */
+    private int resolveNamedColor(String name, int fallback) {
+        if (name == null || name.isEmpty()) return fallback;
+        int id = getResources().getIdentifier(name, "color", getContext().getPackageName());
+        return id != 0 ? getContext().getColor(id) : fallback;
+    }
+
+    private int materialYouColor() {
+        try {
+            return getContext().getColor(android.R.color.system_accent1_100);
+        } catch (Exception e) {
+            return Color.WHITE;
+        }
+    }
+
+    private int wallpaperContrastColor() {
+        try {
+            android.app.WallpaperManager wm = android.app.WallpaperManager.getInstance(getContext());
+            android.app.WallpaperColors wc = wm.getWallpaperColors(
+                    android.app.WallpaperManager.FLAG_SYSTEM);
+            if (wc != null
+                    && (wc.getColorHints() & android.app.WallpaperColors.HINT_SUPPORTS_DARK_TEXT) != 0) {
+                return 0xFF111111; // light wallpaper -> dark text
+            }
+        } catch (Exception e) {
+            if (DEBUG) android.util.Log.w(TAG, "wallpaper color read failed", e);
+        }
+        return Color.WHITE;
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        applyPrefs();
+
+        mPrefSubscription = LauncherPrefs.get(getContext()).getPrefChanges().subscribe(
+                mPrefSubscriber,
+                LauncherPrefs.CLOCK_ALIGNMENT,
+                LauncherPrefs.CLOCK_TIME_FORMAT,
+                LauncherPrefs.CLOCK_COLOR_MODE,
+                LauncherPrefs.CLOCK_TIME_COLOR,
+                LauncherPrefs.CLOCK_DATE_COLOR);
+
+        mTimeReceiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context context, Intent intent) {
+                refreshDate();
+                if (Intent.ACTION_CONFIGURATION_CHANGED.equals(intent.getAction())) {
+                    applyPrefs();
+                }
+            }
+        };
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_TIME_TICK);
+        filter.addAction(Intent.ACTION_TIME_CHANGED);
+        filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
+        filter.addAction(Intent.ACTION_DATE_CHANGED);
+        filter.addAction(Intent.ACTION_LOCALE_CHANGED);
+        filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
+        getContext().registerReceiver(mTimeReceiver, filter);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if (mPrefSubscription != null) {
+            try { mPrefSubscription.close(); } catch (Exception ignored) { }
+            mPrefSubscription = null;
+        }
+        if (mTimeReceiver != null) {
+            try { getContext().unregisterReceiver(mTimeReceiver); } catch (Exception ignored) { }
+            mTimeReceiver = null;
+        }
+    }
+
+    private final PrefSubscriber mPrefSubscriber = new PrefSubscriber() {
+        @Override public void onPrefsChanged(Set<? extends Item> changes) {
+            applyPrefs();
+        }
+    };
 
     /** Width of {@code text} per 1px of font size for the given paint's typeface. */
     private static float measureRatio(Paint paint, String text) {
