@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="clock_alignment_entries">
+        <item>@string/clock_alignment_centered</item>
+        <item>@string/clock_alignment_left</item>
+    </string-array>
+    <string-array name="clock_alignment_values">
+        <item>center</item>
+        <item>left</item>
+    </string-array>
+
+    <string-array name="clock_time_format_entries">
+        <item>@string/clock_format_system</item>
+        <item>@string/clock_format_12</item>
+        <item>@string/clock_format_24</item>
+    </string-array>
+    <string-array name="clock_time_format_values">
+        <item>system</item>
+        <item>12</item>
+        <item>24</item>
+    </string-array>
+
+    <string-array name="clock_color_mode_entries">
+        <item>@string/clock_color_white</item>
+        <item>@string/clock_color_custom</item>
+        <item>@string/clock_color_material_you</item>
+        <item>@string/clock_color_wallpaper</item>
+    </string-array>
+    <string-array name="clock_color_mode_values">
+        <item>white</item>
+        <item>custom</item>
+        <item>material_you</item>
+        <item>wallpaper</item>
+    </string-array>
+</resources>

@@ -808,4 +808,22 @@
 
     <!-- Danfo clock widget picker label. docs/changes/091 -->
     <string name="clock_widget_label">Danfo Clock</string>
+
+    <!-- Clock widget settings strings. docs/changes/091 -->
+    <string name="clock_widget_title">Clock widget</string>
+    <string name="clock_widget_summary">Danfo clock: alignment, format, color</string>
+    <string name="clock_alignment_title">Alignment</string>
+    <string name="clock_alignment_centered">Centered</string>
+    <string name="clock_alignment_left">Left</string>
+    <string name="clock_time_format_title">Time format</string>
+    <string name="clock_format_system">Follow system</string>
+    <string name="clock_format_12">12-hour</string>
+    <string name="clock_format_24">24-hour</string>
+    <string name="clock_color_mode_title">Color</string>
+    <string name="clock_color_white">White</string>
+    <string name="clock_color_custom">Custom</string>
+    <string name="clock_color_material_you">Material You</string>
+    <string name="clock_color_wallpaper">Auto from wallpaper</string>
+    <string name="clock_time_color_title">Time color</string>
+    <string name="clock_date_color_title">Date color</string>
 </resources>
