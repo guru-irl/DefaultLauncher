@@ -51,10 +51,11 @@
         launcher:iconSpaceReserved="true" />
 
     <Preference
-        android:key="pref_clock_widget"
-        android:title="@string/clock_widget_title"
-        android:summary="@string/clock_widget_summary"
-        android:fragment="com.android.launcher3.settings.ClockWidgetFragment"
+        android:key="pref_widgets"
+        android:icon="@drawable/ic_settings_widgets"
+        android:title="@string/widgets_title"
+        android:summary="@string/widgets_summary"
+        android:fragment="com.android.launcher3.settings.WidgetsFragment"
         launcher:iconSpaceReserved="true" />
 
     <Preference

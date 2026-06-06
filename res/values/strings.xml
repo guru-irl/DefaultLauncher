@@ -809,9 +809,13 @@
     <!-- Danfo clock widget picker label. docs/changes/091 -->
     <string name="clock_widget_label">Danfo Clock</string>
 
+    <!-- Widgets settings submenu. -->
+    <string name="widgets_title">Widgets</string>
+    <string name="widgets_summary">Clock and other home screen widgets</string>
+
     <!-- Clock widget settings strings. docs/changes/091 -->
     <string name="clock_widget_title">Clock widget</string>
-    <string name="clock_widget_summary">Danfo clock: alignment, format, color</string>
+    <string name="clock_widget_summary">Style, format, color</string>
     <string name="clock_alignment_title">Alignment</string>
     <string name="clock_alignment_centered">Centered</string>
     <string name="clock_alignment_left">Left</string>
