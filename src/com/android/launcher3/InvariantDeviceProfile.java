@@ -159,6 +159,28 @@ public class InvariantDeviceProfile {
     /** Valid row gap values (dp) for the all-apps drawer. */
     public static final float[] ALLAPPS_ROW_GAP_OPTIONS = {16f, 24f, 32f};
 
+    /**
+     * Step size (dp) for the workspace top/bottom padding sliders. Chosen so
+     * the slider always snaps to a multiple of 8dp — a common 4dp grid
+     * doubling that lines up with M3 spacing tokens. Reused by GridsFragment
+     * to call slider.setStepSize(PAD_STEP_DP).
+     */
+    public static final int PAD_STEP_DP = 8;
+
+    /**
+     * Sentinel stored in WORKSPACE_TOP_PADDING_DP / WORKSPACE_BOTTOM_PADDING_DP
+     * meaning "auto — compute from this device's system bar insets on next
+     * IDP construction". Replaced by the computed value once IDP runs so the
+     * slider can display a concrete number.
+     */
+    public static final int AUTO_PAD_SENTINEL = -1;
+
+    /** Round {@code value} to the nearest multiple of {@code step}. */
+    public static int roundToMultipleOf(int value, int step) {
+        if (step <= 0) return value;
+        return Math.round((float) value / step) * step;
+    }
+
     /** Snaps a raw dp value to the nearest valid gap option. */
     public static float snapToNearestGap(int rawDp) {
         float closest = ALLAPPS_ROW_GAP_OPTIONS[0];
@@ -543,8 +565,45 @@ public class InvariantDeviceProfile {
         // These replace mInsets.top / mInsets.bottom in the row-fit math so the
         // grid no longer depends on OS-reported system bar insets (which can
         // shift across OS updates — One UI 8.5 was the original motivator).
+        //
+        // First-launch defaults are derived from the device's actual system
+        // bar insets (portrait): top = round-to-8(statusBars.top), bottom =
+        // round-to-8(max(navigationBars.bottom, minMarginDp)). After first
+        // computation we persist the auto-default so the slider shows the
+        // value the user is actually seeing.
         int topPadDp = mPrefs.get(LauncherPrefs.WORKSPACE_TOP_PADDING_DP);
         int bottomPadDp = mPrefs.get(LauncherPrefs.WORKSPACE_BOTTOM_PADDING_DP);
+        if (topPadDp == AUTO_PAD_SENTINEL || bottomPadDp == AUTO_PAD_SENTINEL) {
+            // Find the portrait WindowBounds (height > width). Its insets come
+            // from Type.systemBars() | Type.displayCutout() per WindowManagerProxy
+            // so .top is the status bar height and .bottom is the nav bar /
+            // gesture pill height — exactly the inputs the user previously
+            // observed as the "gap above workspace" / "gap below dock".
+            int portraitTopPx = 0;
+            int portraitBottomPx = 0;
+            for (WindowBounds bounds : displayInfo.supportedBounds) {
+                if (bounds.bounds.height() > bounds.bounds.width()) {
+                    portraitTopPx = bounds.insets.top;
+                    portraitBottomPx = bounds.insets.bottom;
+                    break;
+                }
+            }
+            float density = metrics.density;
+            int autoTopDp = roundToMultipleOf(
+                    Math.round(portraitTopPx / density), PAD_STEP_DP);
+            int autoBottomDp = roundToMultipleOf(
+                    Math.max(Math.round(portraitBottomPx / density),
+                            (int) SQUARE_GRID_MIN_TB_MARGIN_DP),
+                    PAD_STEP_DP);
+            if (topPadDp == AUTO_PAD_SENTINEL) {
+                topPadDp = autoTopDp;
+                mPrefs.put(LauncherPrefs.WORKSPACE_TOP_PADDING_DP.to(autoTopDp));
+            }
+            if (bottomPadDp == AUTO_PAD_SENTINEL) {
+                bottomPadDp = autoBottomDp;
+                mPrefs.put(LauncherPrefs.WORKSPACE_BOTTOM_PADDING_DP.to(autoBottomDp));
+            }
+        }
         workspaceTopPaddingPx = Math.round(topPadDp * metrics.density);
         workspaceBottomPaddingPx = Math.round(bottomPadDp * metrics.density);
 

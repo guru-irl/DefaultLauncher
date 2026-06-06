@@ -349,14 +349,20 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
          * User-controlled top padding (dp) above the workspace grid in square-grid
          * mode. Replaces the dynamic mInsets.top in [DeviceProfile.deriveSquareGridRows]
          * so the layout no longer depends on system bar inset reporting (which varies
-         * across OS versions — see One UI 8.5 regression). 36dp ≈ a typical status
-         * bar height; user can reduce to fit more rows under the status bar.
+         * across OS versions — see One UI 8.5 regression).
+         *
+         * Default `-1` ([InvariantDeviceProfile.AUTO_PAD_SENTINEL]) means "auto":
+         * IDP computes the closest multiple of 8 dp to the device's portrait
+         * status-bar inset on first construction and rewrites the pref. The
+         * slider therefore opens at a device-appropriate value rather than a
+         * one-size-fits-all 36.
          */
         @JvmField
-        val WORKSPACE_TOP_PADDING_DP = backedUpItem("pref_workspace_top_padding_dp", 36)
-        /** Same as above but for the space between the dock icons and screen bottom. */
+        val WORKSPACE_TOP_PADDING_DP = backedUpItem("pref_workspace_top_padding_dp", -1)
+        /** Same as above but for the space between the dock icons and screen bottom.
+         *  Default `-1` → auto-compute from portrait nav-bar inset (rounded to 8 dp). */
         @JvmField
-        val WORKSPACE_BOTTOM_PADDING_DP = backedUpItem("pref_workspace_bottom_padding_dp", 16)
+        val WORKSPACE_BOTTOM_PADDING_DP = backedUpItem("pref_workspace_bottom_padding_dp", -1)
 
         /**
          * Padding values that were live when [GRID_ROWS] / [GRID_GAP] were persisted.

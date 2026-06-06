@@ -148,6 +148,37 @@ public class GridPreviewView extends View {
         invalidate();
     }
 
+    /**
+     * Override the top padding (workspace top inset in px) shown in the preview.
+     * Live-updates when the user drags the top-padding slider so the preview
+     * reflects what the workspace will look like.
+     */
+    public void setTopPaddingPx(int topPx) {
+        if (mStatusBarPx == topPx) return;
+        mStatusBarPx = topPx;
+        mDeviceParamsReady = true;
+        if (mFromState != null) {
+            int cols = mToState != null ? mToState.numColumns : mFromState.numColumns;
+            mFromState = computeGridState(cols);
+            mToState = mFromState;
+            mAnimFraction = 1f;
+            invalidate();
+        }
+    }
+
+    /** Same as {@link #setTopPaddingPx} but for the bottom margin. */
+    public void setBottomPaddingPx(int bottomPx) {
+        if (mBottomMarginPx == bottomPx) return;
+        mBottomMarginPx = bottomPx;
+        if (mFromState != null) {
+            int cols = mToState != null ? mToState.numColumns : mFromState.numColumns;
+            mFromState = computeGridState(cols);
+            mToState = mFromState;
+            mAnimFraction = 1f;
+            invalidate();
+        }
+    }
+
     /** Animate from the current state to a new column count. */
     public void animateToColumns(int newColumns) {
         if (mFromState == null) {

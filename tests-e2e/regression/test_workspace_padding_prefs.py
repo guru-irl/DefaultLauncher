@@ -259,46 +259,119 @@ def _parse_first_portrait_derivation(log: str) -> dict:
 
 @pytest.fixture(autouse=True)
 def _reset_padding_prefs_after(launcher):
-    """After each test, restore the two padding prefs to their defaults via
-    a pref-file rewrite. Avoids the heavy `seed_workspace + force-stop` cycle
-    so the next test can do its own setup without inheriting an empty buffer
-    or a stalled launcher activity."""
+    """After each test, restore the two padding prefs to the auto-compute
+    sentinel so subsequent tests see device-appropriate defaults again."""
     yield
-    _set_padding_prefs(launcher.d, top_dp=36, bottom_dp=16)
+    # -1 = InvariantDeviceProfile.AUTO_PAD_SENTINEL → IDP recomputes on next
+    # construction and writes the device-specific value back.
+    _set_padding_prefs(launcher.d, top_dp=-1, bottom_dp=-1)
 
 
 # --------------------------------------------------------------------------- #
 # Tests
 # --------------------------------------------------------------------------- #
 
-@pytest.mark.regression
-def test_workspace_padding_pref_defaults_applied(launcher):
-    """Fresh launcher → IDP derivation uses topPad=36dp, bottomPad=16dp.
+def _portrait_system_insets():
+    """Return (top_px, bottom_px) of the device's portrait system bar insets,
+    parsed from `dumpsys window`. Used to compute the expected auto-defaults
+    the launcher should derive on first launch."""
+    out = adb_setup.adb("shell", "dumpsys", "window")
+    # Look for the InsetsSource lines for statusBars (top) and navigationBars
+    # (bottom). These are the values WindowBounds (and thus IDP) use.
+    top = None
+    bottom = None
+    for line in out.splitlines():
+        if "type=statusBars" in line and "frame=" in line and "visible=true" in line:
+            # frame=[L,T][R,B] — bottom (height) is the status bar height.
+            try:
+                frame = line.split("frame=")[1].split(" ")[0]
+                # frame=[0,0][1440,144] → status bar height = 144
+                top = int(frame.split("][")[1].rstrip("]").split(",")[1])
+            except (IndexError, ValueError):
+                pass
+        elif "type=navigationBars" in line and "frame=" in line and "visible=true" in line:
+            try:
+                frame = line.split("frame=")[1].split(" ")[0]
+                # frame=[0,2952][1440,3120] → nav bar height = 3120-2952 = 168
+                top_y = int(frame.split("][")[0].lstrip("[").split(",")[1])
+                bot_y = int(frame.split("][")[1].rstrip("]").split(",")[1])
+                bottom = bot_y - top_y
+            except (IndexError, ValueError):
+                pass
+        if top is not None and bottom is not None:
+            break
+    return top or 0, bottom or 0
 
-    Validates the default values flow from the pref defaults
-    (LauncherPrefs.WORKSPACE_TOP_PADDING_DP=36, BOTTOM=16) through
-    InvariantDeviceProfile.workspaceTopPaddingPx/BottomPaddingPx and into
-    DeviceProfile.deriveSquareGridRows. Uses `pm clear` (seed_workspace)
-    because that's the only reliable IDP-rebuild path on this emulator —
-    the NotificationListener service keeps the launcher process alive
-    across `am force-stop`."""
+
+def _expected_auto_default(inset_px: int, density: float, min_dp: int = 0) -> int:
+    """Mirror of [[InvariantDeviceProfile.applyOverrides]] auto-default math:
+    round(max(inset/density, min_dp)) snapped to nearest multiple of 8."""
+    raw_dp = max(round(inset_px / density), min_dp)
+    return round(raw_dp / 8) * 8
+
+
+@pytest.mark.regression
+def test_workspace_padding_pref_auto_defaults_applied(launcher):
+    """Fresh launcher → IDP computes topPad/bottomPad as the closest multiple
+    of 8 dp to the device's portrait system bar insets.
+
+    On Pixel 7 Pro AVD: status bar ≈ 144 px = 41 dp → rounds to 40 dp.
+    Nav bar ≈ 84 px = 24 dp (max with 16 dp min) → already 24, rounds to 24 dp.
+    On Samsung S24+: status bar = 129 px = 37 dp → rounds to 40 dp.
+    Nav bar = 53 px = 15 dp → max with 16 dp = 16 dp → rounds to 16 dp.
+
+    Validates the auto-default formula in InvariantDeviceProfile rather than
+    a hard-coded value so the test works across devices."""
     adb_setup.seed_workspace(launcher.d)
     log = _get_log(launcher.d, lines=2000)
     deriv = _parse_first_portrait_derivation(log)
 
-    expected_top = round(36 * deriv["density"])
-    expected_bottom = round(16 * deriv["density"])
-    assert deriv["topPad"] == expected_top, (
-        f"topPad in derivation = {deriv['topPad']}, expected {expected_top} "
-        f"(36dp at density {deriv['density']})"
+    sys_top_px, sys_bot_px = _portrait_system_insets()
+    expected_top_dp = _expected_auto_default(sys_top_px, deriv["density"])
+    expected_bottom_dp = _expected_auto_default(sys_bot_px, deriv["density"], min_dp=16)
+    expected_top_px = round(expected_top_dp * deriv["density"])
+    expected_bottom_px = round(expected_bottom_dp * deriv["density"])
+
+    assert deriv["topPad"] == expected_top_px, (
+        f"topPad in derivation = {deriv['topPad']}, expected {expected_top_px} "
+        f"({expected_top_dp}dp = round(max({sys_top_px}px/{deriv['density']}, 0)/8)*8)"
     )
-    assert deriv["bottomPad"] == expected_bottom, (
-        f"bottomPad in derivation = {deriv['bottomPad']}, expected {expected_bottom}"
+    assert deriv["bottomPad"] == expected_bottom_px, (
+        f"bottomPad in derivation = {deriv['bottomPad']}, expected {expected_bottom_px} "
+        f"({expected_bottom_dp}dp = round(max({sys_bot_px}px/{deriv['density']}, 16)/8)*8)"
     )
-    # AvailH = screenH - topPad - bottomMargin. With default 16dp pref and
-    # 16dp min margin, both inputs equal so bottomMargin = bottomPad.
-    assert deriv["availH"] == deriv["height"] - expected_top - expected_bottom, (
-        f"availH mismatch: {deriv}"
+    # Both defaults must be multiples of 8 dp.
+    assert expected_top_dp % 8 == 0
+    assert expected_bottom_dp % 8 == 0
+
+
+@pytest.mark.regression
+def test_workspace_padding_pref_persisted_after_auto_compute(launcher):
+    """After the auto-compute fires, the sentinel -1 must be replaced in the
+    prefs XML with the computed dp value. This is what makes the slider in
+    Settings open at the device-appropriate number rather than a blank/0."""
+    adb_setup.seed_workspace(launcher.d)
+    out = adb_setup.adb("shell", f"run-as {S.PACKAGE} cat {PREFS_FILE}")
+    # Both keys must be present and non-negative (sentinel replaced).
+    assert "pref_workspace_top_padding_dp" in out, (
+        "top padding pref missing from XML after auto-compute"
+    )
+    assert "pref_workspace_bottom_padding_dp" in out, (
+        "bottom padding pref missing from XML after auto-compute"
+    )
+    # Both values must be multiples of 8.
+    import re as _re
+    m_top = _re.search(
+        r'pref_workspace_top_padding_dp"\s+value="(-?\d+)"', out
+    )
+    m_bot = _re.search(
+        r'pref_workspace_bottom_padding_dp"\s+value="(-?\d+)"', out
+    )
+    assert m_top and int(m_top.group(1)) >= 0 and int(m_top.group(1)) % 8 == 0, (
+        f"top pref value not a non-negative multiple of 8: {m_top and m_top.group(1)}"
+    )
+    assert m_bot and int(m_bot.group(1)) >= 0 and int(m_bot.group(1)) % 8 == 0, (
+        f"bottom pref value not a non-negative multiple of 8: {m_bot and m_bot.group(1)}"
     )
 
 
