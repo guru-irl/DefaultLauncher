@@ -158,6 +158,21 @@ public class SearchWidgetView extends FrameLayout {
         }
         mLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
 
+        // Bebas Neue caps sit high in the line box (the descent below the
+        // baseline is empty for an all-caps word), so centering the line box
+        // leaves more gap below the text than above. Nudge the label so the
+        // visible INK is centered instead of the line box.
+        android.graphics.Paint lp = mLabel.getPaint();
+        android.graphics.Paint.FontMetrics fm = lp.getFontMetrics();
+        android.graphics.Rect ink = new android.graphics.Rect();
+        String t = mLabel.getText().toString();
+        lp.getTextBounds(t, 0, t.length(), ink);
+        float inkCenterTy = (fm.ascent + fm.descent) / 2f - (ink.top + ink.bottom) / 2f;
+        mLabel.setTranslationY(inkCenterTy);
+        if (DEBUG) android.util.Log.d(TAG, "ink-center ty=" + inkCenterTy
+                + " ascent=" + fm.ascent + " descent=" + fm.descent
+                + " inkTop=" + ink.top + " inkBottom=" + ink.bottom);
+
         // onSizeChanged runs during layout, after the WRAP_CONTENT label was
         // already measured at its previous (default) text size. Setting a new
         // size requests a re-layout, but the AppWidgetHostView can hand us back
