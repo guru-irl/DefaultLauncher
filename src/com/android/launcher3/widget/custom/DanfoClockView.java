@@ -289,11 +289,13 @@ public class DanfoClockView extends LinearLayout {
             mDate.setShadowLayer(0f, 0f, 0f, 0);
         }
 
+        // Outline / cutout applies to the TIME only; the date stays filled so it
+        // remains a legible subtitle.
         boolean outline = prefs.get(LauncherPrefs.CLOCK_OUTLINE);
         float strokeDp = prefs.get(LauncherPrefs.CLOCK_STROKE_WIDTH);
         float strokePx = strokeDp * getResources().getDisplayMetrics().density;
         mTime.setOutline(outline, strokePx);
-        mDate.setOutline(outline, strokePx);
+        mDate.setOutline(false, 0f);
 
         mTime.invalidate();
         mDate.invalidate();
