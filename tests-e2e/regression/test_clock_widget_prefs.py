@@ -41,7 +41,13 @@ def _time_region_pixels(launcher) -> list[V.Pixel]:
 
 
 def _pick_custom_time_color(launcher) -> None:
-    """Settings > Clock widget > Color = Custom, then pick a saturated swatch.
+    """Settings > Widgets > Clock widget > Color = Custom, then pick a swatch.
+
+    Navigation reflects the Widgets settings submenu: the clock settings now
+    live under Settings > Widgets > Clock widget. The three choice rows
+    (Alignment, Time format, Color) open an M3 single-choice bottom sheet with
+    one card per option (no androidx radio dialog), so we tap the option by its
+    visible card text.
 
     The Time color picker only appears once the mode is Custom. Its swatches
     are unlabeled tonal circles grouped under palette headers (PRIMARY,
@@ -50,16 +56,20 @@ def _pick_custom_time_color(launcher) -> None:
     """
     launcher.open_launcher_settings()
 
+    widgets = launcher.d(text="Widgets")
+    assert widgets.wait(timeout=S.DEFAULT_WAIT), "Widgets settings row missing"
+    widgets.click()
+
     clock = launcher.d(text="Clock widget")
     assert clock.wait(timeout=S.DEFAULT_WAIT), "Clock widget settings row missing"
     clock.click()
 
+    # Open the Color choice row; an M3 bottom sheet of option cards appears.
     mode = launcher.d(text="Color")
     assert mode.wait(timeout=S.DEFAULT_WAIT), "Color row missing"
     mode.click()
-    custom = launcher.d(text="Custom")
-    assert custom.wait(timeout=S.DEFAULT_WAIT), "Custom option missing"
-    custom.click()
+    # Tap the "Custom" card; the Time color picker row appears once it takes.
+    launcher.tap_choice_card("Custom", confirm_text="Time color")
 
     time_color = launcher.d(text="Time color")
     assert time_color.wait(timeout=S.DEFAULT_WAIT), "Time color row did not appear"
@@ -67,13 +77,28 @@ def _pick_custom_time_color(launcher) -> None:
 
     header = launcher.d(text="PRIMARY")
     assert header.wait(timeout=S.DEFAULT_WAIT), "PRIMARY palette header missing"
-    pb = header.info["bounds"]
-    # Swatch row sits just below the header; the rightmost swatches are the
-    # darkest (most saturated) tones. Tap the last full swatch column.
-    sx = pb["left"] + int((pb["right"] - pb["left"]) * 0.91)
-    sy = pb["bottom"] + (pb["bottom"] - pb["top"]) // 2
-    launcher.d.click(sx, sy)
-    time.sleep(S.ANIMATION_WAIT)
+    # The picker is a bottom sheet that slides up: reading header bounds while it
+    # animates gives a too-high y, so the swatch tap misses. Tap the rightmost
+    # (most saturated) PRIMARY swatch and retry until the Time color summary
+    # leaves its "Default" state, proving a real color was applied.
+    # Tap the rightmost (most saturated) swatch below the PRIMARY header; any
+    # saturated tone repaints the white default text. Picking a swatch closes
+    # the picker and sets the Time color summary to a "<Palette> 500" tone
+    # (the exact palette depends on where the settled row lands). Retry until a
+    # "... 500" summary appears, since the sliding sheet can shift an early tap.
+    swatch_applied = launcher.d(textMatches=r".* 500")
+    deadline = time.time() + S.DEFAULT_WAIT
+    while time.time() < deadline and not swatch_applied.exists:
+        header = launcher.d(text="PRIMARY")
+        if not header.exists:
+            break  # picker already dismissed by a prior successful tap
+        pb = header.info["bounds"]
+        sx = pb["left"] + int((pb["right"] - pb["left"]) * 0.91)
+        sy = pb["bottom"] + (pb["bottom"] - pb["top"]) // 2
+        launcher.d.click(sx, sy)
+        swatch_applied.wait(timeout=S.ANIMATION_WAIT)
+    assert launcher.d(textMatches=r".* 500").wait(timeout=S.DEFAULT_WAIT), \
+        "Time color swatch did not apply (no saturated tone summary)"
 
 
 @pytest.mark.regression

@@ -199,6 +199,36 @@ class LauncherDriver:
             hierarchy_snippet=self.d.dump_hierarchy(),
         )
 
+    def tap_choice_card(self, card_text: str, confirm_text: str) -> None:
+        """Open an M3 single-choice bottom sheet card and confirm the result.
+
+        Settings choice rows (e.g. the clock Alignment/Time format/Color rows)
+        open a BottomSheetDialog with one tappable card per option. The card
+        slides up while its node is already queryable, so a naive wait().click()
+        can land mid-animation and miss the card's click target. This taps the
+        card by its center bounds and retries until ``confirm_text`` appears
+        (proving the selection took and the sheet dismissed). No fixed sleeps.
+
+        :param card_text: visible text of the option card to tap.
+        :param confirm_text: a selector text expected on screen afterwards.
+        """
+        card = self.d(text=card_text)
+        assert card.wait(timeout=S.DEFAULT_WAIT), f"choice card '{card_text}' missing"
+        deadline = time.time() + S.DEFAULT_WAIT
+        while time.time() < deadline:
+            el = self.d(text=card_text)
+            if el.exists:
+                b = el.info["bounds"]
+                cx = (b["left"] + b["right"]) // 2
+                cy = (b["top"] + b["bottom"]) // 2
+                self.d.click(cx, cy)
+            if self.d(text=confirm_text).wait(timeout=1.0):
+                return
+        raise DriverError(
+            f"choice card '{card_text}' did not yield '{confirm_text}'",
+            hierarchy_snippet=self.d.dump_hierarchy(),
+        )
+
     # ----- clock widget -------------------------------------------------
 
     def place_clock_widget(self) -> None:
