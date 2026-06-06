@@ -28,6 +28,7 @@ Numbered implementation docs tracking each feature and fix:
 
 | # | Change |
 |---|--------|
+| [089](changes/089-agent-docs-avd-testing-and-workflow.md) | Agent docs: AVD testing, superpowers/subagent workflow, no-em-dash + invisible-commit style |
 | [047](changes/047-sysui-scrim-color-hint-race.md) | Status-bar shadow toggle, color-hint race fix, deletion-guard polish |
 | [046](changes/046-defensive-deletion-guards.md) | Defensive deletion guards: package-presence double-check + mass-delete circuit breaker |
 | [045](changes/045-bug-fixes-and-folder-cover-icon-color.md) | Bug fixes (search, ripple, icon size) and folder cover icon color setting |

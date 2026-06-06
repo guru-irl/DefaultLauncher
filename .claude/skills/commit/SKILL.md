@@ -9,7 +9,7 @@ argument-hint: "[optional summary]"
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash(git *)
 ---
 
-# Commit & Ship — Documentation-Aware Commit
+# Commit & Ship - Documentation-Aware Commit
 
 You are committing and pushing code changes for a custom Android launcher based on AOSP
 Launcher3. Your job is to analyze the current changes, write appropriate documentation,
@@ -86,11 +86,11 @@ not the "how".
 
 Pick from these based on relevance (don't include empty sections):
 
-- **New Files** — list new files with brief descriptions
-- **Modified Files** — per-file breakdown of what changed
-- **Settings Added** — table with Setting, Key, Type, Options, Default columns
-- **Design Decisions** — rationale for architectural choices
-- **Known Limitations** — honest about edge cases or future work
+- **New Files** - list new files with brief descriptions
+- **Modified Files** - per-file breakdown of what changed
+- **Settings Added** - table with Setting, Key, Type, Options, Default columns
+- **Design Decisions** - rationale for architectural choices
+- **Known Limitations** - honest about edge cases or future work
 ```
 
 **Style guidelines:**
@@ -119,15 +119,15 @@ For new features or significant changes:
 3. If creating a new doc, also add it to the Architecture table in `docs/README.md`.
 
 Existing architecture docs:
-- `docs/grid-system.md` — grid pipeline
-- `docs/grid-reflow.md` — grid reflow
-- `docs/hotseat-architecture.md` — hotseat
-- `docs/settings.md` — settings system
-- `docs/search-system.md` — search
-- `docs/icon-shapes-and-packs.md` — icon packs
-- `docs/per-app-icon-customization.md` — per-app icons
-- `docs/folders.md` — folders
-- `docs/widget-stack.md` — widget stacks
+- `docs/grid-system.md` - grid pipeline
+- `docs/grid-reflow.md` - grid reflow
+- `docs/hotseat-architecture.md` - hotseat
+- `docs/settings.md` - settings system
+- `docs/search-system.md` - search
+- `docs/icon-shapes-and-packs.md` - icon packs
+- `docs/per-app-icon-customization.md` - per-app icons
+- `docs/folders.md` - folders
+- `docs/widget-stack.md` - widget stacks
 
 ---
 
@@ -161,15 +161,15 @@ Do NOT stage:
 - Build outputs or generated files
 - IDE configuration files
 
-Create the commit using this exact format:
+Create the commit using this exact format, with the pinned per-command identity
+(CLAUDE.md forbids permanent `git config` changes):
 
 ```bash
-git commit -m "$(cat <<'EOF'
+git -c user.name="Gurupungav Narayanan" -c user.email="gurupungavn@gmail.com" \
+  commit -m "$(cat <<'EOF'
 Concise summary of the change (imperative mood, under 72 chars)
 
 Optional 1-2 sentence body explaining the "why" if the title isn't enough.
-
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -178,7 +178,11 @@ EOF
 - First line: imperative mood, under 72 characters, describes the overall change
 - If there are both implementation changes AND doc updates, the first line should
   describe the implementation (not "add docs")
-- Body is optional — use it if the title alone doesn't explain the "why"
+- Body is optional; use it if the title alone doesn't explain the "why"
+- NO co-author trailer. Do not add `Co-Authored-By` or any AI/agent attribution.
+  Commits are authored solely as the pinned identity above (invisible mode).
+- NO em-dashes anywhere in the message. Use a plain hyphen, comma, colon, or
+  separate sentences instead.
 
 ---
 
@@ -197,10 +201,10 @@ If the push fails (e.g., rejected due to remote changes), tell the user and sugg
 
 - NEVER push to `main`. Always push to `dev`.
 - NEVER force push.
-- NEVER skip the change file — every commit gets one.
+- NEVER skip the change file - every commit gets one.
 - NEVER commit files that contain secrets or credentials.
 - If there are uncommitted changes AND unpushed commits, combine them all into a single
   new commit (don't amend previous commits).
 - If `$ARGUMENTS` is provided, use it to inform the change title and summary, but still
   read the actual changes to write accurate documentation.
-- Use the actual diff to write documentation — don't guess or hallucinate file changes.
+- Use the actual diff to write documentation - don't guess or hallucinate file changes.
