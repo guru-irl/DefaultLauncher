@@ -212,6 +212,7 @@
          (independent of the smartspace flag). -->
     <array name="launcher_custom_widgets">
         <item>com.android.launcher3.widget.custom.DanfoClockWidgetPlugin</item>
+        <item>com.android.launcher3.widget.custom.SearchWidgetPlugin</item>
     </array>
 
     <!-- Embed parameters -->
