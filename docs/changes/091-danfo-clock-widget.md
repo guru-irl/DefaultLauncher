@@ -105,6 +105,40 @@ instances.
 - **Deterministic test placement:** a debug broadcast seam avoids flaky drag-drop
   in e2e, and uncovered the `LauncherWidgetHolder` recycle bug above.
 
+## Post-implementation refinements (on-device testing)
+
+Found and fixed while testing on a Pixel emulator (Android 17) and a Galaxy S24
+(One UI / Android 16):
+
+- **Resizable on device:** `maxSpanX/Y` were 0, which disables the resize-frame
+  handles (`AppWidgetResizeFrame` needs `max > 1 && min < max`). Set to the grid
+  size so the widget resizes from 2x2 up to the grid.
+- **Picker grouping + visibility:** the custom widget is built by cloning an
+  arbitrary installed provider (`CustomWidgetManager.getAndAddInfo`), so it
+  inherited that provider's fields. `PLUGIN_PKG` is now the launcher's own
+  package (groups under the launcher in the picker, not "Android System"), and
+  `DanfoClockWidgetPlugin.updateWidgetInfo` now normalizes the inherited fields:
+  `widgetCategory = HOME_SCREEN` (otherwise the home-screen picker filters it out
+  on devices where the cloned provider was keyguard/search-only -- this was the
+  cause of the widget not appearing in the picker on the Galaxy S24),
+  `widgetFeatures = 0`, `generatedPreviewCategories = 0`, `previewLayout`,
+  `descriptionRes`, `configure` cleared.
+- **Picker preview:** the preview is a generated PNG (`drawable-nodpi`) rendered
+  from the real Danfo/Bebas fonts. Resource loading for a custom widget resolved
+  against the cloned provider's package and failed ("Can't load widget preview
+  drawable"); `getAndAddInfo` now reflectively roots the info's hidden
+  `providerInfo` ActivityInfo in the launcher package so its own preview/icon
+  load. `previewLayout` is unusable for in-process custom widgets (routes through
+  a RemoteViews host view that cannot load -> "Can't load widget").
+- **Responsive sizing redesign:** sizing now uses font metrics (line height),
+  the date is a small capped one-liner pinned right below the time with a
+  proportional negative gap, and an explicit `requestLayout()` after `setTextSize`
+  avoids a `TextClock` stale-bounds clip. Verified clean at 2x2..6x6.
+- **Settings IA:** a top-level "Widgets" sub-screen now holds a "Clock widget"
+  entry (extensible for more widgets), with a tightened icon-row layout.
+- **Appearance options:** soft-shadow toggle, and an outline/cutout mode (stroke
+  the time only, date stays filled) with a thickness slider.
+
 ## Known Limitations
 
 - Settings are global, not per-widget-instance.
