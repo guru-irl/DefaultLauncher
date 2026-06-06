@@ -23,21 +23,24 @@ import lib.visuals as V
 
 
 # The default AVD wallpaper is a light blue-grey, so white time text is
-# low-contrast. We sample a dense strip across the time-digit band and
-# require ANY sample to move once the time color becomes a saturated tone.
-_TIME_BAND_YF = 0.45           # fraction of widget height: center of time-digit band
-_TIME_BAND_XF = (0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80)
+# low-contrast. The centered time+date block shifts vertically with the
+# widget size and the date gap, so rather than a fixed strip we sample a
+# dense grid over the whole widget (one screenshot) and require ANY cell to
+# move once the time color becomes a saturated tone.
+_GRID_COLS = 20
+_GRID_ROWS = 24
 _MIN_CHANNEL_DISTANCE = 16     # per-sample threshold for "this pixel changed"
 
 
 def _time_region_pixels(launcher) -> list[V.Pixel]:
-    """Sample a horizontal strip across the clock widget's time-digit band."""
+    """Sample a dense grid over the clock widget, robust to glyph position."""
     el = launcher.d(description=S.DESC_CLOCK_WIDGET)
     assert el.wait(timeout=S.DEFAULT_WAIT), "clock widget missing"
     b = el.info["bounds"]
-    cy = b["top"] + int((b["bottom"] - b["top"]) * _TIME_BAND_YF)
-    xs = [b["left"] + int((b["right"] - b["left"]) * f) for f in _TIME_BAND_XF]
-    return [V.sample_screen_pixel(launcher.d, x, cy) for x in xs]
+    return V.sample_region_grid(
+        launcher.d, b["left"], b["top"], b["right"], b["bottom"],
+        cols=_GRID_COLS, rows=_GRID_ROWS,
+    )
 
 
 def _pick_custom_time_color(launcher) -> None:
