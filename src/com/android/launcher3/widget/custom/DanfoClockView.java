@@ -30,8 +30,15 @@ import java.util.Set;
  * In-process clock widget view: a single-line Danfo time over a Bebas Neue
  * dateline, lock-screen style. Hosted via {@link DanfoClockWidgetPlugin}.
  *
- * <p>Font sizes are derived from the measured bounds (see {@link #onSizeChanged}),
- * so the widget is responsive from 2x2 upward with no hardcoded sizes.
+ * <p>The time is the dominant hero element and scales up to fill the widget.
+ * The date is a small one-liner pinned right below the time with a fixed ~8dp
+ * gap; together they form one tight block centered (or left-aligned) as a unit.
+ *
+ * <p>Sizing in {@link #onSizeChanged} uses FONT METRICS (ascent..descent), not
+ * tight ink bounds, because a {@link TextView} lays out by font metrics. Sizing
+ * from ink bounds underestimates the line box and clips the stacked block at
+ * some aspect ratios. The date is sized as a reduced, capped fraction of the
+ * time so the clock keeps scaling on large widgets while the date does not.
  */
 public class DanfoClockView extends LinearLayout {
 
@@ -46,12 +53,26 @@ public class DanfoClockView extends LinearLayout {
             "EEEd"       // SAT 6
     };
 
-    /** Date font as a fraction of the resolved time font. */
-    private static final float DATE_RATIO = 0.32f;
-    private static final float MIN_TIME_SP = 10f;
-    private static final float MAX_TIME_PX = 600f;
+    /** Widest time string used to bound the time's width on every measure. */
+    private static final String TIME_SAMPLE = "00:00";
+    /** Widest date string used as the width reference for the date line. */
+    private static final String DATE_SAMPLE = "SATURDAY, JUNE 6";
 
-    private float mAvailWidthPx = 0f;
+    /**
+     * The date is a reduced fraction of the time and is capped, so on big
+     * widgets the time keeps growing while the date stays a small subtitle.
+     */
+    private static final float DATE_FACTOR = 0.20f;
+    private static final float DATE_CAP_SP = 22f;
+
+    /** Time-size clamp (px) so tiny cells stay legible and huge cells stay sane. */
+    private static final float TIME_MIN_PX = 18f;
+    private static final float TIME_MAX_PX = 1200f;
+
+    /** Fixed gap (px) between the time and the date; set from 8dp at init. */
+    private final int mGapPx;
+    /** Date cap in px, derived from {@link #DATE_CAP_SP}. */
+    private final float mDateCapPx;
 
     private AutoCloseable mPrefSubscription;
     private BroadcastReceiver mTimeReceiver;
@@ -66,6 +87,10 @@ public class DanfoClockView extends LinearLayout {
         setGravity(Gravity.CENTER);
         setClipChildren(false);
         setClipToPadding(false);
+
+        float density = context.getResources().getDisplayMetrics().density;
+        mGapPx = Math.round(8f * density);
+        mDateCapPx = DATE_CAP_SP * context.getResources().getDisplayMetrics().scaledDensity;
 
         Typeface danfo = context.getResources().getFont(R.font.danfo);
         Typeface bebas = context.getResources().getFont(R.font.bebas_neue);
@@ -85,7 +110,9 @@ public class DanfoClockView extends LinearLayout {
         mDate.setMaxLines(1);
         mDate.setLetterSpacing(0.04f);
         mDate.setGravity(Gravity.CENTER);
-        addView(mDate, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+        LayoutParams dateLp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        dateLp.topMargin = mGapPx;
+        addView(mDate, dateLp);
 
         setContentDescription(context.getString(R.string.clock_widget_content_description));
         setOnClickListener(v -> {
@@ -104,53 +131,92 @@ public class DanfoClockView extends LinearLayout {
         super.onSizeChanged(w, h, oldw, oldh);
         if (w <= 0 || h <= 0) return;
 
-        int padX = (int) (w * 0.10f);
-        int padY = (int) (h * 0.10f);
+        // Modest padding so glyphs never touch the cell edge but stay large.
+        int padX = (int) (w * 0.07f);
+        int padY = (int) (h * 0.07f);
         if (padX != getPaddingLeft() || padY != getPaddingTop()) {
             setPadding(padX, padY, padX, padY);
         }
         float availW = w - 2 * padX;
         float availH = h - 2 * padY;
-        mAvailWidthPx = availW;
+        if (availW <= 0f || availH <= 0f) return;
 
-        // Size from ACTUAL measured glyph bounds, not a cap-height heuristic,
-        // so digits never clip at small sizes. Use the worst-case (widest,
-        // tallest) time string "00:00" so a later wide time also fits.
-        final float GAP_RATIO = 0.12f;       // inter-line gap as a fraction of timeSize
-        float timeWidthRatio = measureRatio(mTime.getPaint(), "00:00");
-        float timeHeightRatio = measureBoundsHeightRatio(mTime.getPaint(), "00:00");
-        float dateWidthRatio = measureRatio(mDate.getPaint(), "SATURDAY, JUNE 6");
-        float dateHeightRatio = measureBoundsHeightRatio(mDate.getPaint(), "SATURDAY, JUNE 6");
+        // Reference all ratios at a fixed probe size so they are independent of
+        // the current text size. We measure WIDTH from measureText and the LINE
+        // HEIGHT from font metrics (descent - ascent), which is how a TextView
+        // actually lays out -- this is the fix for the ink-bounds clipping.
+        final float REF = 100f;
+        Paint timePaint = mTime.getPaint();
+        Paint datePaint = mDate.getPaint();
 
-        // Width limit: time alone must fit availW.
-        float widthLimit = timeWidthRatio > 0 ? availW / timeWidthRatio : MAX_TIME_PX;
-        // Height limit: time bounds + gap + date bounds must fit availH, where
-        // dateSize = timeSize * DATE_RATIO. Solve for timeSize:
-        //   timeSize*(timeHeightRatio + GAP_RATIO + DATE_RATIO*dateHeightRatio) <= availH
-        float heightFactor = timeHeightRatio + GAP_RATIO + DATE_RATIO * dateHeightRatio;
-        float heightLimit = heightFactor > 0 ? availH / heightFactor : MAX_TIME_PX;
+        float timeWidthRatio = measureTextRatio(timePaint, TIME_SAMPLE, REF);
+        float timeLineRatio = lineHeightRatio(timePaint, REF);
+        float dateWidthRatio = measureTextRatio(datePaint, DATE_SAMPLE, REF);
+        float dateLineRatio = lineHeightRatio(datePaint, REF);
 
-        float timeSize = Math.min(widthLimit, heightLimit);
-        // Safety margin so anti-aliased edges never touch the bounds.
-        timeSize *= 0.96f;
-        timeSize = Math.max(MIN_TIME_SP, Math.min(timeSize, MAX_TIME_PX));
+        // Time bounded by width and by the stacked block height (time line +
+        // fixed gap + date line, where the date line is DATE_FACTOR of the time).
+        float timeByWidth = timeWidthRatio > 0f ? availW / timeWidthRatio : TIME_MAX_PX;
+        float heightDenom = timeLineRatio + DATE_FACTOR * dateLineRatio;
+        float timeByHeight = heightDenom > 0f
+                ? (availH - mGapPx) / heightDenom : TIME_MAX_PX;
 
-        mTime.setTextSize(TypedValue.COMPLEX_UNIT_PX, timeSize);
-        float dateSize = timeSize * DATE_RATIO;
-        // Date never forces the time smaller: it shrinks independently to fit.
-        if (dateWidthRatio > 0 && dateSize * dateWidthRatio > availW) {
+        float timeSize = Math.min(timeByWidth, timeByHeight) * 0.98f;
+        timeSize = Math.max(TIME_MIN_PX, Math.min(TIME_MAX_PX, timeSize));
+
+        // Date is a reduced, capped fraction of the time -- it scales less than
+        // the clock so it stays a small subtitle on large widgets.
+        float dateSize = Math.min(timeSize * DATE_FACTOR, mDateCapPx);
+        // If even the chosen string is too wide, shrink the date to fit width.
+        // (refreshDate already prefers a shorter abbreviation; this is a final
+        // guard against overflow at extreme aspect ratios.)
+        if (dateWidthRatio > 0f && dateSize * dateWidthRatio > availW) {
             dateSize = availW / dateWidthRatio;
         }
+        dateSize = Math.max(1f, dateSize);
+
+        mTime.setTextSize(TypedValue.COMPLEX_UNIT_PX, timeSize);
         mDate.setTextSize(TypedValue.COMPLEX_UNIT_PX, dateSize);
 
-        mTime.setShadowLayer(Math.max(1f, timeSize * 0.06f), 0f, timeSize * 0.02f, 0x66000000);
-        mDate.setShadowLayer(Math.max(1f, dateSize * 0.07f), 0f, dateSize * 0.03f, 0x66000000);
+        // Soft shadow keyed to text size so legibility scales with the glyphs.
+        mTime.setShadowLayer(Math.max(1f, timeSize * 0.05f), 0f, timeSize * 0.02f, 0x66000000);
+        mDate.setShadowLayer(Math.max(1f, dateSize * 0.06f), 0f, dateSize * 0.02f, 0x55000000);
 
-        refreshDate();
+        refreshDate(availW);
+
+        // onSizeChanged runs during the layout pass, after our children were
+        // already measured at their previous (smaller) text size. Setting a new
+        // text size requests a re-layout, but the AppWidgetHostView can hand us
+        // back the same fixed size without forcing a child re-measure, leaving
+        // the time view with stale (too-small) bounds that clip the big glyphs.
+        // Posting an explicit re-layout guarantees the children re-measure at
+        // their final text sizes on the next frame.
+        post(() -> {
+            mTime.requestLayout();
+            mDate.requestLayout();
+            requestLayout();
+        });
         if (DEBUG) {
-            android.util.Log.d(TAG, "size " + w + "x" + h + " time=" + timeSize
-                    + " date=" + dateSize);
+            android.util.Log.d(TAG, "size " + w + "x" + h + " availW=" + availW
+                    + " availH=" + availH + " timeSize=" + timeSize
+                    + " dateSize=" + dateSize + " gap=" + mGapPx);
         }
+    }
+
+    /** Width of {@code text} at {@code refSize}, divided by refSize. */
+    private static float measureTextRatio(Paint src, String text, float refSize) {
+        Paint p = new Paint(src);
+        p.setTextSize(refSize);
+        return p.measureText(text) / refSize;
+    }
+
+    /** Font line height (descent - ascent) at {@code refSize}, divided by refSize. */
+    private static float lineHeightRatio(Paint src, float refSize) {
+        Paint p = new Paint(src);
+        p.setTextSize(refSize);
+        Paint.FontMetrics fm = new Paint.FontMetrics();
+        p.getFontMetrics(fm);
+        return (fm.descent - fm.ascent) / refSize;
     }
 
     /** Reads all clock prefs and restyles. Safe to call repeatedly. */
@@ -183,7 +249,7 @@ public class DanfoClockView extends LinearLayout {
         mTime.setTextColor(timeColor);
         mDate.setTextColor(dateColor);
 
-        refreshDate();
+        refreshDate(currentAvailW());
     }
 
     private int resolveTimeColor(LauncherPrefs prefs) {
@@ -228,6 +294,13 @@ public class DanfoClockView extends LinearLayout {
                 ? 0xFF111111 : android.graphics.Color.WHITE;
     }
 
+    /** Inner content width in px (widget width minus horizontal padding). */
+    private float currentAvailW() {
+        int w = getWidth();
+        if (w <= 0) return 0f;
+        return w - getPaddingLeft() - getPaddingRight();
+    }
+
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
@@ -252,7 +325,7 @@ public class DanfoClockView extends LinearLayout {
                 if (Intent.ACTION_CONFIGURATION_CHANGED.equals(intent.getAction())) {
                     applyPrefs();
                 } else {
-                    refreshDate();
+                    refreshDate(currentAvailW());
                 }
             }
         };
@@ -290,46 +363,24 @@ public class DanfoClockView extends LinearLayout {
         }
     };
 
-    /** Width of {@code text} per 1px of font size for the given paint's typeface. */
-    private static float measureRatio(Paint paint, String text) {
-        float ref = 100f;
-        float saved = paint.getTextSize();
-        paint.setTextSize(ref);
-        float w = paint.measureText(text);
-        paint.setTextSize(saved);
-        return w / ref;
-    }
-
     /**
-     * Real rendered glyph height of {@code text} per 1px of font size, taken
-     * from {@link Paint#getTextBounds} (actual ink bounds, not font metrics),
-     * so callers reserve exactly the space the glyphs occupy.
+     * Picks the widest date abbreviation that fits the available width at the
+     * date's current text size, longest-first. The shortest form is the
+     * guaranteed fallback. The geometric check is frame-stable so the choice
+     * does not flip-flop across re-measures.
      */
-    private static float measureBoundsHeightRatio(Paint paint, String text) {
-        float ref = 100f;
-        float saved = paint.getTextSize();
-        paint.setTextSize(ref);
-        android.graphics.Rect bounds = new android.graphics.Rect();
-        paint.getTextBounds(text, 0, text.length(), bounds);
-        paint.setTextSize(saved);
-        return bounds.height() / ref;
-    }
-
-    /** Picks the widest date format that fits {@code availWidthPx} at the date text size. */
-    private void refreshDate() {
+    private void refreshDate(float availW) {
         Locale locale = getResources().getConfiguration().getLocales().get(0);
         Date now = new Date();
-        Paint paint = mDate.getPaint();
+        Paint paint = new Paint(mDate.getPaint());
         String chosen = null;
         for (String skeleton : DATE_SKELETONS) {
             String pattern = DateFormat.getBestDateTimePattern(locale, skeleton);
             String text = new SimpleDateFormat(pattern, locale).format(now)
                     .toUpperCase(locale);
-            if (mAvailWidthPx <= 0f || paint.measureText(text) <= mAvailWidthPx) {
-                chosen = text;
-                break;
-            }
-            chosen = text; // keep the shortest as a fallback
+            chosen = text; // shortest form is the guaranteed fallback
+            if (availW <= 0f) break;
+            if (paint.measureText(text) <= availW) break;
         }
         mDate.setText(chosen);
     }
