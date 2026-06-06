@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
+import android.provider.AlarmClock;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.icu.text.SimpleDateFormat;
@@ -86,6 +87,16 @@ public class DanfoClockView extends LinearLayout {
         addView(mDate, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
 
         setContentDescription("Danfo clock");
+        setOnClickListener(v -> {
+            try {
+                Intent i = new Intent(AlarmClock.ACTION_SHOW_ALARMS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(i);
+            } catch (Exception e) {
+                if (DEBUG) android.util.Log.w(TAG, "no clock app to open", e);
+            }
+        });
+        setClickable(true);
         refreshDate();
     }
 
