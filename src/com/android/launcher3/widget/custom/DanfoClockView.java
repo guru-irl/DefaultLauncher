@@ -113,21 +113,33 @@ public class DanfoClockView extends LinearLayout {
         float availH = h - 2 * padY;
         mAvailWidthPx = availW;
 
-        // Time scales to fill width, capped by a height budget that reserves
-        // room for the dateline (time*0.92 + gap(0.10*t) + date(DATE_RATIO*t)).
-        // 0.92 = approx cap-height/textSize for Danfo; 0.10 = inter-line gap fraction.
-        float ratioT = measureRatio(mTime.getPaint(), "9:41");
-        float timeByW = ratioT > 0 ? availW / ratioT : MAX_TIME_PX;
-        float heightFactor = 0.92f + 0.10f + DATE_RATIO * 0.95f;
-        float timeByH = availH / heightFactor;
-        float timeSize = Math.max(MIN_TIME_SP, Math.min(Math.min(timeByW, timeByH), MAX_TIME_PX));
+        // Size from ACTUAL measured glyph bounds, not a cap-height heuristic,
+        // so digits never clip at small sizes. Use the worst-case (widest,
+        // tallest) time string "00:00" so a later wide time also fits.
+        final float GAP_RATIO = 0.12f;       // inter-line gap as a fraction of timeSize
+        float timeWidthRatio = measureRatio(mTime.getPaint(), "00:00");
+        float timeHeightRatio = measureBoundsHeightRatio(mTime.getPaint(), "00:00");
+        float dateWidthRatio = measureRatio(mDate.getPaint(), "SATURDAY, JUNE 6");
+        float dateHeightRatio = measureBoundsHeightRatio(mDate.getPaint(), "SATURDAY, JUNE 6");
+
+        // Width limit: time alone must fit availW.
+        float widthLimit = timeWidthRatio > 0 ? availW / timeWidthRatio : MAX_TIME_PX;
+        // Height limit: time bounds + gap + date bounds must fit availH, where
+        // dateSize = timeSize * DATE_RATIO. Solve for timeSize:
+        //   timeSize*(timeHeightRatio + GAP_RATIO + DATE_RATIO*dateHeightRatio) <= availH
+        float heightFactor = timeHeightRatio + GAP_RATIO + DATE_RATIO * dateHeightRatio;
+        float heightLimit = heightFactor > 0 ? availH / heightFactor : MAX_TIME_PX;
+
+        float timeSize = Math.min(widthLimit, heightLimit);
+        // Safety margin so anti-aliased edges never touch the bounds.
+        timeSize *= 0.96f;
+        timeSize = Math.max(MIN_TIME_SP, Math.min(timeSize, MAX_TIME_PX));
 
         mTime.setTextSize(TypedValue.COMPLEX_UNIT_PX, timeSize);
         float dateSize = timeSize * DATE_RATIO;
         // Date never forces the time smaller: it shrinks independently to fit.
-        float ratioD = measureRatio(mDate.getPaint(), "SATURDAY, JUNE 6");
-        if (ratioD > 0 && dateSize * ratioD > availW) {
-            dateSize = availW / ratioD;
+        if (dateWidthRatio > 0 && dateSize * dateWidthRatio > availW) {
+            dateSize = availW / dateWidthRatio;
         }
         mDate.setTextSize(TypedValue.COMPLEX_UNIT_PX, dateSize);
 
@@ -283,6 +295,21 @@ public class DanfoClockView extends LinearLayout {
         float w = paint.measureText(text);
         paint.setTextSize(saved);
         return w / ref;
+    }
+
+    /**
+     * Real rendered glyph height of {@code text} per 1px of font size, taken
+     * from {@link Paint#getTextBounds} (actual ink bounds, not font metrics),
+     * so callers reserve exactly the space the glyphs occupy.
+     */
+    private static float measureBoundsHeightRatio(Paint paint, String text) {
+        float ref = 100f;
+        float saved = paint.getTextSize();
+        paint.setTextSize(ref);
+        android.graphics.Rect bounds = new android.graphics.Rect();
+        paint.getTextBounds(text, 0, text.length(), bounds);
+        paint.setTextSize(saved);
+        return bounds.height() / ref;
     }
 
     /** Picks the widest date format that fits {@code availWidthPx} at the date text size. */

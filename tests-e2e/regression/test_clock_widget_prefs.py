@@ -25,7 +25,7 @@ import lib.visuals as V
 # The default AVD wallpaper is a light blue-grey, so white time text is
 # low-contrast. We sample a dense strip across the time-digit band and
 # require ANY sample to move once the time color becomes a saturated tone.
-_TIME_BAND_YF = 0.30           # fraction of widget height: top time-digit row
+_TIME_BAND_YF = 0.45           # fraction of widget height: center of time-digit band
 _TIME_BAND_XF = (0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80)
 _MIN_CHANNEL_DISTANCE = 16     # per-sample threshold for "this pixel changed"
 
