@@ -18,14 +18,18 @@
  */
 package com.android.launcher3.settings;
 
+import android.content.Context;
 import android.os.Bundle;
+import android.widget.LinearLayout;
 
-import androidx.preference.ListPreference;
+import androidx.preference.Preference;
 
 import com.android.launcher3.ConstantItem;
 import com.android.launcher3.LauncherFiles;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
+
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 /** Settings sub-screen for the Danfo clock widget. */
 public class ClockWidgetFragment extends SettingsBaseFragment {
@@ -35,19 +39,15 @@ public class ClockWidgetFragment extends SettingsBaseFragment {
         getPreferenceManager().setSharedPreferencesName(LauncherFiles.SHARED_PREFERENCES_KEY);
         setPreferencesFromResource(R.xml.clock_widget_preferences, rootKey);
 
-        bindList("pref_clock_alignment", LauncherPrefs.CLOCK_ALIGNMENT);
-        bindList("pref_clock_time_format", LauncherPrefs.CLOCK_TIME_FORMAT);
-
-        ListPreference colorMode = findPreference("pref_clock_color_mode");
-        if (colorMode != null) {
-            colorMode.setValue(LauncherPrefs.get(getContext()).get(LauncherPrefs.CLOCK_COLOR_MODE));
-            colorMode.setOnPreferenceChangeListener((p, v) -> {
-                LauncherPrefs.get(getContext()).put(LauncherPrefs.CLOCK_COLOR_MODE, (String) v);
-                ((ListPreference) p).setValue((String) v);
-                updateColorPickerVisibility((String) v);
-                return false; // persisted via LauncherPrefs above
-            });
-        }
+        bindChoice("pref_clock_alignment", LauncherPrefs.CLOCK_ALIGNMENT,
+                R.string.clock_alignment_title,
+                R.array.clock_alignment_entries, R.array.clock_alignment_values);
+        bindChoice("pref_clock_time_format", LauncherPrefs.CLOCK_TIME_FORMAT,
+                R.string.clock_time_format_title,
+                R.array.clock_time_format_entries, R.array.clock_time_format_values);
+        bindChoice("pref_clock_color_mode", LauncherPrefs.CLOCK_COLOR_MODE,
+                R.string.clock_color_mode_title,
+                R.array.clock_color_mode_entries, R.array.clock_color_mode_values);
 
         ColorPickerPreference timeColor = findPreference("pref_clock_time_color");
         if (timeColor != null) {
@@ -64,15 +64,74 @@ public class ClockWidgetFragment extends SettingsBaseFragment {
                 LauncherPrefs.get(getContext()).get(LauncherPrefs.CLOCK_COLOR_MODE));
     }
 
-    private void bindList(String key, ConstantItem<String> item) {
-        ListPreference pref = findPreference(key);
+    /**
+     * Binds a plain {@link Preference} row to an M3 single-choice bottom sheet.
+     * The row summary always reflects the stored value's human label, and tapping
+     * the row opens a sheet with one card per option (the selected one highlighted).
+     */
+    private void bindChoice(String key, ConstantItem<String> item, int titleResId,
+            int entriesArrayResId, int valuesArrayResId) {
+        Preference pref = findPreference(key);
         if (pref == null) return;
-        pref.setValue(LauncherPrefs.get(getContext()).get(item));
-        pref.setOnPreferenceChangeListener((p, v) -> {
-            LauncherPrefs.get(getContext()).put(item, (String) v);
-            ((ListPreference) p).setValue((String) v);
-            return false;
+        Context ctx = getContext();
+
+        String[] labels = ctx.getResources().getStringArray(entriesArrayResId);
+        String[] values = ctx.getResources().getStringArray(valuesArrayResId);
+
+        pref.setSummary(labelFor(item, labels, values));
+        pref.setOnPreferenceClickListener(p -> {
+            showChoiceSheet(item, titleResId, labels, values, pref);
+            return true;
         });
+    }
+
+    /** Returns the human label for the currently stored value of {@code item}. */
+    private String labelFor(ConstantItem<String> item, String[] labels, String[] values) {
+        String current = LauncherPrefs.get(getContext()).get(item);
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equals(current)) return labels[i];
+        }
+        return labels.length > 0 ? labels[0] : current;
+    }
+
+    /** Shows the M3 single-choice bottom sheet for a clock choice setting. */
+    private void showChoiceSheet(ConstantItem<String> item, int titleResId,
+            String[] labels, String[] values, Preference pref) {
+        Context ctx = getContext();
+        if (ctx == null) return;
+
+        String current = LauncherPrefs.get(ctx).get(item);
+
+        int colorOnSurface = ctx.getColor(R.color.materialColorOnSurface);
+        int colorSurfaceVar = ctx.getColor(R.color.materialColorSurfaceContainerHigh);
+        int colorSelectedFill = ctx.getColor(R.color.materialColorPrimaryContainer);
+        int colorOnSelected = ctx.getColor(R.color.materialColorOnPrimaryContainer);
+
+        SettingsSheetBuilder.SheetComponents components =
+                new SettingsSheetBuilder(ctx)
+                        .setTitle(titleResId)
+                        .dismissOnDestroy(this)
+                        .build();
+        BottomSheetDialog sheet = components.sheet;
+
+        for (int i = 0; i < values.length; i++) {
+            final String value = values[i];
+            boolean selected = value.equals(current);
+            LinearLayout card = SettingsSheetBuilder.createCard(ctx, labels[i], null,
+                    selected ? colorSelectedFill : colorSurfaceVar,
+                    selected ? colorOnSelected : colorOnSurface,
+                    v -> {
+                        sheet.dismiss();
+                        LauncherPrefs.get(ctx).put(item, value);
+                        pref.setSummary(labelFor(item, labels, values));
+                        if (item == LauncherPrefs.CLOCK_COLOR_MODE) {
+                            updateColorPickerVisibility(value);
+                        }
+                    });
+            components.contentArea.addView(card);
+        }
+
+        components.showScrollable();
     }
 
     private void updateColorPickerVisibility(String mode) {
