@@ -42,6 +42,11 @@ WIDGET_LABEL_CLOCK = "Danfo Clock"         # picker label
 SEED_ACTION_PLACE_CLOCK = "com.guru.defaultlauncher.test.PLACE_CLOCK_WIDGET"
 SEED_ACTION_RESET = "com.guru.defaultlauncher.test.SEED_WORKSPACE"
 
+# Search pill widget
+DESC_SEARCH_WIDGET = "Search"              # SearchWidgetView contentDescription
+WIDGET_LABEL_SEARCH = "Search"             # picker label
+SEED_ACTION_PLACE_SEARCH = "com.guru.defaultlauncher.test.PLACE_SEARCH_WIDGET"
+
 # Workspace items use TextView / FrameLayout with description = app label.
 DESC_HOME = "Home"
 

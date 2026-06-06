@@ -240,6 +240,7 @@
             <intent-filter>
                 <action android:name="com.guru.defaultlauncher.test.SEED_WORKSPACE" />
                 <action android:name="com.guru.defaultlauncher.test.PLACE_CLOCK_WIDGET" />
+                <action android:name="com.guru.defaultlauncher.test.PLACE_SEARCH_WIDGET" />
             </intent-filter>
         </receiver>
 
