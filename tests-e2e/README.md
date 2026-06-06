@@ -100,3 +100,6 @@ If you're adding a major feature, also add:
 | T1 (small plans) | +3 | +4 | 0 |
 | T2 (medium plans) | +6 | +10 | +2 |
 | T3 (architecture) | +10 | +15 | +3 |
+| Clock widget (091) | +2 | +1 | 0 |
+
+The clock widget also adds 1 visual test (`visuals/test_clock_widget_paint.py`).
