@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:launcher="http://schemas.android.com/apk/res-auto">
+
+    <androidx.preference.ListPreference
+        android:key="pref_clock_alignment"
+        android:title="@string/clock_alignment_title"
+        android:entries="@array/clock_alignment_entries"
+        android:entryValues="@array/clock_alignment_values"
+        android:defaultValue="center"
+        launcher:iconSpaceReserved="false" />
+
+    <androidx.preference.ListPreference
+        android:key="pref_clock_time_format"
+        android:title="@string/clock_time_format_title"
+        android:entries="@array/clock_time_format_entries"
+        android:entryValues="@array/clock_time_format_values"
+        android:defaultValue="system"
+        launcher:iconSpaceReserved="false" />
+
+    <androidx.preference.ListPreference
+        android:key="pref_clock_color_mode"
+        android:title="@string/clock_color_mode_title"
+        android:entries="@array/clock_color_mode_entries"
+        android:entryValues="@array/clock_color_mode_values"
+        android:defaultValue="white"
+        launcher:iconSpaceReserved="false" />
+
+    <com.android.launcher3.settings.ColorPickerPreference
+        android:key="pref_clock_time_color"
+        android:title="@string/clock_time_color_title"
+        launcher:iconSpaceReserved="false" />
+
+    <com.android.launcher3.settings.ColorPickerPreference
+        android:key="pref_clock_date_color"
+        android:title="@string/clock_date_color_title"
+        launcher:iconSpaceReserved="false" />
+
+</androidx.preference.PreferenceScreen>
