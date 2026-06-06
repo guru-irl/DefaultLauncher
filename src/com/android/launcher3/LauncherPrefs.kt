@@ -401,6 +401,13 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
         @JvmField val CLOCK_SHADOW = backedUpItem("pref_clock_shadow", true)
         @JvmField val CLOCK_OUTLINE = backedUpItem("pref_clock_outline", false)
         @JvmField val CLOCK_STROKE_WIDTH = backedUpItem("pref_clock_stroke_width", 4) // dp
+
+        // ---- Search pill widget ----
+        // Empty = default (Surface bg / OnSurface text); otherwise a stored
+        // color-resource NAME resolved via getIdentifier (like the clock colors).
+        @JvmField val SEARCH_WIDGET_BG_COLOR = backedUpItem("pref_search_widget_bg_color", "")
+        @JvmField val SEARCH_WIDGET_TEXT_COLOR = backedUpItem("pref_search_widget_text_color", "")
+
         @JvmField val DRAWER_BG_OPACITY = backedUpItem("pref_drawer_bg_opacity", 95)
         @JvmField val DRAWER_SEARCH_BG_COLOR = backedUpItem("pref_drawer_search_bg_color", "")
         @JvmField val DRAWER_SEARCH_BG_OPACITY = backedUpItem("pref_drawer_search_bg_opacity", 95)

@@ -253,6 +253,18 @@ class LauncherDriver:
     def clock_widget_present(self) -> bool:
         return self.d(description=S.DESC_CLOCK_WIDGET).exists
 
+    # ----- search widget ------------------------------------------------
+
+    def place_search_widget(self) -> None:
+        """Place the Search pill widget (2x1) via the debug broadcast seam."""
+        self.d.shell(
+            f"am broadcast -p {S.PACKAGE} -a {S.SEED_ACTION_PLACE_SEARCH}"
+        )
+        self.d(description=S.DESC_SEARCH_WIDGET).wait(timeout=S.DEFAULT_WAIT)
+
+    def search_widget_present(self) -> bool:
+        return self.d(description=S.DESC_SEARCH_WIDGET).exists
+
     def open_widget_picker(self) -> None:
         """Long-press an empty home cell and open the Widgets picker."""
         info = self.d.info

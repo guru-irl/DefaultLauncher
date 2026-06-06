@@ -835,4 +835,13 @@
     <string name="clock_outline_title">Outline (cutout)</string>
     <string name="clock_outline_summary">Render the clock as a stroked outline so the wallpaper shows through</string>
     <string name="clock_stroke_width_title">Outline thickness</string>
+
+    <!-- Search pill widget. -->
+    <string name="search_widget_text">SEARCH</string>
+    <string name="search_widget_content_description">Search</string>
+    <string name="search_widget_label">Search</string>
+    <string name="search_widget_settings_title">Search widget</string>
+    <string name="search_widget_settings_summary">Background and text color</string>
+    <string name="search_widget_bg_color_title">Background color</string>
+    <string name="search_widget_text_color_title">Text color</string>
 </resources>

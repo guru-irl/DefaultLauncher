@@ -13,4 +13,13 @@
         android:fragment="com.android.launcher3.settings.ClockWidgetFragment"
         launcher:iconSpaceReserved="true" />
 
+    <Preference
+        android:key="pref_search_widget"
+        android:icon="@drawable/ic_settings_search"
+        android:layout="@layout/preference_widget_entry"
+        android:title="@string/search_widget_settings_title"
+        android:summary="@string/search_widget_settings_summary"
+        android:fragment="com.android.launcher3.settings.SearchWidgetFragment"
+        launcher:iconSpaceReserved="true" />
+
 </androidx.preference.PreferenceScreen>

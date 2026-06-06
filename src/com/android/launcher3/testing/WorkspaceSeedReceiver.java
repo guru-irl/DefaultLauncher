@@ -47,8 +47,18 @@ public class WorkspaceSeedReceiver extends BroadcastReceiver {
     public static final String ACTION_PLACE_CLOCK_WIDGET =
             "com.guru.defaultlauncher.test.PLACE_CLOCK_WIDGET";
 
+    /** Places the Search pill widget at (0,0), span 2x1 (debug builds only). */
+    public static final String ACTION_PLACE_SEARCH_WIDGET =
+            "com.guru.defaultlauncher.test.PLACE_SEARCH_WIDGET";
+
+    private static final String CUSTOM_WIDGET_PREFIX =
+            "com.guru.defaultlauncher/#custom-widget-";
+
     private static final String CLOCK_PROVIDER =
-            "com.guru.defaultlauncher/#custom-widget-com.android.launcher3.widget.custom.DanfoClockWidgetPlugin";
+            CUSTOM_WIDGET_PREFIX + "com.android.launcher3.widget.custom.DanfoClockWidgetPlugin";
+
+    private static final String SEARCH_PROVIDER =
+            CUSTOM_WIDGET_PREFIX + "com.android.launcher3.widget.custom.SearchWidgetPlugin";
 
     private static final String SETTINGS_INTENT =
             "#Intent;action=android.intent.action.MAIN;"
@@ -78,52 +88,21 @@ public class WorkspaceSeedReceiver extends BroadcastReceiver {
         }
 
         if (ACTION_PLACE_CLOCK_WIDGET.equals(intent.getAction())) {
-            Executors.MODEL_EXECUTOR.execute(() -> {
-                com.android.launcher3.model.ModelDbController db =
-                        LauncherAppState.getInstance(context).getModel().getModelDbController();
-                android.content.ComponentName cn =
-                        android.content.ComponentName.unflattenFromString(CLOCK_PROVIDER);
-                int widgetId = com.android.launcher3.widget.custom.CustomWidgetManager.INSTANCE
-                        .get(context).allocateCustomAppWidgetId(cn);
+            // Default 2x2 for the clock; an explicit --es provider overrides the
+            // provider, --ei spanx/spany override the size.
+            placeCustomWidget(context, intent,
+                    intent.getStringExtra("provider") != null
+                            ? intent.getStringExtra("provider") : CLOCK_PROVIDER,
+                    intent.getIntExtra("spanx", 2),
+                    intent.getIntExtra("spany", 2));
+            return;
+        }
 
-                // Idempotency: drop any prior clock-widget row so a repeated
-                // placement (test ran twice without a reset) cannot hit the
-                // UNIQUE constraint on the fixed _ID.
-                db.delete("_id = 200", null);
-
-                // Optional span override so visual tests can place at any size.
-                int sx = intent.getIntExtra("spanx", 2);
-                int sy = intent.getIntExtra("spany", 2);
-
-                // Optional: clear other desktop items so a large widget has room
-                // (the seed icons at row 2 would otherwise collide). Debug-only,
-                // off by default so the canonical 2x2 e2e flow keeps its icons.
-                if (intent.getBooleanExtra("clear", false)) {
-                    db.delete("container = "
-                            + LauncherSettings.Favorites.CONTAINER_DESKTOP
-                            + " AND _id != 200", null);
-                }
-
-                ContentValues cv = new ContentValues();
-                cv.put(LauncherSettings.Favorites._ID, 200);
-                cv.put(LauncherSettings.Favorites.CONTAINER,
-                        LauncherSettings.Favorites.CONTAINER_DESKTOP);
-                cv.put(LauncherSettings.Favorites.SCREEN, 0);
-                cv.put(LauncherSettings.Favorites.CELLX, 0);
-                cv.put(LauncherSettings.Favorites.CELLY, 0);
-                cv.put(LauncherSettings.Favorites.SPANX, sx);
-                cv.put(LauncherSettings.Favorites.SPANY, sy);
-                cv.put(LauncherSettings.Favorites.ITEM_TYPE,
-                        LauncherSettings.Favorites.ITEM_TYPE_CUSTOM_APPWIDGET);
-                cv.put(LauncherSettings.Favorites.APPWIDGET_ID, widgetId);
-                cv.put(LauncherSettings.Favorites.APPWIDGET_PROVIDER, CLOCK_PROVIDER);
-                cv.put(LauncherSettings.Favorites.PROFILE_ID, 0);
-                cv.put(LauncherSettings.Favorites.RANK, 0);
-                db.insert(cv);
-
-                Executors.MAIN_EXECUTOR.execute(
-                        () -> LauncherAppState.getInstance(context).getModel().forceReload());
-            });
+        if (ACTION_PLACE_SEARCH_WIDGET.equals(intent.getAction())) {
+            // Search pill is fixed 2x1.
+            placeCustomWidget(context, intent, SEARCH_PROVIDER,
+                    intent.getIntExtra("spanx", 2),
+                    intent.getIntExtra("spany", 1));
             return;
         }
 
@@ -146,6 +125,58 @@ public class WorkspaceSeedReceiver extends BroadcastReceiver {
             db.insert(buildShortcut(101, "Chrome", CHROME_INTENT, 1, 2));
 
             // Reload the launcher model so the new items appear immediately.
+            Executors.MAIN_EXECUTOR.execute(
+                    () -> LauncherAppState.getInstance(context).getModel().forceReload());
+        });
+    }
+
+    /**
+     * Places an in-process custom widget at cell (0,0) on screen 0, at the given
+     * span, using the fixed row _ID 200. Idempotent (drops any prior row 200
+     * first). Honors the optional {@code --ez clear} extra to clear other desktop
+     * items so a large widget has room.
+     */
+    private static void placeCustomWidget(Context context, Intent intent,
+            String provider, int spanX, int spanY) {
+        Executors.MODEL_EXECUTOR.execute(() -> {
+            com.android.launcher3.model.ModelDbController db =
+                    LauncherAppState.getInstance(context).getModel().getModelDbController();
+            android.content.ComponentName cn =
+                    android.content.ComponentName.unflattenFromString(provider);
+            int widgetId = com.android.launcher3.widget.custom.CustomWidgetManager.INSTANCE
+                    .get(context).allocateCustomAppWidgetId(cn);
+
+            // Idempotency: drop any prior placed-widget row so a repeated
+            // placement (test ran twice without a reset) cannot hit the UNIQUE
+            // constraint on the fixed _ID.
+            db.delete("_id = 200", null);
+
+            // Optional: clear other desktop items so a large widget has room
+            // (the seed icons at row 2 would otherwise collide). Off by default
+            // so the canonical e2e flow keeps its icons.
+            if (intent.getBooleanExtra("clear", false)) {
+                db.delete("container = "
+                        + LauncherSettings.Favorites.CONTAINER_DESKTOP
+                        + " AND _id != 200", null);
+            }
+
+            ContentValues cv = new ContentValues();
+            cv.put(LauncherSettings.Favorites._ID, 200);
+            cv.put(LauncherSettings.Favorites.CONTAINER,
+                    LauncherSettings.Favorites.CONTAINER_DESKTOP);
+            cv.put(LauncherSettings.Favorites.SCREEN, 0);
+            cv.put(LauncherSettings.Favorites.CELLX, 0);
+            cv.put(LauncherSettings.Favorites.CELLY, 0);
+            cv.put(LauncherSettings.Favorites.SPANX, spanX);
+            cv.put(LauncherSettings.Favorites.SPANY, spanY);
+            cv.put(LauncherSettings.Favorites.ITEM_TYPE,
+                    LauncherSettings.Favorites.ITEM_TYPE_CUSTOM_APPWIDGET);
+            cv.put(LauncherSettings.Favorites.APPWIDGET_ID, widgetId);
+            cv.put(LauncherSettings.Favorites.APPWIDGET_PROVIDER, provider);
+            cv.put(LauncherSettings.Favorites.PROFILE_ID, 0);
+            cv.put(LauncherSettings.Favorites.RANK, 0);
+            db.insert(cv);
+
             Executors.MAIN_EXECUTOR.execute(
                     () -> LauncherAppState.getInstance(context).getModel().forceReload());
         });
