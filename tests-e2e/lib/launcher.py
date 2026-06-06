@@ -199,6 +199,59 @@ class LauncherDriver:
             hierarchy_snippet=self.d.dump_hierarchy(),
         )
 
+    # ----- clock widget -------------------------------------------------
+
+    def place_clock_widget(self) -> None:
+        """Place the Danfo clock widget via the debug broadcast seam, then wait.
+
+        Uses the `-p <package>` broadcast form (not `-n <receiver>`): on
+        Android 16 a backgrounded process defers `-n` broadcasts, so the
+        receiver may never run. This mirrors adb_setup.seed_workspace().
+        """
+        self.d.shell(
+            f"am broadcast -p {S.PACKAGE} -a {S.SEED_ACTION_PLACE_CLOCK}"
+        )
+        self.d(description=S.DESC_CLOCK_WIDGET).wait(timeout=S.DEFAULT_WAIT)
+
+    def reset_workspace(self) -> None:
+        """Restore the canonical seed workspace (removes any placed widget)."""
+        self.d.shell(
+            f"am broadcast -p {S.PACKAGE} -a {S.SEED_ACTION_RESET}"
+        )
+        self.d(description=S.SEED_ICON_DESC).wait(timeout=S.DEFAULT_WAIT)
+
+    def clock_widget_present(self) -> bool:
+        return self.d(description=S.DESC_CLOCK_WIDGET).exists
+
+    def open_widget_picker(self) -> None:
+        """Long-press an empty home cell and open the Widgets picker."""
+        info = self.d.info
+        w, h = info["displayWidth"], info["displayHeight"]
+        self.d.long_click(w // 2, int(h * 0.22))  # empty area above the seed row
+        widgets = self.d(text="Widgets")
+        assert widgets.wait(timeout=S.DEFAULT_WAIT), "Widgets option not shown"
+        widgets.click()
+        # Wait for the picker list to render before callers interact with it.
+        self.d(resourceId=S.ID_WIDGETS_LIST).wait(timeout=S.DEFAULT_WAIT)
+
+    def search_widget_picker(self, query: str) -> None:
+        """Type into the widget picker's search field to filter the list.
+
+        Widgets in the picker are grouped under collapsed app headers, so a
+        launcher-shipped widget like the clock is not visible until its app
+        group is expanded. The search bar surfaces it directly and is far
+        more robust than scrolling/expanding on a loaded AVD.
+        """
+        sb = self.d(resourceId=S.ID_WIDGETS_SEARCH_INPUT)
+        if not sb.wait(timeout=S.DEFAULT_WAIT):
+            raise DriverError(
+                "widget picker search field not visible",
+                hierarchy_snippet=self.d.dump_hierarchy(),
+            )
+        sb.click()
+        sb.send_keys(query)
+        time.sleep(S.ANIMATION_WAIT)  # debounce window
+
     # ----- diagnostics --------------------------------------------------
 
     @contextmanager

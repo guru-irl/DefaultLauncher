@@ -86,6 +86,11 @@ public class WorkspaceSeedReceiver extends BroadcastReceiver {
                 int widgetId = com.android.launcher3.widget.custom.CustomWidgetManager.INSTANCE
                         .get(context).allocateCustomAppWidgetId(cn);
 
+                // Idempotency: drop any prior clock-widget row so a repeated
+                // placement (test ran twice without a reset) cannot hit the
+                // UNIQUE constraint on the fixed _ID.
+                db.delete("_id = 200", null);
+
                 ContentValues cv = new ContentValues();
                 cv.put(LauncherSettings.Favorites._ID, 200);
                 cv.put(LauncherSettings.Favorites.CONTAINER,
