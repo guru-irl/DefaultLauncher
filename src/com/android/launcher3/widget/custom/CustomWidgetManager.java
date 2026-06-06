@@ -63,7 +63,7 @@ public class CustomWidgetManager {
             new DaggerSingletonObject<>(LauncherBaseAppComponent::getCustomWidgetManager);
 
     private static final String TAG = "CustomWidgetManager";
-    private static final String PLUGIN_PKG = "android";
+    private static final String PLUGIN_PKG = com.android.launcher3.BuildConfig.APPLICATION_ID;
     private final Context mContext;
     private final HashMap<ComponentName, CustomWidgetPlugin> mPlugins;
     private final List<CustomAppWidgetProviderInfo> mCustomWidgets;

@@ -48,7 +48,7 @@ public class WorkspaceSeedReceiver extends BroadcastReceiver {
             "com.guru.defaultlauncher.test.PLACE_CLOCK_WIDGET";
 
     private static final String CLOCK_PROVIDER =
-            "android/#custom-widget-com.android.launcher3.widget.custom.DanfoClockWidgetPlugin";
+            "com.guru.defaultlauncher/#custom-widget-com.android.launcher3.widget.custom.DanfoClockWidgetPlugin";
 
     private static final String SETTINGS_INTENT =
             "#Intent;action=android.intent.action.MAIN;"
