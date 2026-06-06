@@ -5,10 +5,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
-import android.provider.AlarmClock;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.icu.text.SimpleDateFormat;
+import android.provider.AlarmClock;
 import android.text.format.DateFormat;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -55,6 +55,7 @@ public class DanfoClockView extends LinearLayout {
 
     private AutoCloseable mPrefSubscription;
     private BroadcastReceiver mTimeReceiver;
+    private com.android.launcher3.util.OnColorHintListener mWallpaperHintListener;
 
     private final TextClock mTime;
     private final TextView mDate;
@@ -86,7 +87,7 @@ public class DanfoClockView extends LinearLayout {
         mDate.setGravity(Gravity.CENTER);
         addView(mDate, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
 
-        setContentDescription("Danfo clock");
+        setContentDescription(context.getString(R.string.clock_widget_content_description));
         setOnClickListener(v -> {
             try {
                 Intent i = new Intent(AlarmClock.ACTION_SHOW_ALARMS)
@@ -96,8 +97,6 @@ public class DanfoClockView extends LinearLayout {
                 if (DEBUG) android.util.Log.w(TAG, "no clock app to open", e);
             }
         });
-        setClickable(true);
-        refreshDate();
     }
 
     @Override
@@ -105,15 +104,18 @@ public class DanfoClockView extends LinearLayout {
         super.onSizeChanged(w, h, oldw, oldh);
         if (w <= 0 || h <= 0) return;
 
-        float padX = w * 0.10f;
-        float padY = h * 0.10f;
-        setPadding((int) padX, (int) padY, (int) padX, (int) padY);
+        int padX = (int) (w * 0.10f);
+        int padY = (int) (h * 0.10f);
+        if (padX != getPaddingLeft() || padY != getPaddingTop()) {
+            setPadding(padX, padY, padX, padY);
+        }
         float availW = w - 2 * padX;
         float availH = h - 2 * padY;
         mAvailWidthPx = availW;
 
         // Time scales to fill width, capped by a height budget that reserves
         // room for the dateline (time*0.92 + gap(0.10*t) + date(DATE_RATIO*t)).
+        // 0.92 = approx cap-height/textSize for Danfo; 0.10 = inter-line gap fraction.
         float ratioT = measureRatio(mTime.getPaint(), "9:41");
         float timeByW = ratioT > 0 ? availW / ratioT : MAX_TIME_PX;
         float heightFactor = 0.92f + 0.10f + DATE_RATIO * 0.95f;
@@ -206,18 +208,9 @@ public class DanfoClockView extends LinearLayout {
     }
 
     private int wallpaperContrastColor() {
-        try {
-            android.app.WallpaperManager wm = android.app.WallpaperManager.getInstance(getContext());
-            android.app.WallpaperColors wc = wm.getWallpaperColors(
-                    android.app.WallpaperManager.FLAG_SYSTEM);
-            if (wc != null
-                    && (wc.getColorHints() & android.app.WallpaperColors.HINT_SUPPORTS_DARK_TEXT) != 0) {
-                return 0xFF111111; // light wallpaper -> dark text
-            }
-        } catch (Exception e) {
-            if (DEBUG) android.util.Log.w(TAG, "wallpaper color read failed", e);
-        }
-        return Color.WHITE;
+        int hints = com.android.launcher3.util.WallpaperColorHints.get(getContext()).getHints();
+        return (hints & android.app.WallpaperColors.HINT_SUPPORTS_DARK_TEXT) != 0
+                ? 0xFF111111 : android.graphics.Color.WHITE;
     }
 
     @Override
@@ -233,11 +226,18 @@ public class DanfoClockView extends LinearLayout {
                 LauncherPrefs.CLOCK_TIME_COLOR,
                 LauncherPrefs.CLOCK_DATE_COLOR);
 
+        mWallpaperHintListener = new com.android.launcher3.util.OnColorHintListener() {
+            @Override public void onColorHintsChanged(int colorHints) { applyPrefs(); }
+        };
+        com.android.launcher3.util.WallpaperColorHints.get(getContext())
+                .registerOnColorHintsChangedListener(mWallpaperHintListener);
+
         mTimeReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context context, Intent intent) {
-                refreshDate();
                 if (Intent.ACTION_CONFIGURATION_CHANGED.equals(intent.getAction())) {
                     applyPrefs();
+                } else {
+                    refreshDate();
                 }
             }
         };
@@ -248,7 +248,7 @@ public class DanfoClockView extends LinearLayout {
         filter.addAction(Intent.ACTION_DATE_CHANGED);
         filter.addAction(Intent.ACTION_LOCALE_CHANGED);
         filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
-        getContext().registerReceiver(mTimeReceiver, filter);
+        getContext().registerReceiver(mTimeReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
     }
 
     @Override
@@ -257,6 +257,11 @@ public class DanfoClockView extends LinearLayout {
         if (mPrefSubscription != null) {
             try { mPrefSubscription.close(); } catch (Exception ignored) { }
             mPrefSubscription = null;
+        }
+        if (mWallpaperHintListener != null) {
+            com.android.launcher3.util.WallpaperColorHints.get(getContext())
+                    .unregisterOnColorsChangedListener(mWallpaperHintListener);
+            mWallpaperHintListener = null;
         }
         if (mTimeReceiver != null) {
             try { getContext().unregisterReceiver(mTimeReceiver); } catch (Exception ignored) { }
