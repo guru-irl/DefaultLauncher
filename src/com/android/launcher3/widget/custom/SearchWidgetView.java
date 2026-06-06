@@ -41,7 +41,7 @@ public class SearchWidgetView extends FrameLayout {
     /** Pill corner radius is capped so very tall cells stay sane. */
     private static final float MAX_CORNER_RADIUS_DP = 48f;
     /** Text fills this fraction of the inner (padded) height. */
-    private static final float TEXT_HEIGHT_FRACTION = 0.42f;
+    private static final float TEXT_HEIGHT_FRACTION = 0.7f;
     /** Text size clamp (px). */
     private static final float TEXT_MIN_PX = 12f;
     private static final float TEXT_MAX_PX = 200f;
@@ -133,7 +133,7 @@ public class SearchWidgetView extends FrameLayout {
         // would swallow most of a wide-but-short 2x1 pill and clip the text).
         // A little vertical padding so the text breathes inside the pill.
         int padX = (int) (h * 0.18f);
-        int padY = (int) (h * 0.12f);
+        int padY = (int) (h * 0.08f);
         if (padX != getPaddingLeft() || padY != getPaddingTop()) {
             setPadding(padX, padY, padX, padY);
         }
