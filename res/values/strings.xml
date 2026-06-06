@@ -830,4 +830,9 @@
     <string name="clock_color_wallpaper">Auto from wallpaper</string>
     <string name="clock_time_color_title">Time color</string>
     <string name="clock_date_color_title">Date color</string>
+    <string name="clock_shadow_title">Shadow</string>
+    <string name="clock_shadow_summary">Drop a soft shadow behind the clock</string>
+    <string name="clock_outline_title">Outline (cutout)</string>
+    <string name="clock_outline_summary">Render the clock as a stroked outline so the wallpaper shows through</string>
+    <string name="clock_stroke_width_title">Outline thickness</string>
 </resources>

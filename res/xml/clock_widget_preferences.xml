@@ -28,4 +28,27 @@
         android:title="@string/clock_date_color_title"
         launcher:iconSpaceReserved="false" />
 
+    <androidx.preference.SwitchPreferenceCompat
+        android:key="pref_clock_shadow"
+        android:title="@string/clock_shadow_title"
+        android:summary="@string/clock_shadow_summary"
+        android:defaultValue="true"
+        launcher:iconSpaceReserved="false" />
+
+    <androidx.preference.SwitchPreferenceCompat
+        android:key="pref_clock_outline"
+        android:title="@string/clock_outline_title"
+        android:summary="@string/clock_outline_summary"
+        android:defaultValue="false"
+        launcher:iconSpaceReserved="false" />
+
+    <com.android.launcher3.settings.M3SliderPreference
+        android:key="pref_clock_stroke_width"
+        android:title="@string/clock_stroke_width_title"
+        android:defaultValue="4"
+        android:max="16"
+        launcher:min="1"
+        launcher:showSeekBarValue="true"
+        launcher:iconSpaceReserved="false" />
+
 </androidx.preference.PreferenceScreen>

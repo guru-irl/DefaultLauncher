@@ -85,8 +85,8 @@ public class DanfoClockView extends LinearLayout {
     private BroadcastReceiver mTimeReceiver;
     private com.android.launcher3.util.OnColorHintListener mWallpaperHintListener;
 
-    private final TextClock mTime;
-    private final TextView mDate;
+    private final OutlineTextClock mTime;
+    private final OutlineTextView mDate;
 
     public DanfoClockView(Context context) {
         super(context);
@@ -100,7 +100,7 @@ public class DanfoClockView extends LinearLayout {
         Typeface danfo = context.getResources().getFont(R.font.danfo);
         Typeface bebas = context.getResources().getFont(R.font.bebas_neue);
 
-        mTime = new TextClock(context);
+        mTime = new OutlineTextClock(context);
         mTime.setTypeface(danfo);
         mTime.setIncludeFontPadding(false);
         mTime.setMaxLines(1);
@@ -109,7 +109,7 @@ public class DanfoClockView extends LinearLayout {
         mTime.setFormat24Hour("HH:mm");
         addView(mTime, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
 
-        mDate = new TextView(context);
+        mDate = new OutlineTextView(context);
         mDate.setTypeface(bebas);
         mDate.setIncludeFontPadding(false);
         mDate.setMaxLines(1);
@@ -194,9 +194,8 @@ public class DanfoClockView extends LinearLayout {
             mDate.setLayoutParams(dateLp);
         }
 
-        // Soft shadow keyed to text size so legibility scales with the glyphs.
-        mTime.setShadowLayer(Math.max(1f, timeSize * 0.05f), 0f, timeSize * 0.02f, 0x66000000);
-        mDate.setShadowLayer(Math.max(1f, dateSize * 0.06f), 0f, dateSize * 0.02f, 0x55000000);
+        // Soft shadow (when enabled) and outline/cutout, keyed to text size.
+        applyShadowAndOutline(timeSize, dateSize);
 
         refreshDate(availW);
 
@@ -265,7 +264,39 @@ public class DanfoClockView extends LinearLayout {
         mTime.setTextColor(timeColor);
         mDate.setTextColor(dateColor);
 
+        // Shadow + outline: re-apply against the current (already resolved) text
+        // sizes so toggling these prefs updates the live widget without resize.
+        applyShadowAndOutline(mTime.getTextSize(), mDate.getTextSize());
+
         refreshDate(currentAvailW());
+    }
+
+    /**
+     * Applies the shadow ({@link LauncherPrefs#CLOCK_SHADOW}) and the
+     * outline/cutout style ({@link LauncherPrefs#CLOCK_OUTLINE} +
+     * {@link LauncherPrefs#CLOCK_STROKE_WIDTH}) to both the time and the date.
+     * Keyed to the supplied text sizes so the soft shadow scales with the glyphs.
+     */
+    private void applyShadowAndOutline(float timeSize, float dateSize) {
+        LauncherPrefs prefs = LauncherPrefs.get(getContext());
+
+        boolean shadow = prefs.get(LauncherPrefs.CLOCK_SHADOW);
+        if (shadow) {
+            mTime.setShadowLayer(Math.max(1f, timeSize * 0.05f), 0f, timeSize * 0.02f, 0x66000000);
+            mDate.setShadowLayer(Math.max(1f, dateSize * 0.06f), 0f, dateSize * 0.02f, 0x55000000);
+        } else {
+            mTime.setShadowLayer(0f, 0f, 0f, 0);
+            mDate.setShadowLayer(0f, 0f, 0f, 0);
+        }
+
+        boolean outline = prefs.get(LauncherPrefs.CLOCK_OUTLINE);
+        float strokeDp = prefs.get(LauncherPrefs.CLOCK_STROKE_WIDTH);
+        float strokePx = strokeDp * getResources().getDisplayMetrics().density;
+        mTime.setOutline(outline, strokePx);
+        mDate.setOutline(outline, strokePx);
+
+        mTime.invalidate();
+        mDate.invalidate();
     }
 
     private int resolveTimeColor(LauncherPrefs prefs) {
@@ -328,7 +359,10 @@ public class DanfoClockView extends LinearLayout {
                 LauncherPrefs.CLOCK_TIME_FORMAT,
                 LauncherPrefs.CLOCK_COLOR_MODE,
                 LauncherPrefs.CLOCK_TIME_COLOR,
-                LauncherPrefs.CLOCK_DATE_COLOR);
+                LauncherPrefs.CLOCK_DATE_COLOR,
+                LauncherPrefs.CLOCK_SHADOW,
+                LauncherPrefs.CLOCK_OUTLINE,
+                LauncherPrefs.CLOCK_STROKE_WIDTH);
 
         mWallpaperHintListener = new com.android.launcher3.util.OnColorHintListener() {
             @Override public void onColorHintsChanged(int colorHints) { applyPrefs(); }
@@ -399,5 +433,67 @@ public class DanfoClockView extends LinearLayout {
             if (paint.measureText(text) <= availW) break;
         }
         mDate.setText(chosen);
+    }
+
+    /**
+     * A {@link TextClock} that can render its text as a STROKE (outline only,
+     * glyph interior transparent) instead of the normal FILL. Overriding
+     * {@link #onDraw} lets us flip the shared paint's style right before the
+     * superclass paints, producing a cutout look that shows the wallpaper
+     * through the glyphs.
+     */
+    static final class OutlineTextClock extends TextClock {
+        private boolean mOutline;
+        private float mStrokeWidthPx;
+
+        OutlineTextClock(Context context) {
+            super(context);
+        }
+
+        void setOutline(boolean outline, float strokeWidthPx) {
+            mOutline = outline;
+            mStrokeWidthPx = strokeWidthPx;
+        }
+
+        @Override
+        protected void onDraw(android.graphics.Canvas canvas) {
+            android.graphics.Paint p = getPaint();
+            if (mOutline) {
+                p.setStyle(android.graphics.Paint.Style.STROKE);
+                p.setStrokeWidth(mStrokeWidthPx);
+                p.setStrokeJoin(android.graphics.Paint.Join.ROUND);
+            } else {
+                p.setStyle(android.graphics.Paint.Style.FILL);
+            }
+            super.onDraw(canvas);
+        }
+    }
+
+    /** Outline/cutout-capable {@link TextView} for the date. See {@link OutlineTextClock}. */
+    static final class OutlineTextView extends TextView {
+        private boolean mOutline;
+        private float mStrokeWidthPx;
+
+        OutlineTextView(Context context) {
+            super(context);
+        }
+
+        void setOutline(boolean outline, float strokeWidthPx) {
+            mOutline = outline;
+            mStrokeWidthPx = strokeWidthPx;
+        }
+
+        @Override
+        protected void onDraw(android.graphics.Canvas canvas) {
+            android.graphics.Paint p = getPaint();
+            if (mOutline) {
+                p.setStyle(android.graphics.Paint.Style.STROKE);
+                p.setStrokeWidth(mStrokeWidthPx);
+                p.setStrokeJoin(android.graphics.Paint.Join.ROUND);
+            } else {
+                p.setStyle(android.graphics.Paint.Style.FILL);
+            }
+            super.onDraw(canvas);
+        }
     }
 }

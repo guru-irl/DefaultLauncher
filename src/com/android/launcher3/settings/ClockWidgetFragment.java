@@ -62,6 +62,27 @@ public class ClockWidgetFragment extends SettingsBaseFragment {
 
         updateColorPickerVisibility(
                 LauncherPrefs.get(getContext()).get(LauncherPrefs.CLOCK_COLOR_MODE));
+
+        // Outline (cutout) switch toggles the visibility of the stroke-width
+        // slider, which is only relevant while outline mode is on. The switch and
+        // the slider persist themselves to the shared store (their keys match the
+        // backedUpItems), so the PrefChangeDispatcher fires and the live widget
+        // restyles -- the listener here only manages dependent visibility.
+        androidx.preference.SwitchPreferenceCompat outlinePref =
+                findPreference("pref_clock_outline");
+        boolean outlineOn = LauncherPrefs.get(getContext()).get(LauncherPrefs.CLOCK_OUTLINE);
+        updateStrokeWidthVisibility(outlineOn);
+        if (outlinePref != null) {
+            outlinePref.setOnPreferenceChangeListener((pref, newValue) -> {
+                updateStrokeWidthVisibility((boolean) newValue);
+                return true;
+            });
+        }
+    }
+
+    private void updateStrokeWidthVisibility(boolean outlineOn) {
+        Preference strokeWidth = findPreference("pref_clock_stroke_width");
+        if (strokeWidth != null) strokeWidth.setVisible(outlineOn);
     }
 
     /**
