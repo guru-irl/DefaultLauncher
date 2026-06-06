@@ -1,5 +1,6 @@
 package com.android.launcher3.widget.custom;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
@@ -12,7 +13,6 @@ import android.widget.TextView;
 
 import com.android.launcher3.BuildConfig;
 import com.android.launcher3.Item;
-import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.PrefSubscriber;
 import com.android.launcher3.R;
@@ -66,7 +66,9 @@ public class SearchWidgetView extends FrameLayout {
         mLabel.setIncludeFontPadding(false);
         mLabel.setMaxLines(1);
         mLabel.setGravity(Gravity.CENTER);
-        mLabel.setLetterSpacing(0.08f);
+        // Tighter than default Bebas Neue: pull the letters closer together for
+        // the morphed, condensed look.
+        mLabel.setLetterSpacing(-0.05f);
         mLabel.setText(R.string.search_widget_text);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER);
@@ -77,35 +79,41 @@ public class SearchWidgetView extends FrameLayout {
     }
 
     /**
-     * Opens the launcher's own all-apps search with the keyboard focused. The
-     * widget view runs inside the launcher process, so its context resolves to
-     * the {@link Launcher} activity via {@link Launcher#getLauncher}. If that
-     * cannot be resolved (e.g. hosted outside the launcher), fall back to a
-     * global web-search intent.
+     * Opens the web-search provider configured in the launcher's search settings
+     * ({@link LauncherPrefs#SEARCH_WEB_APP}). When that pref is a specific app
+     * component, its app is launched; when it is {@code "default"} or unset, the
+     * system default web-search handler is used. Mirrors
+     * {@code SearchFabController.launchWebSearch} (without a query).
      */
     private void openSearch() {
-        try {
-            Launcher launcher = Launcher.getLauncher(getContext());
-            if (launcher != null) {
-                launcher.toggleAllApps(/* focusSearch= */ true);
-                return;
+        Context ctx = getContext();
+        String webApp = LauncherPrefs.get(ctx).get(LauncherPrefs.SEARCH_WEB_APP);
+        if (webApp != null && !webApp.isEmpty() && !"default".equals(webApp)) {
+            try {
+                ComponentName cn = ComponentName.unflattenFromString(webApp);
+                if (cn != null) {
+                    Intent launch = ctx.getPackageManager()
+                            .getLaunchIntentForPackage(cn.getPackageName());
+                    if (launch != null) {
+                        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        ctx.startActivity(launch);
+                        return;
+                    }
+                    ctx.startActivity(new Intent(Intent.ACTION_WEB_SEARCH)
+                            .setComponent(cn)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    return;
+                }
+            } catch (Exception e) {
+                if (DEBUG) android.util.Log.w(TAG, "could not launch configured web search", e);
             }
-        } catch (Exception e) {
-            if (DEBUG) android.util.Log.w(TAG, "could not open all-apps search", e);
         }
-        // Fallbacks: a global search, then a plain web search.
+        // Default / fallback: the system web-search handler.
         try {
-            Intent i = new Intent("android.search.action.GLOBAL_SEARCH")
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(i);
-            return;
-        } catch (Exception ignored) { }
-        try {
-            Intent i = new Intent(Intent.ACTION_WEB_SEARCH)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(i);
+            ctx.startActivity(new Intent(Intent.ACTION_WEB_SEARCH)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         } catch (Exception e) {
-            if (DEBUG) android.util.Log.w(TAG, "no search handler to open", e);
+            if (DEBUG) android.util.Log.w(TAG, "no web search handler to open", e);
         }
     }
 
