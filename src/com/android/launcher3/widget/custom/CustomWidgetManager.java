@@ -99,6 +99,22 @@ public class CustomWidgetManager {
                 }
             }
         }
+
+        // Launcher-shipped widgets register unconditionally (not gated by the
+        // smartspace flag). AOSP-origin file: this additive block is the only
+        // change; justification in docs/changes. See plan task 8.
+        for (String s : context.getResources().getStringArray(R.array.launcher_custom_widgets)) {
+            try {
+                Class<?> cls = Class.forName(s);
+                CustomWidgetPlugin plugin = (CustomWidgetPlugin)
+                        cls.getDeclaredConstructor(Context.class).newInstance(context);
+                MAIN_EXECUTOR.execute(() -> onPluginConnected(plugin, context));
+            } catch (ClassNotFoundException | InstantiationException
+                     | IllegalAccessException | ClassCastException
+                     | NoSuchMethodException | InvocationTargetException e) {
+                Log.e(TAG, "Exception adding launcher custom widget: " + e);
+            }
+        }
     }
 
     private void onPluginConnected(CustomWidgetPlugin plugin, Context context) {
